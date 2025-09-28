@@ -108,3 +108,10 @@ pub fn is_diagonal(idx1: usize, idx2: usize) -> bool {
     return max(coords1.0, coords2.0) - min(coords1.0, coords2.0)
         == max(coords1.1, coords2.1) - min(coords1.1, coords2.1);
 }
+
+pub fn is_row(idx1: usize, idx2: usize) -> bool {
+    let coords1: (u8, u8) = index_to_coords(idx1);
+    let coords2: (u8, u8) = index_to_coords(idx2);
+
+    return max(coords1.0, coords2.0) - min(coords1.0, coords2.0) == 1;
+}

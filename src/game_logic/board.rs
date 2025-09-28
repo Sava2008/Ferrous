@@ -9,7 +9,7 @@ use crate::{
         PieceColor,
         pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook},
     },
-    helper_functions::{generate_empty_board, index_to_coords},
+    helper_functions::generate_empty_board,
 };
 
 pub struct Board {

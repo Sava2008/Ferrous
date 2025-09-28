@@ -1,3 +1,5 @@
+use std::cmp::{max, min};
+
 use crate::game_logic::{
     Board,
     state_enums::{PieceColor, PieceVariant},
@@ -8,7 +10,7 @@ use crate::{
 };
 
 pub trait Piece {
-    fn legal_moves(&self, board: &Board) -> Vec<usize>;
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize>;
 }
 
 #[derive(Debug)]
@@ -19,7 +21,7 @@ pub struct Pawn {
     pub was_moved: bool,
 }
 impl Piece for Pawn {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         let mut legal_moves: Vec<usize> = Vec::new();
 
         let idx_in_front: Option<usize> = match self.key.0 {
@@ -54,6 +56,22 @@ impl Piece for Pawn {
                     legal_moves.push(i);
                 }
             }
+            if let Some(target) = en_peasant_target
+                && match self.key.0 {
+                    PieceColor::Black => (40..=47).into_iter(),
+                    PieceColor::White => (24..=31).into_iter(),
+                }
+                .any(|x: usize| x == self.index)
+            {
+                let (left_diag, right_diag) = match self.key.0 {
+                    PieceColor::White => (self.index - 9, self.index - 7),
+                    PieceColor::Black => (self.index + 7, self.index + 9),
+                };
+
+                if target == left_diag || target == right_diag {
+                    legal_moves.push(target);
+                }
+            }
         }
         println!("legal_moves = {legal_moves:?}");
         return legal_moves;
@@ -68,6 +86,10 @@ impl Pawn {
             was_moved: false,
         };
     }
+
+    pub fn moved_two_squares(&self, previus_index: usize) -> bool {
+        return max(self.index, previus_index) - min(self.index, previus_index) == 16;
+    }
 }
 
 #[derive(Debug)]
@@ -77,7 +99,7 @@ pub struct Knight {
     pub index: usize,
 }
 impl Piece for Knight {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         todo!();
     }
 }
@@ -98,7 +120,7 @@ pub struct Bishop {
     pub index: usize,
 }
 impl Piece for Bishop {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         todo!();
     }
 }
@@ -120,7 +142,7 @@ pub struct Rook {
     pub index: usize,
 }
 impl Piece for Rook {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         todo!();
     }
 }
@@ -142,7 +164,7 @@ pub struct Queen {
     pub index: usize,
 }
 impl Piece for Queen {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         todo!();
     }
 }
@@ -164,7 +186,7 @@ pub struct King {
     pub index: usize,
 }
 impl Piece for King {
-    fn legal_moves(&self, board: &Board) -> Vec<usize> {
+    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
         todo!();
     }
 }
@@ -249,6 +271,13 @@ impl ChessPiece {
             ChessPiece::Q(q) => q.key.0 == PieceColor::White,
             ChessPiece::R(r) => r.key.0 == PieceColor::White,
             ChessPiece::Square(_) => false,
+        };
+    }
+
+    pub fn is_pawn(&self) -> bool {
+        return match self {
+            ChessPiece::P(_) => true,
+            _ => false,
         };
     }
 
