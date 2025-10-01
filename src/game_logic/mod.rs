@@ -4,8 +4,8 @@ pub mod state_enums;
 
 use crate::{
     constants::{COORDS, SQUARE_SIDE},
-    game_logic::pieces::{ChessPiece, Pawn, Piece, Void},
-    helper_functions::{coords_to_index, is_diagonal, load_images},
+    game_logic::pieces::{ChessPiece, Void},
+    helper_functions::{coords_to_index, load_images},
 };
 pub use board::Board;
 pub use ggez::{
@@ -16,9 +16,10 @@ pub use ggez::{
     mint::Point2,
 };
 use state_enums::{GameMode, PieceColor, PieceVariant};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct MainState {
+    pub max_id: u8,
     pub gamemode: GameMode,
     pub board: Board,
     pub pieces_images: HashMap<(PieceColor, PieceVariant), ImageGeneric<GlBackendSpec>>,
@@ -28,11 +29,13 @@ pub struct MainState {
     pub selected: Option<usize>,
     pub destination: Option<usize>,
     pub en_peasant_susceptible: Option<usize>,
+    pub legal_moves: Vec<usize>,
 }
 
 impl MainState {
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
         return Ok(MainState {
+            max_id: 0,
             gamemode: GameMode::SelectionWhite,
             board: Board::new(ctx)?,
             pieces_images: load_images(ctx)?,
@@ -42,6 +45,7 @@ impl MainState {
             selected: None,
             destination: None,
             en_peasant_susceptible: None,
+            legal_moves: Vec::new(),
         });
     }
 
@@ -71,40 +75,6 @@ impl MainState {
         return Ok(());
     }
 
-    fn move_pawn(
-        &self,
-        p: &Pawn,
-        selection_idx: usize,
-        destination_idx: usize,
-    ) -> (GameMode, bool, Option<usize>) {
-        let mut e_p_idx: Option<usize> = None;
-        if !p
-            .legal_moves(&self.board, self.en_peasant_susceptible)
-            .iter()
-            .any(|i: &usize| i == &destination_idx)
-        {
-            return match &self.gamemode {
-                &GameMode::MovementBlack => (GameMode::SelectionBlack, false, e_p_idx),
-                &GameMode::MovementWhite => (GameMode::SelectionWhite, false, e_p_idx),
-                _ => unreachable!(),
-            };
-        }
-        if self.board.squares[destination_idx].is_void()
-            && is_diagonal(selection_idx, destination_idx)
-        {
-            e_p_idx = match self.board.squares[selection_idx].color() {
-                Some(PieceColor::White) => Some(destination_idx + 8),
-                Some(PieceColor::Black) => Some(destination_idx - 8),
-                None => unreachable!(),
-            }
-        }
-        return match &self.gamemode {
-            &GameMode::MovementBlack => (GameMode::SelectionWhite, true, e_p_idx),
-            &GameMode::MovementWhite => (GameMode::SelectionBlack, true, e_p_idx),
-            _ => unreachable!(),
-        };
-    }
-
     fn handle_selection(&mut self) -> GameResult {
         self.selected = coords_to_index(self.mouse_pos);
         let selection_idx: usize = if let Some(x) = self.selected {
@@ -113,7 +83,13 @@ impl MainState {
             return Ok(());
         };
 
-        let selected_piece: &ChessPiece = &self.board.squares[selection_idx];
+        let selected_piece = &self.board.squares[selection_idx];
+        match selected_piece {
+            ChessPiece::Square(_) => (),
+            piece => {
+                self.legal_moves = piece.legal_moves(&self.board, self.en_peasant_susceptible)?;
+            }
+        };
 
         match (&self.gamemode, selected_piece.is_piece(), selected_piece) {
             (GameMode::SelectionWhite, true, piece) => {
@@ -139,6 +115,11 @@ impl MainState {
     }
 
     fn handle_movement(&mut self) -> GameResult {
+        match self.gamemode {
+            GameMode::MovementBlack => self.board.black_vision.clear(),
+            GameMode::MovementWhite => self.board.white_vision.clear(),
+            _ => unreachable!(),
+        }
         self.destination = coords_to_index(self.mouse_pos);
 
         let destination_idx: usize = match self.destination {
@@ -149,24 +130,23 @@ impl MainState {
             Some(i) => i,
             None => return Ok(()),
         };
-        match &self.board.squares[selection_idx] {
-            ChessPiece::P(p) => {
-                let (changed_mode, successful_move, e_p_idx) =
-                    self.move_pawn(p, selection_idx, destination_idx);
-                if !successful_move {
-                    return Ok(());
-                }
-                if let Some(x) = e_p_idx {
-                    self.board.squares[x] = ChessPiece::Square(Void);
-                }
-                (self.selected, self.destination) = (None, None);
-                self.gamemode = changed_mode;
+
+        if !self
+            .legal_moves
+            .iter()
+            .any(|idx: &usize| idx == &destination_idx)
+        {
+            (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
+            match self.gamemode {
+                GameMode::MovementBlack => self.gamemode = GameMode::SelectionBlack,
+                GameMode::MovementWhite => self.gamemode = GameMode::SelectionWhite,
+                _ => (),
             }
-            _ => {}
-        };
+            return Ok(());
+        }
 
         if selection_idx >= 64 || destination_idx >= 64 {
-            (self.selected, self.destination) = (None, None);
+            (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
             return Ok(());
         }
 
@@ -193,8 +173,23 @@ impl MainState {
 
             let _ = std::mem::replace(&mut self.board.squares[destination_idx], moving_piece);
             match self.gamemode {
-                GameMode::MovementBlack => self.gamemode = GameMode::SelectionWhite,
-                GameMode::MovementWhite => self.gamemode = GameMode::SelectionBlack,
+                GameMode::MovementBlack => {
+                    self.board
+                        .black_locations
+                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
+                    self.board.black_vision(self.en_peasant_susceptible)?;
+                    println!("black vision = {:?}", self.board.black_vision);
+                    self.gamemode = GameMode::SelectionWhite;
+                }
+                GameMode::MovementWhite => {
+                    self.board
+                        .white_locations
+                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
+                    self.board.white_vision(self.en_peasant_susceptible)?;
+                    println!("white vision = {:?}", self.board.white_vision);
+                    self.gamemode = GameMode::SelectionBlack;
+                    println!("white vision = {:?}", self.board.white_vision);
+                }
                 _ => (),
             }
         } else {
@@ -204,8 +199,7 @@ impl MainState {
                 _ => (),
             }
         }
-
-        (self.selected, self.destination) = (None, None);
+        (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
         return Ok(());
     }
 
@@ -242,7 +236,7 @@ impl EventHandler for MainState {
         return Ok(());
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        clear(ctx, Color::YELLOW);
+        clear(ctx, Color::from_rgb(198, 131, 70));
 
         draw(ctx, &self.board.board_mesh, DrawParam::default())?;
         self.draw_pieces(ctx)?;

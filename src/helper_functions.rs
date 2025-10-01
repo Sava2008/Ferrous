@@ -97,7 +97,7 @@ pub fn coords_to_index(coords: Point2<f32>) -> Option<usize> {
     );
 }
 
-pub fn index_to_coords<'a>(index: usize) -> (u8, u8) {
+pub fn index_to_coords(index: usize) -> (u8, u8) {
     return (index as u8 / 8, index as u8 % 8);
 }
 
@@ -114,4 +114,8 @@ pub fn is_row(idx1: usize, idx2: usize) -> bool {
     let coords2: (u8, u8) = index_to_coords(idx2);
 
     return max(coords1.0, coords2.0) - min(coords1.0, coords2.0) == 1;
+}
+
+pub fn i8_coords_to_index(coords: (i8, i8)) -> usize {
+    return coords.0 as usize * 8 + coords.1 as usize;
 }

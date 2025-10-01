@@ -22,3 +22,19 @@ pub enum GameMode {
     MovementWhite,
     MovementBlack,
 }
+
+#[derive(PartialEq, Eq)]
+pub enum LinearDirection {
+    RankRight,
+    RankLeft,
+    FileUp,
+    FileDown,
+}
+
+#[derive(PartialEq, Eq)]
+pub enum DiagonalDirection {
+    UpRight,
+    DownRight,
+    UpLeft,
+    DownLeft,
+}

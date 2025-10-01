@@ -1,16 +1,186 @@
+use ggez::{GameError, GameResult};
 use std::cmp::{max, min};
 
 use crate::game_logic::{
     Board,
-    state_enums::{PieceColor, PieceVariant},
+    state_enums::{DiagonalDirection, LinearDirection, PieceColor, PieceVariant},
 };
 use crate::{
-    constants::{BISHOP_VALUE, KING_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUUEN_VALUE, ROOK_VALUE},
-    helper_functions::is_diagonal,
+    constants::{
+        BISHOP_VALUE, DIAGONAL_DIRECTIONS, KING_DELTAS, KING_VALUE, KNIGHT_DELTAS, KNIGHT_VALUE,
+        LINEAR_DIRECTIONS, PAWN_VALUE, QUUEN_VALUE, ROOK_VALUE,
+    },
+    helper_functions::{i8_coords_to_index, index_to_coords, is_diagonal},
 };
 
 pub trait Piece {
     fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize>;
+}
+
+pub trait MoveLinearly {
+    fn one_direction_moves_linear(
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+        direction: LinearDirection,
+        vision: bool,
+    ) -> Vec<usize> {
+        let mut one_dir_moves: Vec<usize> = Vec::new();
+        let mut square_index: usize = self_index;
+        loop {
+            if match direction {
+                LinearDirection::RankRight => (square_index + 1) % 8 == 0,
+                LinearDirection::RankLeft => square_index % 8 == 0,
+                LinearDirection::FileUp => (0..=7).any(|x: usize| x == square_index),
+                LinearDirection::FileDown => (56..=63).any(|x: usize| x == square_index),
+            } {
+                break;
+            }
+            match direction {
+                LinearDirection::RankRight => square_index += 1,
+                LinearDirection::RankLeft => square_index -= 1,
+                LinearDirection::FileUp => square_index -= 8,
+                LinearDirection::FileDown => square_index += 8,
+            };
+            match board.squares[square_index].color() {
+                None => one_dir_moves.push(square_index),
+                Some(x) => {
+                    if x == self_color {
+                        match vision {
+                            true => {
+                                one_dir_moves.push(square_index);
+                                break;
+                            }
+                            false => break,
+                        }
+                    } else {
+                        one_dir_moves.push(square_index);
+                        break;
+                    }
+                }
+            }
+        }
+        return one_dir_moves;
+    }
+
+    fn generate_linear_moves(
+        &self,
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+    ) -> Vec<usize> {
+        let mut legal_moves: Vec<usize> = Vec::new();
+        for line in LINEAR_DIRECTIONS {
+            legal_moves.extend(Self::one_direction_moves_linear(
+                &board, self_color, self_index, line, false,
+            ));
+        }
+        println!("legal moves = {legal_moves:?}");
+        return legal_moves;
+    }
+
+    fn generate_linear_vision(
+        &self,
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+    ) -> Vec<usize> {
+        let mut vision: Vec<usize> = Vec::new();
+        for line in LINEAR_DIRECTIONS {
+            vision.extend(Self::one_direction_moves_linear(
+                &board, self_color, self_index, line, true,
+            ));
+        }
+        return vision;
+    }
+}
+
+pub trait MoveDiagonally {
+    fn one_direction_moves_diagonal(
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+        direction: DiagonalDirection,
+        vision: bool,
+    ) -> Vec<usize> {
+        let mut one_dir_moves: Vec<usize> = Vec::new();
+        let mut square_index: usize = self_index;
+
+        loop {
+            if match direction {
+                DiagonalDirection::UpRight => {
+                    (square_index + 1) % 8 == 0 || (0..=7).any(|x: usize| x == square_index)
+                }
+                DiagonalDirection::UpLeft => {
+                    square_index % 8 == 0 || (0..=7).any(|x: usize| x == square_index)
+                }
+                DiagonalDirection::DownRight => {
+                    (square_index + 1) % 8 == 0 || (56..=63).any(|x: usize| x == square_index)
+                }
+                DiagonalDirection::DownLeft => {
+                    square_index % 8 == 0 || (56..=63).any(|x: usize| x == square_index)
+                }
+            } {
+                break;
+            }
+            match direction {
+                DiagonalDirection::UpRight => square_index -= 7,
+                DiagonalDirection::UpLeft => square_index -= 9,
+                DiagonalDirection::DownRight => square_index += 9,
+                DiagonalDirection::DownLeft => square_index += 7,
+            };
+            match board.squares[square_index].color() {
+                None => one_dir_moves.push(square_index),
+                Some(x) => {
+                    if x == self_color {
+                        match vision {
+                            true => {
+                                one_dir_moves.push(square_index);
+                                break;
+                            }
+                            false => break,
+                        }
+                    } else {
+                        one_dir_moves.push(square_index);
+                        break;
+                    }
+                }
+            };
+        }
+        return one_dir_moves;
+    }
+    fn generate_diagonal_moves(
+        &self,
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+    ) -> Vec<usize> {
+        let mut legal_moves: Vec<usize> = Vec::new();
+
+        for diagonal in DIAGONAL_DIRECTIONS {
+            legal_moves.extend(Self::one_direction_moves_diagonal(
+                &board, self_color, self_index, diagonal, false,
+            ));
+        }
+        println!("legal moves = {legal_moves:?}");
+        return legal_moves;
+    }
+
+    fn generate_diagonal_vision(
+        &self,
+        board: &Board,
+        self_color: PieceColor,
+        self_index: usize,
+    ) -> Vec<usize> {
+        let mut vision: Vec<usize> = Vec::new();
+
+        for diagonal in DIAGONAL_DIRECTIONS {
+            vision.extend(Self::one_direction_moves_diagonal(
+                &board, self_color, self_index, diagonal, true,
+            ));
+        }
+        return vision;
+    }
 }
 
 #[derive(Debug)]
@@ -19,6 +189,7 @@ pub struct Pawn {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
     pub was_moved: bool,
+    pub id: u8,
 }
 impl Piece for Pawn {
     fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
@@ -78,12 +249,13 @@ impl Piece for Pawn {
     }
 }
 impl Pawn {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return Pawn {
             index,
             value: PAWN_VALUE,
             key: (color, PieceVariant::P),
             was_moved: false,
+            id,
         };
     }
 
@@ -97,18 +269,34 @@ pub struct Knight {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
+    pub id: u8,
 }
 impl Piece for Knight {
-    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
-        todo!();
+    fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
+        let mut legal_moves: Vec<usize> = Vec::new();
+        let self_coords: (u8, u8) = index_to_coords(self.index);
+        for (x, y) in KNIGHT_DELTAS {
+            let spot: (i8, i8) = (self_coords.0 as i8 + x, self_coords.1 as i8 + y);
+            if spot.0 > 7 || spot.0 < 0 || spot.1 > 7 || spot.1 < 0 {
+                continue;
+            }
+            let index: usize = i8_coords_to_index(spot);
+            if board.squares[index].is_piece() && board.squares[index].color() == Some(self.key.0) {
+                continue;
+            }
+            legal_moves.push(index);
+        }
+        println!("legal moves = {legal_moves:?}");
+        return legal_moves;
     }
 }
 impl Knight {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return Knight {
             value: KNIGHT_VALUE,
             key: (color, PieceVariant::N),
             index,
+            id,
         };
     }
 }
@@ -118,18 +306,21 @@ pub struct Bishop {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
+    pub id: u8,
 }
+impl MoveDiagonally for Bishop {}
 impl Piece for Bishop {
-    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
-        todo!();
+    fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
+        return self.generate_diagonal_moves(&board, self.key.0, self.index);
     }
 }
 impl Bishop {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return Bishop {
             value: BISHOP_VALUE,
             key: (color, PieceVariant::B),
             index,
+            id,
         };
     }
 }
@@ -140,19 +331,22 @@ pub struct Rook {
     pub key: (PieceColor, PieceVariant),
     pub was_moved: bool,
     pub index: usize,
+    pub id: u8,
 }
+impl MoveLinearly for Rook {}
 impl Piece for Rook {
-    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
-        todo!();
+    fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
+        return self.generate_linear_moves(&board, self.key.0, self.index);
     }
 }
 impl Rook {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return Rook {
             value: ROOK_VALUE,
             key: (color, PieceVariant::R),
             was_moved: false,
             index,
+            id,
         };
     }
 }
@@ -162,18 +356,26 @@ pub struct Queen {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
+    pub id: u8,
 }
+impl MoveLinearly for Queen {}
+impl MoveDiagonally for Queen {}
 impl Piece for Queen {
-    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
-        todo!();
+    fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
+        return self
+            .generate_linear_moves(&board, self.key.0, self.index)
+            .into_iter()
+            .chain(self.generate_diagonal_moves(&board, self.key.0, self.index))
+            .collect();
     }
 }
 impl Queen {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return Queen {
             value: QUUEN_VALUE,
             key: (color, PieceVariant::Q),
             index,
+            id,
         };
     }
 }
@@ -184,20 +386,62 @@ pub struct King {
     pub key: (PieceColor, PieceVariant),
     pub was_moved: bool,
     pub index: usize,
+    pub id: u8,
 }
 impl Piece for King {
-    fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
-        todo!();
+    fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
+        let mut legal_moves: Vec<usize> = Vec::new();
+        let self_coords: (u8, u8) = index_to_coords(self.index);
+        for (x, y) in KING_DELTAS {
+            let spot: (i8, i8) = (self_coords.0 as i8 + x, self_coords.1 as i8 + y);
+            if spot.0 < 0 || spot.1 < 0 {
+                continue;
+            }
+            let index: usize = i8_coords_to_index(spot);
+            if index > 63 {
+                continue;
+            }
+
+            if board.squares[index].is_piece() && board.squares[index].color() == Some(self.key.0) {
+                continue;
+            }
+            if match self.key.0 {
+                PieceColor::Black => !board.white_vision.contains(&index),
+                PieceColor::White => !board.black_vision.contains(&index),
+            } {
+                legal_moves.push(index);
+            }
+        }
+        println!("legal moves = {legal_moves:?}");
+        return legal_moves;
     }
 }
 impl King {
-    pub fn new(color: PieceColor, index: usize) -> Self {
+    pub fn new(color: PieceColor, index: usize, id: u8) -> Self {
         return King {
             value: KING_VALUE,
             key: (color, PieceVariant::K),
             was_moved: false,
             index,
+            id,
         };
+    }
+
+    pub fn king_vision(&self) -> Vec<usize> {
+        let mut vision: Vec<usize> = Vec::new();
+        let self_coords: (u8, u8) = index_to_coords(self.index);
+        for (x, y) in KING_DELTAS {
+            let spot: (i8, i8) = (self_coords.0 as i8 + x, self_coords.1 as i8 + y);
+            if spot.0 < 0 || spot.1 < 0 {
+                continue;
+            }
+            let index: usize = i8_coords_to_index(spot);
+            if index > 63 {
+                continue;
+            }
+            vision.push(index);
+        }
+        return vision;
     }
 }
 
@@ -293,7 +537,70 @@ impl ChessPiece {
         };
     }
 
-    pub fn legal_moves(&self, board: &Board) -> Vec<(u8, u8)> {
-        todo!();
+    pub fn legal_moves(
+        &self,
+        board: &Board,
+        en_peasant_target: Option<usize>,
+    ) -> GameResult<Vec<usize>> {
+        return match self {
+            ChessPiece::P(p) => Ok(p.legal_moves(&board, en_peasant_target)),
+            ChessPiece::N(n) => Ok(n.legal_moves(&board, en_peasant_target)),
+            ChessPiece::B(b) => Ok(b.legal_moves(&board, en_peasant_target)),
+            ChessPiece::Q(q) => Ok(q.legal_moves(&board, en_peasant_target)),
+            ChessPiece::R(r) => Ok(r.legal_moves(&board, en_peasant_target)),
+            ChessPiece::K(k) => Ok(k.legal_moves(&board, en_peasant_target)),
+            ChessPiece::Square(_) => Err(GameError::CustomError(
+                "trying to access legal moves of an empty square".to_string(),
+            )),
+        };
+    }
+
+    pub fn id(&self) -> GameResult<u8> {
+        return match self {
+            ChessPiece::Square(_) => Err(GameError::CustomError("no id for void".to_string())),
+            ChessPiece::B(b) => Ok(b.id),
+            ChessPiece::K(k) => Ok(k.id),
+            ChessPiece::N(n) => Ok(n.id),
+            ChessPiece::P(p) => Ok(p.id),
+            ChessPiece::Q(q) => Ok(q.id),
+            ChessPiece::R(r) => Ok(r.id),
+        };
+    }
+
+    pub fn generate_vision(
+        &self,
+        board: &Board,
+        en_peasant_target: Option<usize>,
+    ) -> Option<Vec<usize>> {
+        return match self {
+            ChessPiece::Square(_) => None,
+            ChessPiece::B(b) => Some(b.generate_diagonal_vision(&board, b.key.0, b.index)),
+            ChessPiece::K(k) => Some(k.king_vision()),
+            ChessPiece::N(n) => Some(n.legal_moves(&board, en_peasant_target)),
+            ChessPiece::P(p) => {
+                let mut p_vision: Vec<usize> = Vec::new();
+                let diag1: usize = match p.key.0 {
+                    PieceColor::White => p.index - 9,
+                    PieceColor::Black => p.index + 9,
+                };
+                let diag2: usize = match p.key.0 {
+                    PieceColor::White => p.index - 7,
+                    PieceColor::Black => p.index + 7,
+                };
+                if is_diagonal(p.index, diag1) {
+                    p_vision.push(diag1);
+                }
+                if is_diagonal(p.index, diag2) {
+                    p_vision.push(diag2);
+                }
+                return Some(p_vision);
+            }
+            ChessPiece::Q(q) => {
+                let mut q_vision: Vec<usize> = q.generate_diagonal_moves(&board, q.key.0, q.index);
+                q_vision.extend(q.generate_linear_vision(&board, q.key.0, q.index));
+                return Some(q_vision);
+            }
+            ChessPiece::R(r) => Some(r.generate_linear_vision(&board, r.key.0, r.index)),
+        };
     }
 }
