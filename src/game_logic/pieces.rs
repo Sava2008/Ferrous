@@ -183,7 +183,7 @@ pub trait MoveDiagonally {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Pawn {
     pub index: usize,
     pub value: u16,
@@ -204,15 +204,12 @@ impl Piece for Pawn {
         if let Some(x) = idx_in_front {
             if board.squares[x].is_void() {
                 legal_moves.push(x);
-                let mut second_rank: std::ops::RangeInclusive<usize> = match self.key.0 {
-                    PieceColor::White => (48..=55).into_iter(),
-                    PieceColor::Black => (8..=15).into_iter(),
+                let second_rank_idx: usize = match self.key.0 {
+                    PieceColor::Black => self.index + 16,
+                    PieceColor::White => self.index - 16,
                 };
-                if !self.was_moved && second_rank.any(|idx: usize| idx == self.index) {
-                    legal_moves.push(match self.key.0 {
-                        PieceColor::White => self.index - 16,
-                        PieceColor::Black => self.index + 16,
-                    });
+                if !self.was_moved && board.squares[second_rank_idx].is_void() {
+                    legal_moves.push(second_rank_idx);
                 }
             }
             for i in [x + 1, x - 1] {
@@ -260,11 +257,11 @@ impl Pawn {
     }
 
     pub fn moved_two_squares(&self, previus_index: usize) -> bool {
-        return max(self.index, previus_index) - min(self.index, previus_index) == 16;
+        return max(self.index, previus_index) - min(self.index, previus_index) > 8;
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Knight {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -301,7 +298,7 @@ impl Knight {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Bishop {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -325,7 +322,7 @@ impl Bishop {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Rook {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -351,7 +348,7 @@ impl Rook {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Queen {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -380,7 +377,7 @@ impl Queen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct King {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -410,6 +407,44 @@ impl Piece for King {
                 PieceColor::White => !board.black_vision.contains(&index),
             } {
                 legal_moves.push(index);
+            }
+            if !self.was_moved {
+                for piece in match self.key.0 {
+                    PieceColor::Black => &board.squares[0..=7],
+                    PieceColor::White => &board.squares[56..=63],
+                } {
+                    if let ChessPiece::R(r) = piece {
+                        if !r.was_moved {
+                            match r.index.cmp(&self.index) {
+                                std::cmp::Ordering::Greater => {
+                                    if board.squares[self.index + 1..r.index]
+                                        .iter()
+                                        .any(|s: &ChessPiece| s.is_piece())
+                                        || [self.index + 1, self.index + 2].iter().any(
+                                            |i: &usize| match self.key.0 {
+                                                PieceColor::Black => board.white_vision.contains(i),
+                                                PieceColor::White => board.black_vision.contains(i),
+                                            },
+                                        )
+                                    {
+                                        continue;
+                                    }
+                                    legal_moves.push(self.index + 2);
+                                }
+                                std::cmp::Ordering::Less => {
+                                    if board.squares[r.index + 1..self.index]
+                                        .iter()
+                                        .any(|s| s.is_piece())
+                                    {
+                                        continue;
+                                    }
+                                    legal_moves.push(self.index - 2);
+                                }
+                                std::cmp::Ordering::Equal => unreachable!(),
+                            };
+                        }
+                    }
+                }
             }
         }
         println!("legal moves = {legal_moves:?}");
@@ -445,10 +480,10 @@ impl King {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Void;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ChessPiece {
     P(Pawn),
     N(Knight),
@@ -550,7 +585,7 @@ impl ChessPiece {
             ChessPiece::R(r) => Ok(r.legal_moves(&board, en_peasant_target)),
             ChessPiece::K(k) => Ok(k.legal_moves(&board, en_peasant_target)),
             ChessPiece::Square(_) => Err(GameError::CustomError(
-                "trying to access legal moves of an empty square".to_string(),
+                "no legal moves for an empty square".to_string(),
             )),
         };
     }

@@ -8,11 +8,9 @@ use crate::{
     constants::{BOARD_AREA, COORDS, SQUARE_SIDE},
     game_logic::{
         PieceColor,
-        pieces::{
-            Bishop, ChessPiece, King, Knight, MoveDiagonally, MoveLinearly, Pawn, Queen, Rook,
-        },
+        pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook},
     },
-    helper_functions::{generate_empty_board, is_diagonal},
+    helper_functions::generate_empty_board,
 };
 
 pub struct Board {
@@ -124,9 +122,10 @@ impl Board {
         let mut vision: HashSet<usize> = HashSet::new();
         for idx in self.white_locations.values() {
             vision.extend(
-                self.squares[*idx]
-                    .generate_vision(&self, en_peasant_target)
-                    .unwrap(),
+                match self.squares[*idx].generate_vision(&self, en_peasant_target) {
+                    Some(v) => v,
+                    None => Vec::new(),
+                },
             );
         }
         self.white_vision = vision;
@@ -137,9 +136,10 @@ impl Board {
         let mut vision: HashSet<usize> = HashSet::new();
         for idx in self.black_locations.values() {
             vision.extend(
-                self.squares[*idx]
-                    .generate_vision(&self, en_peasant_target)
-                    .unwrap(),
+                match self.squares[*idx].generate_vision(&self, en_peasant_target) {
+                    Some(v) => v,
+                    None => Vec::new(),
+                },
             );
         }
         self.black_vision = vision;

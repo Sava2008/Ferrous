@@ -8,6 +8,7 @@ use crate::{
     helper_functions::{coords_to_index, load_images},
 };
 pub use board::Board;
+use ggez::graphics;
 pub use ggez::{
     Context, GameResult,
     event::EventHandler,
@@ -16,9 +17,13 @@ pub use ggez::{
     mint::Point2,
 };
 use state_enums::{GameMode, PieceColor, PieceVariant};
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::{max, min},
+    collections::HashMap,
+};
 
 pub struct MainState {
+    pub legal_move_mesh: Mesh,
     pub max_id: u8,
     pub gamemode: GameMode,
     pub board: Board,
@@ -35,13 +40,24 @@ pub struct MainState {
 impl MainState {
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
         return Ok(MainState {
+            legal_move_mesh: Mesh::new_rectangle(
+                ctx,
+                graphics::DrawMode::fill(),
+                graphics::Rect {
+                    x: 0.,
+                    y: 0.,
+                    w: 10.,
+                    h: 10.,
+                },
+                graphics::Color::GREEN,
+            )?,
             max_id: 0,
             gamemode: GameMode::SelectionWhite,
             board: Board::new(ctx)?,
             pieces_images: load_images(ctx)?,
             mouse_clicked: false,
             mouse_pressed: false,
-            mouse_pos: Point2 { x: 0., y: 0. },
+            mouse_pos: Point2 { x: -5., y: -5. },
             selected: None,
             destination: None,
             en_peasant_susceptible: None,
@@ -86,9 +102,14 @@ impl MainState {
         let selected_piece = &self.board.squares[selection_idx];
         match selected_piece {
             ChessPiece::Square(_) => (),
-            piece => {
-                self.legal_moves = piece.legal_moves(&self.board, self.en_peasant_susceptible)?;
-            }
+            piece => match (&self.gamemode, piece.color()) {
+                (&GameMode::SelectionWhite, Some(PieceColor::White))
+                | (&GameMode::SelectionBlack, Some(PieceColor::Black)) => {
+                    self.legal_moves =
+                        piece.legal_moves(&self.board, self.en_peasant_susceptible)?;
+                }
+                _ => return Ok(()),
+            },
         };
 
         match (&self.gamemode, selected_piece.is_piece(), selected_piece) {
@@ -114,6 +135,95 @@ impl MainState {
         return Ok(());
     }
 
+    fn successful_move(&mut self, selection_idx: usize, destination_idx: usize) -> () {
+        self.board.squares[selection_idx].new_idx(destination_idx);
+        match self.board.squares[selection_idx] {
+            ChessPiece::R(ref mut r) => r.was_moved = true,
+            ChessPiece::K(ref mut k) => k.was_moved = true,
+            ChessPiece::P(ref mut p) => p.was_moved = true,
+            _ => (),
+        }
+
+        let moving_piece: ChessPiece = std::mem::replace(
+            &mut self.board.squares[selection_idx],
+            ChessPiece::Square(Void),
+        );
+
+        let _ = std::mem::replace(&mut self.board.squares[destination_idx], moving_piece);
+    }
+
+    fn legit_move(&self, selection_idx: usize, destination_idx: usize) -> bool {
+        if selection_idx > 63 || destination_idx > 63 {
+            return false;
+        }
+        if !self
+            .legal_moves
+            .iter()
+            .any(|idx: &usize| idx == &destination_idx)
+        {
+            return false;
+        }
+        return true;
+    }
+
+    fn reset_mainstate(&mut self, destination_idx: usize, successful_move: bool) -> GameResult {
+        if successful_move {
+            match self.gamemode {
+                GameMode::MovementBlack => {
+                    self.board
+                        .black_locations
+                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
+                    self.board.black_vision(self.en_peasant_susceptible)?;
+                    self.gamemode = GameMode::SelectionWhite;
+                }
+                GameMode::MovementWhite => {
+                    self.board
+                        .white_locations
+                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
+                    self.board.white_vision(self.en_peasant_susceptible)?;
+                    self.gamemode = GameMode::SelectionBlack;
+                }
+                _ => (),
+            }
+        } else {
+            match self.gamemode {
+                GameMode::MovementBlack => self.gamemode = GameMode::SelectionBlack,
+                GameMode::MovementWhite => self.gamemode = GameMode::SelectionWhite,
+                _ => (),
+            }
+        }
+        return Ok(());
+    }
+
+    fn reset_en_peasant_target(&mut self, selection_idx: usize, destination_idx: usize) -> () {
+        if let ChessPiece::P(p) = &self.board.squares[selection_idx] {
+            if p.moved_two_squares(destination_idx) {
+                self.en_peasant_susceptible = match p.key.0 {
+                    PieceColor::Black => Some(destination_idx - 8),
+                    PieceColor::White => Some(destination_idx + 8),
+                }
+            } else {
+                self.en_peasant_susceptible = None;
+            }
+        } else {
+            self.en_peasant_susceptible = None;
+        }
+    }
+
+    fn take_piece(&mut self, destination_idx: usize) -> GameResult {
+        match self.board.squares[destination_idx].color().unwrap() {
+            PieceColor::Black => self
+                .board
+                .black_locations
+                .remove(&self.board.squares[destination_idx].id()?),
+            PieceColor::White => self
+                .board
+                .white_locations
+                .remove(&self.board.squares[destination_idx].id()?),
+        };
+        return Ok(());
+    }
+
     fn handle_movement(&mut self) -> GameResult {
         match self.gamemode {
             GameMode::MovementBlack => self.board.black_vision.clear(),
@@ -131,73 +241,44 @@ impl MainState {
             None => return Ok(()),
         };
 
-        if !self
-            .legal_moves
-            .iter()
-            .any(|idx: &usize| idx == &destination_idx)
-        {
-            (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
-            match self.gamemode {
-                GameMode::MovementBlack => self.gamemode = GameMode::SelectionBlack,
-                GameMode::MovementWhite => self.gamemode = GameMode::SelectionWhite,
-                _ => (),
-            }
+        if !self.legit_move(selection_idx, destination_idx) {
+            self.legal_moves.clear();
+            self.reset_mainstate(destination_idx, false)?;
             return Ok(());
         }
-
-        if selection_idx >= 64 || destination_idx >= 64 {
-            (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
-            return Ok(());
+        if self.board.squares[destination_idx].is_piece() {
+            self.take_piece(destination_idx)?;
         }
 
         if &self.board.squares[selection_idx].color()
             != &self.board.squares[destination_idx].color()
         {
-            self.board.squares[selection_idx].new_idx(destination_idx);
-            if let ChessPiece::P(p) = &self.board.squares[selection_idx] {
-                if p.moved_two_squares(selection_idx) {
-                    self.en_peasant_susceptible = match p.key.0 {
-                        PieceColor::Black => Some(destination_idx - 8),
-                        PieceColor::White => Some(destination_idx + 8),
+            self.reset_en_peasant_target(selection_idx, destination_idx);
+            println!("en passant target = {:?}", self.en_peasant_susceptible);
+            self.successful_move(selection_idx, destination_idx);
+            if let ChessPiece::K(k) = &self.board.squares[destination_idx]
+                && max(selection_idx, destination_idx) - min(selection_idx, destination_idx) == 2
+            {
+                match k.key.0 {
+                    PieceColor::Black => {
+                        if selection_idx > destination_idx {
+                            self.successful_move(0, destination_idx + 1);
+                        } else {
+                            self.successful_move(7, destination_idx - 1);
+                        }
                     }
-                } else {
-                    self.en_peasant_susceptible = None;
+                    PieceColor::White => {
+                        if selection_idx > destination_idx {
+                            self.successful_move(56, destination_idx + 1);
+                        } else {
+                            self.successful_move(63, destination_idx - 1);
+                        }
+                    }
                 }
-            } else {
-                self.en_peasant_susceptible = None;
             }
-            let moving_piece: ChessPiece = std::mem::replace(
-                &mut self.board.squares[selection_idx],
-                ChessPiece::Square(Void),
-            );
-
-            let _ = std::mem::replace(&mut self.board.squares[destination_idx], moving_piece);
-            match self.gamemode {
-                GameMode::MovementBlack => {
-                    self.board
-                        .black_locations
-                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
-                    self.board.black_vision(self.en_peasant_susceptible)?;
-                    println!("black vision = {:?}", self.board.black_vision);
-                    self.gamemode = GameMode::SelectionWhite;
-                }
-                GameMode::MovementWhite => {
-                    self.board
-                        .white_locations
-                        .insert(self.board.squares[destination_idx].id()?, destination_idx);
-                    self.board.white_vision(self.en_peasant_susceptible)?;
-                    println!("white vision = {:?}", self.board.white_vision);
-                    self.gamemode = GameMode::SelectionBlack;
-                    println!("white vision = {:?}", self.board.white_vision);
-                }
-                _ => (),
-            }
+            self.reset_mainstate(destination_idx, true)?;
         } else {
-            match self.gamemode {
-                GameMode::MovementBlack => self.gamemode = GameMode::SelectionBlack,
-                GameMode::MovementWhite => self.gamemode = GameMode::SelectionWhite,
-                _ => (),
-            }
+            self.reset_mainstate(destination_idx, false)?;
         }
         (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
         return Ok(());
@@ -240,6 +321,16 @@ impl EventHandler for MainState {
 
         draw(ctx, &self.board.board_mesh, DrawParam::default())?;
         self.draw_pieces(ctx)?;
+        for m in &self.legal_moves {
+            graphics::draw(
+                ctx,
+                &self.legal_move_mesh,
+                DrawParam::default().dest(Point2 {
+                    x: (*m % 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
+                    y: (*m / 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
+                }),
+            )?
+        }
 
         ggez::graphics::present(ctx)?;
         return Ok(());

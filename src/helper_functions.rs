@@ -4,10 +4,10 @@ use crate::game_logic::{
     state_enums::{PieceColor, PieceVariant},
 };
 
-use ggez::mint::Point2;
 use ggez::{
     Context, GameResult,
     graphics::{GlBackendSpec, Image, ImageGeneric},
+    mint::Point2,
 };
 use std::{
     cmp::{max, min},

@@ -38,3 +38,9 @@ pub enum DiagonalDirection {
     UpLeft,
     DownLeft,
 }
+
+pub enum KingChecked {
+    White,
+    Black,
+    None,
+}
