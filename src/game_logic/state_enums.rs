@@ -15,12 +15,15 @@ pub enum PieceVariant {
     None,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum GameMode {
     SelectionWhite,
     SelectionBlack,
     MovementWhite,
     MovementBlack,
+    Draw,
+    WhiteWin,
+    BlackWin,
 }
 
 #[derive(PartialEq, Eq)]
@@ -39,6 +42,7 @@ pub enum DiagonalDirection {
     DownLeft,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum KingChecked {
     White,
     Black,

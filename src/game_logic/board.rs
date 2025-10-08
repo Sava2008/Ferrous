@@ -9,6 +9,7 @@ use crate::{
     game_logic::{
         PieceColor,
         pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook},
+        state_enums::KingChecked,
     },
     helper_functions::generate_empty_board,
 };
@@ -20,6 +21,7 @@ pub struct Board {
     pub black_locations: HashMap<u8, usize>,
     pub white_vision: HashSet<usize>,
     pub black_vision: HashSet<usize>,
+    pub checked: KingChecked,
 }
 impl Board {
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
@@ -46,6 +48,7 @@ impl Board {
             black_locations: HashMap::new(),
             white_vision: HashSet::new(),
             black_vision: HashSet::new(),
+            checked: KingChecked::None,
         });
     }
 
@@ -118,31 +121,76 @@ impl Board {
         return Ok(());
     }
 
-    pub fn white_vision(&mut self, en_peasant_target: Option<usize>) -> GameResult {
+    pub fn white_vision(&mut self) -> GameResult {
         let mut vision: HashSet<usize> = HashSet::new();
         for idx in self.white_locations.values() {
-            vision.extend(
-                match self.squares[*idx].generate_vision(&self, en_peasant_target) {
-                    Some(v) => v,
-                    None => Vec::new(),
-                },
-            );
+            vision.extend(match self.squares[*idx].generate_vision(&self) {
+                Some(v) => v,
+                None => Vec::new(),
+            });
         }
         self.white_vision = vision;
         return Ok(());
     }
 
-    pub fn black_vision(&mut self, en_peasant_target: Option<usize>) -> GameResult {
+    pub fn black_vision(&mut self) -> GameResult {
         let mut vision: HashSet<usize> = HashSet::new();
         for idx in self.black_locations.values() {
-            vision.extend(
-                match self.squares[*idx].generate_vision(&self, en_peasant_target) {
-                    Some(v) => v,
-                    None => Vec::new(),
-                },
-            );
+            vision.extend(match self.squares[*idx].generate_vision(&self) {
+                Some(v) => v,
+                None => Vec::new(),
+            });
         }
         self.black_vision = vision;
         return Ok(());
+    }
+
+    pub fn is_check(
+        &self,
+        attacker_color: PieceColor,
+    ) -> (KingChecked, Option<usize>, Option<usize>) {
+        let (search_map, enemy_map, enemy_king_id, mut under_check) = match attacker_color {
+            PieceColor::White => (
+                &self.white_locations,
+                &self.black_locations,
+                14,
+                KingChecked::None,
+            ),
+            PieceColor::Black => (
+                &self.black_locations,
+                &self.white_locations,
+                15,
+                KingChecked::None,
+            ),
+        };
+        let mut attacker1: Option<usize> = None;
+        let mut attacker2: Option<usize> = None;
+        let mut attackers_counter: u8 = 0;
+
+        for (_, index) in search_map {
+            match &self.squares[*index] {
+                ChessPiece::K(_) | ChessPiece::Square(_) => continue,
+                other => {
+                    let vision: Vec<usize> = other.generate_vision(&self).unwrap();
+                    if vision.contains(&enemy_map.get(&enemy_king_id).unwrap())
+                        && attackers_counter == 0
+                    {
+                        attacker1 = Some(other.index().unwrap());
+                        attackers_counter += 1;
+                        under_check = match enemy_map {
+                            a if a == &self.white_locations => KingChecked::Black,
+                            a if a == &self.black_locations => KingChecked::White,
+                            _ => unreachable!(),
+                        };
+                    } else if vision.contains(&enemy_map.get(&enemy_king_id).unwrap())
+                        && attackers_counter == 1
+                    {
+                        attacker2 = Some(other.index().unwrap());
+                        return (under_check, attacker1, attacker2);
+                    }
+                }
+            }
+        }
+        return (under_check, attacker1, attacker2);
     }
 }

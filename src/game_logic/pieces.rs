@@ -3,18 +3,20 @@ use std::cmp::{max, min};
 
 use crate::game_logic::{
     Board,
-    state_enums::{DiagonalDirection, LinearDirection, PieceColor, PieceVariant},
+    state_enums::{DiagonalDirection, KingChecked, LinearDirection, PieceColor, PieceVariant},
 };
 use crate::{
     constants::{
         BISHOP_VALUE, DIAGONAL_DIRECTIONS, KING_DELTAS, KING_VALUE, KNIGHT_DELTAS, KNIGHT_VALUE,
         LINEAR_DIRECTIONS, PAWN_VALUE, QUUEN_VALUE, ROOK_VALUE,
     },
-    helper_functions::{i8_coords_to_index, index_to_coords, is_diagonal},
+    helper_functions::{generate_legal_moves, i8_coords_to_index, index_to_coords, is_diagonal},
 };
 
 pub trait Piece {
     fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize>;
+    fn index(&self) -> usize;
+    fn color(&self) -> PieceColor;
 }
 
 pub trait MoveLinearly {
@@ -27,6 +29,8 @@ pub trait MoveLinearly {
     ) -> Vec<usize> {
         let mut one_dir_moves: Vec<usize> = Vec::new();
         let mut square_index: usize = self_index;
+        let mut enemy_piece_counter: u8 = 0;
+
         loop {
             if match direction {
                 LinearDirection::RankRight => (square_index + 1) % 8 == 0,
@@ -45,7 +49,24 @@ pub trait MoveLinearly {
             match board.squares[square_index].color() {
                 None => one_dir_moves.push(square_index),
                 Some(x) => {
-                    if x == self_color {
+                    if x != self_color {
+                        match vision {
+                            true => {
+                                if enemy_piece_counter < 1 && board.squares[square_index].is_king()
+                                {
+                                    one_dir_moves.push(square_index);
+                                    enemy_piece_counter += 1;
+                                } else {
+                                    one_dir_moves.push(square_index);
+                                    break;
+                                }
+                            }
+                            false => {
+                                one_dir_moves.push(square_index);
+                                break;
+                            }
+                        };
+                    } else {
                         match vision {
                             true => {
                                 one_dir_moves.push(square_index);
@@ -53,9 +74,6 @@ pub trait MoveLinearly {
                             }
                             false => break,
                         }
-                    } else {
-                        one_dir_moves.push(square_index);
-                        break;
                     }
                 }
             }
@@ -75,7 +93,6 @@ pub trait MoveLinearly {
                 &board, self_color, self_index, line, false,
             ));
         }
-        println!("legal moves = {legal_moves:?}");
         return legal_moves;
     }
 
@@ -105,6 +122,7 @@ pub trait MoveDiagonally {
     ) -> Vec<usize> {
         let mut one_dir_moves: Vec<usize> = Vec::new();
         let mut square_index: usize = self_index;
+        let mut enemy_piece_counter: u8 = 0;
 
         loop {
             if match direction {
@@ -123,6 +141,7 @@ pub trait MoveDiagonally {
             } {
                 break;
             }
+
             match direction {
                 DiagonalDirection::UpRight => square_index -= 7,
                 DiagonalDirection::UpLeft => square_index -= 9,
@@ -141,8 +160,22 @@ pub trait MoveDiagonally {
                             false => break,
                         }
                     } else {
-                        one_dir_moves.push(square_index);
-                        break;
+                        match vision {
+                            true => {
+                                if enemy_piece_counter < 1 && board.squares[square_index].is_king()
+                                {
+                                    one_dir_moves.push(square_index);
+                                    enemy_piece_counter += 1;
+                                } else {
+                                    one_dir_moves.push(square_index);
+                                    break;
+                                }
+                            }
+                            false => {
+                                one_dir_moves.push(square_index);
+                                break;
+                            }
+                        };
                     }
                 }
             };
@@ -162,7 +195,6 @@ pub trait MoveDiagonally {
                 &board, self_color, self_index, diagonal, false,
             ));
         }
-        println!("legal moves = {legal_moves:?}");
         return legal_moves;
     }
 
@@ -241,8 +273,15 @@ impl Piece for Pawn {
                 }
             }
         }
-        println!("legal_moves = {legal_moves:?}");
         return legal_moves;
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl Pawn {
@@ -283,8 +322,15 @@ impl Piece for Knight {
             }
             legal_moves.push(index);
         }
-        println!("legal moves = {legal_moves:?}");
         return legal_moves;
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl Knight {
@@ -295,6 +341,19 @@ impl Knight {
             index,
             id,
         };
+    }
+    fn vision(&self, _board: &Board) -> Vec<usize> {
+        let mut vision: Vec<usize> = Vec::new();
+        let self_coords: (u8, u8) = index_to_coords(self.index);
+        for (x, y) in KNIGHT_DELTAS {
+            let spot: (i8, i8) = (self_coords.0 as i8 + x, self_coords.1 as i8 + y);
+            if spot.0 > 7 || spot.0 < 0 || spot.1 > 7 || spot.1 < 0 {
+                continue;
+            }
+            let index: usize = i8_coords_to_index(spot);
+            vision.push(index);
+        }
+        return vision;
     }
 }
 
@@ -308,7 +367,16 @@ pub struct Bishop {
 impl MoveDiagonally for Bishop {}
 impl Piece for Bishop {
     fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
-        return self.generate_diagonal_moves(&board, self.key.0, self.index);
+        let v = self.generate_diagonal_moves(&board, self.key.0, self.index);
+        return v;
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl Bishop {
@@ -333,7 +401,16 @@ pub struct Rook {
 impl MoveLinearly for Rook {}
 impl Piece for Rook {
     fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
-        return self.generate_linear_moves(&board, self.key.0, self.index);
+        let v = self.generate_linear_moves(&board, self.key.0, self.index);
+        return v;
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl Rook {
@@ -364,6 +441,14 @@ impl Piece for Queen {
             .into_iter()
             .chain(self.generate_diagonal_moves(&board, self.key.0, self.index))
             .collect();
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl Queen {
@@ -447,8 +532,15 @@ impl Piece for King {
                 }
             }
         }
-        println!("legal moves = {legal_moves:?}");
         return legal_moves;
+    }
+
+    fn index(&self) -> usize {
+        return self.index;
+    }
+
+    fn color(&self) -> PieceColor {
+        return self.key.0;
     }
 }
 impl King {
@@ -503,6 +595,20 @@ impl ChessPiece {
 
     pub fn is_void(&self) -> bool {
         return !self.is_piece();
+    }
+
+    pub fn index(&self) -> GameResult<usize> {
+        return match self {
+            ChessPiece::Square(_) => Err(GameError::CustomError(
+                "no index for emtpy square".to_string(),
+            )),
+            ChessPiece::B(b) => Ok(b.index),
+            ChessPiece::K(k) => Ok(k.index),
+            ChessPiece::N(n) => Ok(n.index),
+            ChessPiece::P(p) => Ok(p.index),
+            ChessPiece::Q(q) => Ok(q.index),
+            ChessPiece::R(r) => Ok(r.index),
+        };
     }
 
     pub fn color(&self) -> Option<PieceColor> {
@@ -560,6 +666,41 @@ impl ChessPiece {
         };
     }
 
+    pub fn is_king(&self) -> bool {
+        return match self {
+            ChessPiece::K(_) => true,
+            _ => false,
+        };
+    }
+
+    pub fn is_diagonal_attacker(&self, color: PieceColor) -> bool {
+        return match (
+            self,
+            if let Some(c) = self.color() {
+                c != color
+            } else {
+                return false;
+            },
+        ) {
+            (ChessPiece::Q(_) | ChessPiece::B(_), true) => true,
+            _ => false,
+        };
+    }
+
+    pub fn is_linear_attacker(&self, color: PieceColor) -> bool {
+        return match (
+            self,
+            if let Some(c) = self.color() {
+                c != color
+            } else {
+                return false;
+            },
+        ) {
+            (ChessPiece::Q(_) | ChessPiece::R(_), true) => true,
+            _ => false,
+        };
+    }
+
     pub fn new_idx(&mut self, new_idx: usize) -> () {
         match self {
             ChessPiece::B(b) => b.index = new_idx,
@@ -576,13 +717,55 @@ impl ChessPiece {
         &self,
         board: &Board,
         en_peasant_target: Option<usize>,
+        checked: &(KingChecked, Option<usize>, Option<usize>),
+        checked_king_idx: usize,
     ) -> GameResult<Vec<usize>> {
         return match self {
-            ChessPiece::P(p) => Ok(p.legal_moves(&board, en_peasant_target)),
-            ChessPiece::N(n) => Ok(n.legal_moves(&board, en_peasant_target)),
-            ChessPiece::B(b) => Ok(b.legal_moves(&board, en_peasant_target)),
-            ChessPiece::Q(q) => Ok(q.legal_moves(&board, en_peasant_target)),
-            ChessPiece::R(r) => Ok(r.legal_moves(&board, en_peasant_target)),
+            ChessPiece::P(p) => {
+                return generate_legal_moves(
+                    p,
+                    &board,
+                    checked_king_idx,
+                    checked,
+                    en_peasant_target,
+                );
+            }
+            ChessPiece::N(n) => {
+                return generate_legal_moves(
+                    n,
+                    &board,
+                    checked_king_idx,
+                    checked,
+                    en_peasant_target,
+                );
+            }
+            ChessPiece::B(b) => {
+                return generate_legal_moves(
+                    b,
+                    &board,
+                    checked_king_idx,
+                    checked,
+                    en_peasant_target,
+                );
+            }
+            ChessPiece::Q(q) => {
+                return generate_legal_moves(
+                    q,
+                    &board,
+                    checked_king_idx,
+                    checked,
+                    en_peasant_target,
+                );
+            }
+            ChessPiece::R(r) => {
+                return generate_legal_moves(
+                    r,
+                    &board,
+                    checked_king_idx,
+                    checked,
+                    en_peasant_target,
+                );
+            }
             ChessPiece::K(k) => Ok(k.legal_moves(&board, en_peasant_target)),
             ChessPiece::Square(_) => Err(GameError::CustomError(
                 "no legal moves for an empty square".to_string(),
@@ -602,16 +785,12 @@ impl ChessPiece {
         };
     }
 
-    pub fn generate_vision(
-        &self,
-        board: &Board,
-        en_peasant_target: Option<usize>,
-    ) -> Option<Vec<usize>> {
+    pub fn generate_vision(&self, board: &Board) -> Option<Vec<usize>> {
         return match self {
             ChessPiece::Square(_) => None,
             ChessPiece::B(b) => Some(b.generate_diagonal_vision(&board, b.key.0, b.index)),
             ChessPiece::K(k) => Some(k.king_vision()),
-            ChessPiece::N(n) => Some(n.legal_moves(&board, en_peasant_target)),
+            ChessPiece::N(n) => Some(n.vision(&board)),
             ChessPiece::P(p) => {
                 let mut p_vision: Vec<usize> = Vec::new();
                 let diag1: usize = match p.key.0 {
@@ -631,7 +810,7 @@ impl ChessPiece {
                 return Some(p_vision);
             }
             ChessPiece::Q(q) => {
-                let mut q_vision: Vec<usize> = q.generate_diagonal_moves(&board, q.key.0, q.index);
+                let mut q_vision: Vec<usize> = q.generate_diagonal_vision(&board, q.key.0, q.index);
                 q_vision.extend(q.generate_linear_vision(&board, q.key.0, q.index));
                 return Some(q_vision);
             }
