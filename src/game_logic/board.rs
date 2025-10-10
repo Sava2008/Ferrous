@@ -2,7 +2,10 @@ use ggez::{
     Context, GameResult,
     graphics::{Color, DrawMode, Mesh, MeshBuilder, Rect},
 };
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    io::stdin,
+};
 
 use crate::{
     constants::{BOARD_AREA, COORDS, SQUARE_SIDE},
@@ -146,7 +149,7 @@ impl Board {
     }
 
     pub fn is_check(
-        &self,
+        &mut self,
         attacker_color: PieceColor,
     ) -> (KingChecked, Option<usize>, Option<usize>) {
         let (search_map, enemy_map, enemy_king_id, mut under_check) = match attacker_color {
@@ -191,6 +194,58 @@ impl Board {
                 }
             }
         }
+        self.checked = under_check;
         return (under_check, attacker1, attacker2);
+    }
+
+    pub fn promote(&mut self, index: usize) -> () {
+        if let ChessPiece::P(p) = &self.squares[index] {
+            if match p.key.0 {
+                PieceColor::Black => 56..=63,
+                PieceColor::White => 0..=7,
+            }
+            .contains(&p.index)
+            {
+                let (color, id) = (p.key.0, p.id);
+                loop {
+                    println!(
+                        "choose a piece you want your pawn to become: q (queen), r (rook), b (bishop), n (knight)"
+                    );
+                    let mut promotion_choice: String = String::new();
+                    stdin().read_line(&mut promotion_choice).unwrap();
+                    match promotion_choice.trim().to_ascii_lowercase().as_str() {
+                        "q" => {
+                            let _ = std::mem::replace(
+                                &mut self.squares[index],
+                                ChessPiece::Q(Queen::new(color, index, id)),
+                            );
+                            break;
+                        }
+                        "r" => {
+                            let _ = std::mem::replace(
+                                &mut self.squares[index],
+                                ChessPiece::R(Rook::new(color, index, id)),
+                            );
+                            break;
+                        }
+                        "b" => {
+                            let _ = std::mem::replace(
+                                &mut self.squares[index],
+                                ChessPiece::B(Bishop::new(color, index, id)),
+                            );
+                            break;
+                        }
+                        "n" => {
+                            let _ = std::mem::replace(
+                                &mut self.squares[index],
+                                ChessPiece::N(Knight::new(color, index, id)),
+                            );
+                            break;
+                        }
+                        _ => println!("one of the four letters must be entered: q, r, b or n"),
+                    };
+                }
+            }
+        }
     }
 }

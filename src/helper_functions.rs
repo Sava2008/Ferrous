@@ -117,6 +117,11 @@ pub fn is_line(idx1: usize, king_idx: usize) -> bool {
     return x1 == x2 || y1 == y2;
 }
 
+pub fn is_adjancent_file(idx1: usize, idx2: usize) -> bool {
+    let (row1, row2) = (idx1 % 8, idx2 % 8);
+    return max(row1, row2) - min(row1, row2) <= 1;
+}
+
 pub fn i8_coords_to_index(coords: (i8, i8)) -> usize {
     return coords.0 as usize * 8 + coords.1 as usize;
 }
@@ -203,6 +208,42 @@ fn opposite_direction(pinned: usize, king_idx: usize) -> Result<Vec<usize>, Stri
     return Ok(opposite_path);
 }
 
+// no idea how works
+fn is_pinned<T: Piece>(piece: &T, king_idx: usize, board: &Board) -> bool {
+    let alignment: i8 = if is_diagonal(king_idx, piece.index()) {
+        1
+    } else if is_line(king_idx, piece.index()) {
+        2
+    } else {
+        return false;
+    };
+    let temp_path: Vec<usize> = if let Ok(range) = opposite_direction(piece.index(), king_idx) {
+        range
+    } else {
+        return false;
+    };
+    let color: PieceColor = match piece.color() {
+        PieceColor::Black => PieceColor::Black,
+        PieceColor::White => PieceColor::White,
+    };
+
+    for i in temp_path.iter() {
+        if match alignment {
+            1 => board.squares[*i].is_diagonal_attacker(color),
+            2 => board.squares[*i].is_linear_attacker(color),
+            _ => unreachable!(),
+        } {
+            return true;
+        } else if board.squares[*i].is_void() {
+            continue;
+        } else {
+            return false;
+        }
+    }
+
+    return false;
+}
+
 pub fn generate_legal_moves<T: Piece>(
     piece: &T,
     board: &Board,
@@ -234,7 +275,6 @@ pub fn generate_legal_moves<T: Piece>(
                     } else {
                         return Ok(legal_moves);
                     };
-                println!("opposite path = {opposite_path:?}");
                 let color = match piece.color() {
                     PieceColor::Black => PieceColor::Black,
                     PieceColor::White => PieceColor::White,
@@ -248,7 +288,6 @@ pub fn generate_legal_moves<T: Piece>(
                         let mut full_path: Vec<usize> =
                             calculate_path_between(piece.index(), king_idx);
                         full_path.append(&mut opposite_path);
-                        println!("full path = {full_path:?}");
                         return Ok(legal_moves
                             .iter()
                             .filter(|i: &&usize| full_path.iter().any(|j: &usize| j == *i))
@@ -266,6 +305,9 @@ pub fn generate_legal_moves<T: Piece>(
         (_, Some(_), Some(_)) => return Ok(Vec::new()),
         (_, Some(i), None) => match board.squares[*i] {
             ChessPiece::P(_) | ChessPiece::N(_) => {
+                if is_pinned(piece, king_idx, &board) {
+                    return Ok(Vec::new());
+                }
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
                     .into_iter()
@@ -273,6 +315,9 @@ pub fn generate_legal_moves<T: Piece>(
                     .collect());
             }
             ChessPiece::B(_) => {
+                if is_pinned(piece, king_idx, &board) {
+                    return Ok(Vec::new());
+                }
                 let path: Vec<usize> = calculate_path_between(*i, king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
@@ -281,6 +326,9 @@ pub fn generate_legal_moves<T: Piece>(
                     .collect());
             }
             ChessPiece::R(_) => {
+                if is_pinned(piece, king_idx, &board) {
+                    return Ok(Vec::new());
+                }
                 let path: Vec<usize> = calculate_path_between(*i, king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
@@ -289,6 +337,9 @@ pub fn generate_legal_moves<T: Piece>(
                     .collect());
             }
             ChessPiece::Q(_) => {
+                if is_pinned(piece, king_idx, &board) {
+                    return Ok(Vec::new());
+                }
                 let path: Vec<usize> = calculate_path_between(*i, king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)

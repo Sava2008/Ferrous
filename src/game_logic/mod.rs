@@ -96,7 +96,7 @@ impl MainState {
         return Ok(());
     }
 
-    fn any_legal_moves(&self, color: PieceColor) -> bool {
+    fn any_legal_moves(&mut self, color: PieceColor) -> bool {
         let (map, checked_king_idx) = match color {
             PieceColor::Black => (
                 &self.board.black_locations,
@@ -108,18 +108,16 @@ impl MainState {
             ),
         };
         for (_, idx) in map {
-            if self.board.squares[*idx]
-                .legal_moves(
-                    &self.board,
-                    self.en_peasant_susceptible,
-                    &self.check,
-                    checked_king_idx,
-                )
-                .unwrap()
-                .len()
-                > 0
-            {
-                return true;
+            let legal_moves: GameResult<Vec<usize>> = self.board.squares[*idx].legal_moves(
+                &self.board,
+                self.en_peasant_susceptible,
+                &self.check,
+                checked_king_idx,
+            );
+            if let Ok(legal_moves_vec) = legal_moves {
+                if legal_moves_vec.len() > 0 {
+                    return true;
+                }
             }
         }
         return false;
@@ -185,21 +183,37 @@ impl MainState {
         match self.board.squares[selection_idx] {
             ChessPiece::R(ref mut r) => r.was_moved = true,
             ChessPiece::K(ref mut k) => k.was_moved = true,
-            ChessPiece::P(ref mut p) => p.was_moved = true,
+            ChessPiece::P(ref mut p) => {
+                p.was_moved = true;
+                if let Some(en_peasant_target) = self.en_peasant_susceptible {
+                    if en_peasant_target == destination_idx {
+                        let enemy_pawn_idx: usize = match p.key.0 {
+                            PieceColor::Black => destination_idx - 8,
+                            PieceColor::White => destination_idx + 8,
+                        };
+                        self.take_piece(enemy_pawn_idx)?;
+                        let _ = std::mem::replace(
+                            &mut self.board.squares[enemy_pawn_idx],
+                            ChessPiece::Square(Void),
+                        );
+                    }
+                }
+            }
             _ => (),
-        }
-
+        };
         let moving_piece: ChessPiece = std::mem::replace(
             &mut self.board.squares[selection_idx],
             ChessPiece::Square(Void),
         );
 
         let _ = std::mem::replace(&mut self.board.squares[destination_idx], moving_piece);
+        if let ChessPiece::P(p) = &self.board.squares[destination_idx] {
+            self.board.promote(p.index);
+        }
         self.reset_mainstate(destination_idx, true)?;
         self.check = self
             .board
             .is_check(self.board.squares[destination_idx].color().unwrap());
-        println!("check = {:?}", self.check,);
         return Ok(());
     }
 
@@ -247,8 +261,8 @@ impl MainState {
     }
 
     fn reset_en_peasant_target(&mut self, selection_idx: usize, destination_idx: usize) -> () {
-        if let ChessPiece::P(p) = &self.board.squares[selection_idx] {
-            if p.moved_two_squares(destination_idx) {
+        if let ChessPiece::P(p) = &self.board.squares[destination_idx] {
+            if p.moved_two_squares(selection_idx) {
                 self.en_peasant_susceptible = match p.key.0 {
                     PieceColor::Black => Some(destination_idx - 8),
                     PieceColor::White => Some(destination_idx + 8),
@@ -304,8 +318,8 @@ impl MainState {
         if &self.board.squares[selection_idx].color()
             != &self.board.squares[destination_idx].color()
         {
-            self.reset_en_peasant_target(selection_idx, destination_idx);
             self.successful_move(selection_idx, destination_idx)?;
+            self.reset_en_peasant_target(selection_idx, destination_idx);
             if let ChessPiece::K(k) = &self.board.squares[destination_idx]
                 && max(selection_idx, destination_idx) - min(selection_idx, destination_idx) == 2
             {
@@ -350,6 +364,7 @@ impl MainState {
                 }
             };
         };
+        println!("check = {:?}", self.check);
         return Ok(());
     }
 

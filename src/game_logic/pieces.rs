@@ -10,7 +10,9 @@ use crate::{
         BISHOP_VALUE, DIAGONAL_DIRECTIONS, KING_DELTAS, KING_VALUE, KNIGHT_DELTAS, KNIGHT_VALUE,
         LINEAR_DIRECTIONS, PAWN_VALUE, QUUEN_VALUE, ROOK_VALUE,
     },
-    helper_functions::{generate_legal_moves, i8_coords_to_index, index_to_coords, is_diagonal},
+    helper_functions::{
+        generate_legal_moves, i8_coords_to_index, index_to_coords, is_adjancent_file, is_diagonal,
+    },
 };
 
 pub trait Piece {
@@ -222,6 +224,7 @@ pub struct Pawn {
     pub key: (PieceColor, PieceVariant),
     pub was_moved: bool,
     pub id: u8,
+    pub is_pinned: bool,
 }
 impl Piece for Pawn {
     fn legal_moves(&self, board: &Board, en_peasant_target: Option<usize>) -> Vec<usize> {
@@ -236,12 +239,14 @@ impl Piece for Pawn {
         if let Some(x) = idx_in_front {
             if board.squares[x].is_void() {
                 legal_moves.push(x);
-                let second_rank_idx: usize = match self.key.0 {
-                    PieceColor::Black => self.index + 16,
-                    PieceColor::White => self.index - 16,
-                };
-                if !self.was_moved && board.squares[second_rank_idx].is_void() {
-                    legal_moves.push(second_rank_idx);
+                if !self.was_moved {
+                    let second_rank_idx: usize = match self.key.0 {
+                        PieceColor::Black => self.index + 16,
+                        PieceColor::White => self.index - 16,
+                    };
+                    if board.squares[second_rank_idx].is_void() {
+                        legal_moves.push(second_rank_idx);
+                    }
                 }
             }
             for i in [x + 1, x - 1] {
@@ -256,13 +261,7 @@ impl Piece for Pawn {
                     legal_moves.push(i);
                 }
             }
-            if let Some(target) = en_peasant_target
-                && match self.key.0 {
-                    PieceColor::Black => (40..=47).into_iter(),
-                    PieceColor::White => (24..=31).into_iter(),
-                }
-                .any(|x: usize| x == self.index)
-            {
+            if let Some(target) = en_peasant_target {
                 let (left_diag, right_diag) = match self.key.0 {
                     PieceColor::White => (self.index - 9, self.index - 7),
                     PieceColor::Black => (self.index + 7, self.index + 9),
@@ -292,6 +291,7 @@ impl Pawn {
             key: (color, PieceVariant::P),
             was_moved: false,
             id,
+            is_pinned: false,
         };
     }
 
@@ -306,6 +306,7 @@ pub struct Knight {
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
     pub id: u8,
+    pub is_pinned: bool,
 }
 impl Piece for Knight {
     fn legal_moves(&self, board: &Board, _en_peasant_target: Option<usize>) -> Vec<usize> {
@@ -340,6 +341,7 @@ impl Knight {
             key: (color, PieceVariant::N),
             index,
             id,
+            is_pinned: false,
         };
     }
     fn vision(&self, _board: &Board) -> Vec<usize> {
@@ -363,6 +365,7 @@ pub struct Bishop {
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
     pub id: u8,
+    pub is_pinned: bool,
 }
 impl MoveDiagonally for Bishop {}
 impl Piece for Bishop {
@@ -386,6 +389,7 @@ impl Bishop {
             key: (color, PieceVariant::B),
             index,
             id,
+            is_pinned: false,
         };
     }
 }
@@ -397,6 +401,7 @@ pub struct Rook {
     pub was_moved: bool,
     pub index: usize,
     pub id: u8,
+    pub is_pinned: bool,
 }
 impl MoveLinearly for Rook {}
 impl Piece for Rook {
@@ -421,6 +426,7 @@ impl Rook {
             was_moved: false,
             index,
             id,
+            is_pinned: false,
         };
     }
 }
@@ -431,6 +437,7 @@ pub struct Queen {
     pub key: (PieceColor, PieceVariant),
     pub index: usize,
     pub id: u8,
+    pub is_pinned: bool,
 }
 impl MoveLinearly for Queen {}
 impl MoveDiagonally for Queen {}
@@ -458,6 +465,7 @@ impl Queen {
             key: (color, PieceVariant::Q),
             index,
             id,
+            is_pinned: false,
         };
     }
 }
@@ -487,6 +495,9 @@ impl Piece for King {
             if board.squares[index].is_piece() && board.squares[index].color() == Some(self.key.0) {
                 continue;
             }
+            if !is_adjancent_file(self.index, index) {
+                continue;
+            }
             if match self.key.0 {
                 PieceColor::Black => !board.white_vision.contains(&index),
                 PieceColor::White => !board.black_vision.contains(&index),
@@ -499,7 +510,10 @@ impl Piece for King {
                     PieceColor::White => &board.squares[56..=63],
                 } {
                     if let ChessPiece::R(r) = piece {
-                        if !r.was_moved {
+                        if !r.was_moved
+                            && board.checked == KingChecked::None
+                            && r.key.0 == self.key.0
+                        {
                             match r.index.cmp(&self.index) {
                                 std::cmp::Ordering::Greater => {
                                     if board.squares[self.index + 1..r.index]
@@ -785,6 +799,18 @@ impl ChessPiece {
         };
     }
 
+    pub fn pin(&mut self, pinned: bool) -> () {
+        match self {
+            ChessPiece::Square(_) => (),
+            ChessPiece::K(_) => (),
+            ChessPiece::B(b) => b.is_pinned = pinned,
+            ChessPiece::N(n) => n.is_pinned = pinned,
+            ChessPiece::Q(q) => q.is_pinned = pinned,
+            ChessPiece::R(r) => r.is_pinned = pinned,
+            ChessPiece::P(p) => p.is_pinned = pinned,
+        };
+    }
+
     pub fn generate_vision(&self, board: &Board) -> Option<Vec<usize>> {
         return match self {
             ChessPiece::Square(_) => None,
@@ -793,10 +819,17 @@ impl ChessPiece {
             ChessPiece::N(n) => Some(n.vision(&board)),
             ChessPiece::P(p) => {
                 let mut p_vision: Vec<usize> = Vec::new();
+                if match (p.key.0, p.index) {
+                    (PieceColor::Black, 56..=63) | (PieceColor::White, 0..=7) => true,
+                    _ => false,
+                } {
+                    return Some(p_vision);
+                };
                 let diag1: usize = match p.key.0 {
                     PieceColor::White => p.index - 9,
                     PieceColor::Black => p.index + 9,
                 };
+
                 let diag2: usize = match p.key.0 {
                     PieceColor::White => p.index - 7,
                     PieceColor::Black => p.index + 7,
