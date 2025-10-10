@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod game_logic;
 pub mod helper_functions;
+pub mod tests;
 use constants::WIN_SCALES;
 use game_logic::{GameResult, MainState};
 
