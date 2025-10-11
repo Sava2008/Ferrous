@@ -126,13 +126,32 @@ pub fn i8_coords_to_index(coords: (i8, i8)) -> usize {
     return coords.0 as usize * 8 + coords.1 as usize;
 }
 
+pub fn index_to_chess_notation(idx: usize) -> String {
+    let coords: (u8, u8) = index_to_coords(idx);
+    return format!(
+        "{},{}",
+        match coords.0 {
+            0 => 'a',
+            1 => 'b',
+            2 => 'c',
+            3 => 'd',
+            4 => 'e',
+            5 => 'f',
+            6 => 'g',
+            7 => 'h',
+            _ => unreachable!(),
+        },
+        coords.1 + 1
+    );
+}
+
 pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize> {
     let mut path: Vec<usize> = Vec::new();
     let (mut greatest, least) = (max(attcker_idx, king_idx), min(attcker_idx, king_idx));
     if is_diagonal(attcker_idx, king_idx) {
         if (greatest - least) % 7 == 0 {
             loop {
-                if greatest - 7 <= least {
+                if greatest <= least + 7 {
                     break;
                 }
                 greatest -= 7;
@@ -140,7 +159,7 @@ pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize>
             }
         } else {
             loop {
-                if greatest - 9 <= least {
+                if greatest <= least + 9 {
                     break;
                 }
                 greatest -= 9;
@@ -150,7 +169,7 @@ pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize>
     } else {
         if (greatest - least) % 8 == 0 {
             loop {
-                if greatest - 8 <= least {
+                if greatest <= least + 8 {
                     break;
                 }
                 greatest -= 8;
@@ -158,7 +177,7 @@ pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize>
             }
         } else {
             loop {
-                if greatest - 1 <= least {
+                if greatest <= least + 1 {
                     break;
                 }
                 greatest -= 1;
@@ -209,7 +228,7 @@ fn opposite_direction(pinned: usize, king_idx: usize) -> Result<Vec<usize>, Stri
 }
 
 // no idea how works
-fn is_pinned<T: Piece>(piece: &T, king_idx: usize, board: &Board) -> bool {
+fn is_pinned(piece: &dyn Piece, king_idx: usize, board: &Board) -> bool {
     let alignment: i8 = if is_diagonal(king_idx, piece.index()) {
         1
     } else if is_line(king_idx, piece.index()) {
@@ -244,8 +263,8 @@ fn is_pinned<T: Piece>(piece: &T, king_idx: usize, board: &Board) -> bool {
     return false;
 }
 
-pub fn generate_legal_moves<T: Piece>(
-    piece: &T,
+pub fn generate_legal_moves(
+    piece: &dyn Piece,
     board: &Board,
     king_idx: usize,
     checked: &(KingChecked, Option<usize>, Option<usize>),

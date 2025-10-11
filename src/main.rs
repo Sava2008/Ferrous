@@ -1,4 +1,6 @@
 pub mod constants;
+pub mod converters;
+pub mod engine;
 pub mod game_logic;
 pub mod helper_functions;
 pub mod tests;

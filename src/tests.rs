@@ -1,6 +1,13 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::{constants, helper_functions};
+    use crate::{
+        constants, converters,
+        game_logic::{
+            pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook, Void},
+            state_enums::PieceColor,
+        },
+        helper_functions,
+    };
     use ggez::mint::Point2;
     #[test]
     fn coords_to_index_test() -> () {
@@ -68,5 +75,162 @@ pub mod tests {
         assert!(!helper_functions::is_adjancent_file(5, 7));
         assert!(!helper_functions::is_adjancent_file(39, 40));
         assert!(!helper_functions::is_adjancent_file(57, 44));
+    }
+
+    #[test]
+    fn board_to_fen_test() -> () {
+        assert_eq!(
+            converters::board_to_fen(
+                &[
+                    ChessPiece::R(Rook::new(PieceColor::Black, 0, 0)),
+                    ChessPiece::N(Knight::new(PieceColor::Black, 1, 1)),
+                    ChessPiece::B(Bishop::new(PieceColor::Black, 2, 2)),
+                    ChessPiece::Q(Queen::new(PieceColor::Black, 3, 3)),
+                    ChessPiece::K(King::new(PieceColor::Black, 4, 4)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::P(Pawn::new(PieceColor::White, 55, 5)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::K(King::new(PieceColor::White, 62, 6)),
+                    ChessPiece::Square(Void)
+                ],
+                PieceColor::White,
+                [true, true, true, true],
+                None,
+                0,
+                1
+            ),
+            "rnbqk3/8/8/8/8/8/7P/6K1 w KQkq - 0 1".to_string()
+        );
+
+        assert_eq!(
+            converters::board_to_fen(
+                &[
+                    ChessPiece::R(Rook::new(PieceColor::Black, 0, 0)),
+                    ChessPiece::N(Knight::new(PieceColor::Black, 1, 1)),
+                    ChessPiece::B(Bishop::new(PieceColor::Black, 2, 2)),
+                    ChessPiece::Q(Queen::new(PieceColor::Black, 3, 3)),
+                    ChessPiece::K(King::new(PieceColor::Black, 4, 4)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::R(Rook::new(PieceColor::White, 21, 12)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Q(Queen::new(PieceColor::White, 33, 11)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::B(Bishop::new(PieceColor::White, 39, 10)),
+                    ChessPiece::P(Pawn::new(PieceColor::Black, 40, 9)),
+                    ChessPiece::P(Pawn::new(PieceColor::Black, 41, 8)),
+                    ChessPiece::P(Pawn::new(PieceColor::Black, 42, 7)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::P(Pawn::new(PieceColor::White, 55, 5)),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::Square(Void),
+                    ChessPiece::K(King::new(PieceColor::White, 62, 6)),
+                    ChessPiece::Square(Void)
+                ],
+                PieceColor::White,
+                [false, false, false, true],
+                None,
+                0,
+                1
+            ),
+            "rnbqk3/8/5R2/8/1Q5B/ppp5/7P/6K1 w q - 0 1".to_string()
+        );
     }
 }

@@ -296,7 +296,7 @@ impl Pawn {
     }
 
     pub fn moved_two_squares(&self, previus_index: usize) -> bool {
-        return max(self.index, previus_index) - min(self.index, previus_index) > 8;
+        return max(self.index, previus_index) - min(self.index, previus_index) == 16;
     }
 }
 

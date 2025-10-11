@@ -4,6 +4,7 @@ pub mod state_enums;
 
 use crate::{
     constants::{COORDS, SQUARE_SIDE},
+    engine::Engine,
     game_logic::{
         pieces::{ChessPiece, Void},
         state_enums::KingChecked,
@@ -26,6 +27,8 @@ use std::{
 };
 
 pub struct MainState {
+    pub engine: Engine,
+    pub engine_moves: Option<(usize, usize)>,
     pub legal_move_mesh: Mesh,
     pub max_id: u8,
     pub gamemode: GameMode,
@@ -39,11 +42,14 @@ pub struct MainState {
     pub en_peasant_susceptible: Option<usize>,
     pub legal_moves: Vec<usize>,
     pub check: (KingChecked, Option<usize>, Option<usize>),
+    pub player_side: PieceColor,
 }
 
 impl MainState {
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
         return Ok(MainState {
+            engine: Engine::new(PieceColor::Black),
+            engine_moves: None,
             legal_move_mesh: Mesh::new_rectangle(
                 ctx,
                 graphics::DrawMode::fill(),
@@ -67,6 +73,7 @@ impl MainState {
             en_peasant_susceptible: None,
             legal_moves: Vec::new(),
             check: (KingChecked::None, None, None),
+            player_side: PieceColor::White,
         });
     }
 
@@ -124,7 +131,22 @@ impl MainState {
     }
 
     fn handle_selection(&mut self) -> GameResult {
-        self.selected = coords_to_index(self.mouse_pos);
+        match self.gamemode {
+            GameMode::SelectionBlack => {
+                (self.engine_moves) = Some(
+                    self.engine
+                        .best_move(&self.board, &self.check, self.en_peasant_susceptible)
+                        .unwrap(),
+                )
+            }
+            _ => (),
+        };
+
+        self.selected = match self.gamemode {
+            GameMode::SelectionBlack => Some(self.engine_moves.unwrap().0),
+            GameMode::SelectionWhite => coords_to_index(self.mouse_pos),
+            _ => unreachable!(),
+        };
         let selection_idx: usize = if let Some(x) = self.selected {
             x
         } else {
@@ -295,7 +317,11 @@ impl MainState {
             GameMode::MovementWhite => self.board.white_vision.clear(),
             _ => unreachable!(),
         }
-        self.destination = coords_to_index(self.mouse_pos);
+        self.destination = match self.gamemode {
+            GameMode::MovementWhite => coords_to_index(self.mouse_pos),
+            GameMode::MovementBlack => Some(self.engine_moves.unwrap().1),
+            _ => unreachable!(),
+        };
 
         let destination_idx: usize = match self.destination {
             Some(i) => i,
@@ -370,24 +396,22 @@ impl MainState {
 
     fn handle_input(&mut self, ctx: &mut Context) -> GameResult {
         self.mouse_pressed = mouse::button_pressed(ctx, mouse::MouseButton::Left);
+        match self.gamemode {
+            GameMode::SelectionWhite => Ok(()),
+            GameMode::SelectionBlack => self.handle_selection(),
+            GameMode::MovementWhite => Ok(()),
+            GameMode::MovementBlack => self.handle_movement(),
+            GameMode::BlackWin | GameMode::Draw | GameMode::WhiteWin => return Ok(()),
+        }?;
         if self.mouse_pressed && !self.mouse_clicked {
             self.mouse_pos = mouse::position(ctx);
             if self.mouse_pos.x > 8. * SQUARE_SIDE || self.mouse_pos.y > 8. * SQUARE_SIDE {
                 return Ok(());
             }
-            match self.gamemode {
-                GameMode::MovementBlack | GameMode::MovementWhite => {
-                    self.destination = coords_to_index(self.mouse_pos)
-                }
-                GameMode::SelectionBlack | GameMode::SelectionWhite => {
-                    self.selected = coords_to_index(self.mouse_pos);
-                }
-                _ => return Ok(()),
-            };
 
             match self.gamemode {
-                GameMode::SelectionWhite | GameMode::SelectionBlack => self.handle_selection(),
-                GameMode::MovementWhite | GameMode::MovementBlack => self.handle_movement(),
+                GameMode::SelectionWhite => self.handle_selection(),
+                GameMode::MovementWhite => self.handle_movement(),
                 _ => return Ok(()),
             }?;
         }
