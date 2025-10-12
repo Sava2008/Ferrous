@@ -7,7 +7,6 @@ use crate::{
     helper_functions::generate_legal_moves,
 };
 use rand::prelude::*;
-use std::collections::{HashMap, HashSet};
 
 pub mod calculation;
 pub mod evaluation;
@@ -31,25 +30,34 @@ impl Engine {
         checked: &(KingChecked, Option<usize>, Option<usize>),
         en_peasant_target: Option<usize>,
     ) -> Result<(usize, usize), String> {
-        let mut piece_locations: HashMap<u8, usize> = match self.side {
-            PieceColor::Black => board.black_locations.clone(),
-            PieceColor::White => board.white_locations.clone(),
-        };
-
         let king_idx: usize = match self.side {
             PieceColor::Black => *board.black_locations.get(&14).unwrap(),
             PieceColor::White => *board.white_locations.get(&15).unwrap(),
         };
 
         let mut legal_moves: Vec<usize>;
-        let mut piece_idx: &usize;
-        let mut piece_id: &u8;
-        loop {
-            (piece_id, piece_idx) = piece_locations.iter().choose(&mut self.rng).unwrap();
+        if checked.0 == KingChecked::None {
+            println!(
+                "king's moves {:?}",
+                board.squares[king_idx].legal_moves(&board, en_peasant_target, checked, 8)
+            );
+        }
+        let piece_idx: usize;
+        for (_, index) in match self.side {
+            PieceColor::Black => board.black_locations.iter(),
+            PieceColor::White => board.white_locations.iter(),
+        } {
             legal_moves = generate_legal_moves(
-                match &board.squares[*piece_idx] {
+                match &board.squares[*index] {
                     ChessPiece::B(b) => b as &dyn Piece,
-                    ChessPiece::K(k) => k as &dyn Piece,
+                    ChessPiece::K(k) => {
+                        let moves: Vec<usize> = k.legal_moves(&board, en_peasant_target);
+                        if moves.len() > 0 {
+                            return Ok((k.index, *moves.choose(&mut self.rng).unwrap()));
+                        } else {
+                            continue;
+                        }
+                    }
                     ChessPiece::N(n) => n as &dyn Piece,
                     ChessPiece::Q(q) => q as &dyn Piece,
                     ChessPiece::R(r) => r as &dyn Piece,
@@ -63,9 +71,10 @@ impl Engine {
             )
             .unwrap();
             if legal_moves.len() > 0 {
-                break;
+                piece_idx = *index;
+                return Ok((piece_idx, *legal_moves.choose(&mut self.rng).unwrap()));
             }
         }
-        return Ok((*piece_idx, *legal_moves.choose(&mut self.rng).unwrap()));
+        return Err("no moves".to_string());
     }
 }

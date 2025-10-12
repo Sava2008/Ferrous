@@ -533,7 +533,13 @@ impl Piece for King {
                                 std::cmp::Ordering::Less => {
                                     if board.squares[r.index + 1..self.index]
                                         .iter()
-                                        .any(|s| s.is_piece())
+                                        .any(|s: &ChessPiece| s.is_piece())
+                                        || [self.index - 1, self.index - 2].iter().any(
+                                            |i: &usize| match self.key.0 {
+                                                PieceColor::Black => board.white_vision.contains(i),
+                                                PieceColor::White => board.black_vision.contains(i),
+                                            },
+                                        )
                                     {
                                         continue;
                                     }

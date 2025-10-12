@@ -371,3 +371,10 @@ pub fn generate_legal_moves(
         (_, None, Some(_)) => unreachable!(),
     };
 }
+
+pub fn reverse_idx(white_idx: usize) -> Result<usize, String> {
+    if white_idx > 63 {
+        return Err("index cannot be more than 63".to_string());
+    }
+    return Ok(63 - white_idx);
+}

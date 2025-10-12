@@ -353,15 +353,31 @@ impl MainState {
                     PieceColor::Black => {
                         if selection_idx > destination_idx {
                             self.successful_move(0, destination_idx + 1)?;
+                            self.board.black_locations.insert(
+                                self.board.squares[destination_idx + 1].id()?,
+                                destination_idx + 1,
+                            );
                         } else {
                             self.successful_move(7, destination_idx - 1)?;
+                            self.board.black_locations.insert(
+                                self.board.squares[destination_idx - 1].id()?,
+                                destination_idx - 1,
+                            );
                         }
                     }
                     PieceColor::White => {
                         if selection_idx > destination_idx {
                             self.successful_move(56, destination_idx + 1)?;
+                            self.board.white_locations.insert(
+                                self.board.squares[destination_idx + 1].id()?,
+                                destination_idx + 1,
+                            );
                         } else {
                             self.successful_move(63, destination_idx - 1)?;
+                            self.board.white_locations.insert(
+                                self.board.squares[destination_idx - 1].id()?,
+                                destination_idx - 1,
+                            );
                         }
                     }
                 }
@@ -390,7 +406,11 @@ impl MainState {
                 }
             };
         };
-        println!("check = {:?}", self.check);
+        /*println!(
+            "white locations = {:?},\nblack locations = {:?}",
+            self.board.white_locations, self.board.black_locations
+        );*/
+        println!("engine evaluation: {}", self.engine.evaluate(&self.board));
         return Ok(());
     }
 
