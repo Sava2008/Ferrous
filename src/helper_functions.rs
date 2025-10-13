@@ -102,17 +102,17 @@ pub fn index_to_coords(index: usize) -> (u8, u8) {
     return (index as u8 / 8, index as u8 % 8);
 }
 
-pub fn is_diagonal(idx1: usize, king_idx: usize) -> bool {
+pub fn is_diagonal(idx1: usize, self_king_idx: usize) -> bool {
     let coords1: (u8, u8) = index_to_coords(idx1);
-    let coords2: (u8, u8) = index_to_coords(king_idx);
+    let coords2: (u8, u8) = index_to_coords(self_king_idx);
 
     return max(coords1.0, coords2.0) - min(coords1.0, coords2.0)
         == max(coords1.1, coords2.1) - min(coords1.1, coords2.1);
 }
 
-pub fn is_line(idx1: usize, king_idx: usize) -> bool {
+pub fn is_line(idx1: usize, self_king_idx: usize) -> bool {
     let (x1, y1) = index_to_coords(idx1);
-    let (x2, y2) = index_to_coords(king_idx);
+    let (x2, y2) = index_to_coords(self_king_idx);
 
     return x1 == x2 || y1 == y2;
 }
@@ -145,10 +145,13 @@ pub fn index_to_chess_notation(idx: usize) -> String {
     );
 }
 
-pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize> {
+pub fn calculate_path_between(attcker_idx: usize, self_king_idx: usize) -> Vec<usize> {
     let mut path: Vec<usize> = Vec::new();
-    let (mut greatest, least) = (max(attcker_idx, king_idx), min(attcker_idx, king_idx));
-    if is_diagonal(attcker_idx, king_idx) {
+    let (mut greatest, least) = (
+        max(attcker_idx, self_king_idx),
+        min(attcker_idx, self_king_idx),
+    );
+    if is_diagonal(attcker_idx, self_king_idx) {
         if (greatest - least) % 7 == 0 {
             loop {
                 if greatest <= least + 7 {
@@ -189,24 +192,24 @@ pub fn calculate_path_between(attcker_idx: usize, king_idx: usize) -> Vec<usize>
     return path;
 }
 
-fn opposite_direction(pinned: usize, king_idx: usize) -> Result<Vec<usize>, String> {
+fn opposite_direction(pinned: usize, self_king_idx: usize) -> Result<Vec<usize>, String> {
     let mut opposite_path: Vec<usize> = Vec::new();
     let step: isize;
 
-    if is_diagonal(pinned, king_idx) {
-        step = if (pinned as isize - king_idx as isize) % 7 == 0 {
-            if pinned > king_idx { 7 } else { -7 }
+    if is_diagonal(pinned, self_king_idx) {
+        step = if (pinned as isize - self_king_idx as isize) % 7 == 0 {
+            if pinned > self_king_idx { 7 } else { -7 }
         } else {
-            if pinned > king_idx { 9 } else { -9 }
+            if pinned > self_king_idx { 9 } else { -9 }
         };
-    } else if is_line(pinned, king_idx) {
-        step = if (pinned as isize - king_idx as isize) % 8 == 0 {
-            if pinned > king_idx { 8 } else { -8 }
+    } else if is_line(pinned, self_king_idx) {
+        step = if (pinned as isize - self_king_idx as isize) % 8 == 0 {
+            if pinned > self_king_idx { 8 } else { -8 }
         } else {
-            if pinned > king_idx { 1 } else { -1 }
+            if pinned > self_king_idx { 1 } else { -1 }
         };
     } else {
-        return Err(format!("{pinned} and {king_idx} are not aligned"));
+        return Err(format!("{pinned} and {self_king_idx} are not aligned"));
     }
     let mut current: isize = pinned as isize;
     loop {
@@ -228,15 +231,16 @@ fn opposite_direction(pinned: usize, king_idx: usize) -> Result<Vec<usize>, Stri
 }
 
 // no idea how works
-fn is_pinned(piece: &dyn Piece, king_idx: usize, board: &Board) -> bool {
-    let alignment: i8 = if is_diagonal(king_idx, piece.index()) {
+fn is_pinned(piece: &dyn Piece, self_king_idx: usize, board: &Board) -> bool {
+    let alignment: i8 = if is_diagonal(self_king_idx, piece.index()) {
         1
-    } else if is_line(king_idx, piece.index()) {
+    } else if is_line(self_king_idx, piece.index()) {
         2
     } else {
         return false;
     };
-    let temp_path: Vec<usize> = if let Ok(range) = opposite_direction(piece.index(), king_idx) {
+    let temp_path: Vec<usize> = if let Ok(range) = opposite_direction(piece.index(), self_king_idx)
+    {
         range
     } else {
         return false;
@@ -266,30 +270,30 @@ fn is_pinned(piece: &dyn Piece, king_idx: usize, board: &Board) -> bool {
 pub fn generate_legal_moves(
     piece: &dyn Piece,
     board: &Board,
-    king_idx: usize,
+    self_king_idx: usize,
     checked: &(KingChecked, Option<usize>, Option<usize>),
     en_peasant_target: Option<usize>,
 ) -> GameResult<Vec<usize>> {
     match checked {
         (_, None, None) => {
             let legal_moves: Vec<usize> = piece.legal_moves(&board, en_peasant_target);
-            let temp_path: Vec<usize> = calculate_path_between(king_idx, piece.index());
-            let alignment: i8 = if is_diagonal(king_idx, piece.index()) {
+            let temp_path: Vec<usize> = calculate_path_between(self_king_idx, piece.index());
+            let alignment: i8 = if is_diagonal(self_king_idx, piece.index()) {
                 1
-            } else if is_line(king_idx, piece.index()) {
+            } else if is_line(self_king_idx, piece.index()) {
                 2
             } else {
                 return Ok(legal_moves);
             };
             if temp_path
                 .iter()
-                .take_while(|x: &&usize| *x != &king_idx)
+                .take_while(|x: &&usize| *x != &self_king_idx)
                 .any(|x: &usize| board.squares[*x].is_piece())
             {
                 return Ok(legal_moves);
             } else {
                 let mut opposite_path: Vec<usize> =
-                    if let Ok(range) = opposite_direction(piece.index(), king_idx) {
+                    if let Ok(range) = opposite_direction(piece.index(), self_king_idx) {
                         range
                     } else {
                         return Ok(legal_moves);
@@ -305,7 +309,7 @@ pub fn generate_legal_moves(
                         _ => unreachable!(),
                     } {
                         let mut full_path: Vec<usize> =
-                            calculate_path_between(piece.index(), king_idx);
+                            calculate_path_between(piece.index(), self_king_idx);
                         full_path.append(&mut opposite_path);
                         return Ok(legal_moves
                             .iter()
@@ -324,7 +328,7 @@ pub fn generate_legal_moves(
         (_, Some(_), Some(_)) => return Ok(Vec::new()),
         (_, Some(i), None) => match board.squares[*i] {
             ChessPiece::P(_) | ChessPiece::N(_) => {
-                if is_pinned(piece, king_idx, &board) {
+                if is_pinned(piece, self_king_idx, &board) {
                     return Ok(Vec::new());
                 }
                 return Ok(piece
@@ -334,10 +338,10 @@ pub fn generate_legal_moves(
                     .collect());
             }
             ChessPiece::B(_) => {
-                if is_pinned(piece, king_idx, &board) {
+                if is_pinned(piece, self_king_idx, &board) {
                     return Ok(Vec::new());
                 }
-                let path: Vec<usize> = calculate_path_between(*i, king_idx);
+                let path: Vec<usize> = calculate_path_between(*i, self_king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
                     .into_iter()
@@ -345,10 +349,10 @@ pub fn generate_legal_moves(
                     .collect());
             }
             ChessPiece::R(_) => {
-                if is_pinned(piece, king_idx, &board) {
+                if is_pinned(piece, self_king_idx, &board) {
                     return Ok(Vec::new());
                 }
-                let path: Vec<usize> = calculate_path_between(*i, king_idx);
+                let path: Vec<usize> = calculate_path_between(*i, self_king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
                     .into_iter()
@@ -356,10 +360,10 @@ pub fn generate_legal_moves(
                     .collect());
             }
             ChessPiece::Q(_) => {
-                if is_pinned(piece, king_idx, &board) {
+                if is_pinned(piece, self_king_idx, &board) {
                     return Ok(Vec::new());
                 }
-                let path: Vec<usize> = calculate_path_between(*i, king_idx);
+                let path: Vec<usize> = calculate_path_between(*i, self_king_idx);
                 return Ok(piece
                     .legal_moves(&board, en_peasant_target)
                     .into_iter()

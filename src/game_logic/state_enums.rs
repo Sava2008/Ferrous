@@ -15,7 +15,7 @@ pub enum PieceVariant {
     None,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum GameMode {
     SelectionWhite,
     SelectionBlack,
@@ -47,4 +47,10 @@ pub enum KingChecked {
     White,
     Black,
     None,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvalBoost {
+    Maximizing,
+    Minimizing,
 }

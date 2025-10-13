@@ -21,7 +21,7 @@ impl Engine {
         };
     }
 
-    pub fn evaluate(&self, board: &Board) -> i16 {
+    pub fn evaluate(&mut self, board: &Board) -> () {
         let white_material: &i16 = &board
             .white_locations
             .values()
@@ -36,9 +36,10 @@ impl Engine {
             .map(|idx: &usize| {
                 let piece: &ChessPiece = &board.squares[*idx];
                 piece.value().unwrap() as i16
-                    + Self::locate_piece_heuristics(piece, reverse_idx(*idx).unwrap())
+                    - Self::locate_piece_heuristics(piece, reverse_idx(*idx).unwrap())
             })
             .sum();
-        return *white_material - *black_material;
+
+        self.evaluation = *white_material - *black_material;
     }
 }

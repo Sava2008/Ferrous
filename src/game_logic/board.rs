@@ -1,57 +1,52 @@
-use ggez::{
-    Context, GameResult,
-    graphics::{Color, DrawMode, Mesh, MeshBuilder, Rect},
-};
+use ggez::GameResult;
 use std::{
     collections::{HashMap, HashSet},
     io::stdin,
 };
 
 use crate::{
-    constants::{BOARD_AREA, COORDS, SQUARE_SIDE},
+    constants::BOARD_AREA,
     game_logic::{
         PieceColor,
-        pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook},
-        state_enums::KingChecked,
+        pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook, Void},
+        state_enums::{GameMode, KingChecked},
     },
     helper_functions::generate_empty_board,
 };
 
 pub struct Board {
     pub squares: [ChessPiece; BOARD_AREA],
-    pub board_mesh: Mesh,
     pub white_locations: HashMap<u8, usize>,
     pub black_locations: HashMap<u8, usize>,
     pub white_vision: HashSet<usize>,
     pub black_vision: HashSet<usize>,
     pub checked: KingChecked,
+    pub gamemode: GameMode,
 }
+impl Clone for Board {
+    fn clone(&self) -> Self {
+        return Board {
+            squares: self.squares.clone(),
+            white_locations: self.white_locations.clone(),
+            black_locations: self.black_locations.clone(),
+            white_vision: self.white_vision.clone(),
+            black_vision: self.black_vision.clone(),
+            checked: self.checked.clone(),
+            gamemode: self.gamemode.clone(),
+        };
+    }
+}
+
 impl Board {
-    pub fn new(ctx: &mut Context) -> GameResult<Self> {
-        let mut mesh_builder: MeshBuilder = MeshBuilder::new();
-        for (x, y) in COORDS {
-            mesh_builder.rectangle(
-                DrawMode::fill(),
-                Rect::new(
-                    x as f32 * SQUARE_SIDE,
-                    y as f32 * SQUARE_SIDE,
-                    SQUARE_SIDE as f32,
-                    SQUARE_SIDE as f32,
-                ),
-                match x % 2 == y % 2 {
-                    true => Color::from_rgb(250, 230, 250),
-                    false => Color::from_rgb(70, 50, 130),
-                },
-            )?;
-        }
+    pub fn new() -> GameResult<Self> {
         return Ok(Board {
             squares: generate_empty_board(),
-            board_mesh: mesh_builder.build(ctx)?,
             white_locations: HashMap::new(),
             black_locations: HashMap::new(),
             white_vision: HashSet::new(),
             black_vision: HashSet::new(),
             checked: KingChecked::None,
+            gamemode: GameMode::SelectionWhite,
         });
     }
 
@@ -121,6 +116,98 @@ impl Board {
             }
         }
 
+        return Ok(());
+    }
+
+    pub fn perform_move(
+        &mut self,
+        initial_pos: usize,
+        final_pos: usize,
+        en_peasant_target: Option<usize>,
+        whose_turn: PieceColor,
+    ) -> GameResult {
+        self.squares[initial_pos].new_idx(final_pos);
+        match self.squares[initial_pos] {
+            ChessPiece::R(ref mut r) => r.was_moved = true,
+            ChessPiece::K(ref mut k) => k.was_moved = true,
+            ChessPiece::P(ref mut p) => {
+                p.was_moved = true;
+                if let Some(target) = en_peasant_target {
+                    if target == final_pos {
+                        let enemy_pawn_idx: usize = match p.key.0 {
+                            PieceColor::Black => final_pos + 8,
+                            PieceColor::White => final_pos - 8,
+                        };
+                        println!("enemy pawn idx: {enemy_pawn_idx}, final_pos: {final_pos}");
+                        self.take_piece(enemy_pawn_idx)?;
+                        let _ = std::mem::replace(
+                            &mut self.squares[enemy_pawn_idx],
+                            ChessPiece::Square(Void),
+                        );
+                    }
+                }
+            }
+            _ => (),
+        };
+        if self.squares[final_pos].is_piece() && self.squares[final_pos].color() != Some(whose_turn)
+        {
+            self.take_piece(final_pos)?;
+        }
+        let moving_piece: ChessPiece =
+            std::mem::replace(&mut self.squares[initial_pos], ChessPiece::Square(Void));
+
+        let _ = std::mem::replace(&mut self.squares[final_pos], moving_piece);
+        if let ChessPiece::P(p) = &self.squares[final_pos] {
+            self.promote(p.index);
+        }
+        if let ChessPiece::K(k) = &self.squares[final_pos]
+            && std::cmp::max(initial_pos, final_pos) - std::cmp::min(initial_pos, final_pos) == 2
+        {
+            match k.key.0 {
+                PieceColor::Black => {
+                    if initial_pos > final_pos {
+                        self.perform_move(0, final_pos + 1, en_peasant_target, PieceColor::Black)?;
+                        self.black_locations
+                            .insert(self.squares[final_pos + 1].id()?, final_pos + 1);
+                    } else {
+                        self.perform_move(7, final_pos - 1, en_peasant_target, PieceColor::Black)?;
+                        self.black_locations
+                            .insert(self.squares[final_pos - 1].id()?, final_pos - 1);
+                    }
+                }
+                PieceColor::White => {
+                    if initial_pos > final_pos {
+                        self.perform_move(56, final_pos + 1, en_peasant_target, PieceColor::White)?;
+                        self.white_locations
+                            .insert(self.squares[final_pos + 1].id()?, final_pos + 1);
+                    } else {
+                        self.perform_move(63, final_pos - 1, en_peasant_target, PieceColor::White)?;
+                        self.white_locations
+                            .insert(self.squares[final_pos - 1].id()?, final_pos - 1);
+                    }
+                }
+            }
+        }
+        match whose_turn {
+            PieceColor::Black => {
+                self.black_locations
+                    .insert(self.squares[final_pos].id()?, final_pos);
+                self.black_vision()?;
+            }
+            PieceColor::White => {
+                self.white_locations
+                    .insert(self.squares[final_pos].id()?, final_pos);
+                self.white_vision()?;
+            }
+        }
+        return Ok(());
+    }
+
+    pub fn take_piece(&mut self, final_pos: usize) -> GameResult {
+        match self.squares[final_pos].color().unwrap() {
+            PieceColor::Black => self.black_locations.remove(&self.squares[final_pos].id()?),
+            PieceColor::White => self.white_locations.remove(&self.squares[final_pos].id()?),
+        };
         return Ok(());
     }
 

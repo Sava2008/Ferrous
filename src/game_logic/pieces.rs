@@ -217,7 +217,7 @@ pub trait MoveDiagonally {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Pawn {
     pub index: usize,
     pub value: u16,
@@ -300,7 +300,7 @@ impl Pawn {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Knight {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -359,7 +359,7 @@ impl Knight {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Bishop {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -394,7 +394,7 @@ impl Bishop {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Rook {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -431,7 +431,7 @@ impl Rook {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Queen {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -470,7 +470,7 @@ impl Queen {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct King {
     pub value: u16,
     pub key: (PieceColor, PieceVariant),
@@ -592,10 +592,10 @@ impl King {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Void;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ChessPiece {
     P(Pawn),
     N(Knight),
@@ -643,7 +643,7 @@ impl ChessPiece {
         };
     }
 
-    pub fn key<'a>(&self) -> Result<(PieceColor, PieceVariant), &'a str> {
+    pub fn key(&self) -> Result<(PieceColor, PieceVariant), String> {
         return match self {
             ChessPiece::B(b) => Ok(b.key),
             ChessPiece::K(k) => Ok(k.key),
@@ -651,11 +651,11 @@ impl ChessPiece {
             ChessPiece::P(p) => Ok(p.key),
             ChessPiece::Q(q) => Ok(q.key),
             ChessPiece::R(r) => Ok(r.key),
-            ChessPiece::Square(_) => Err("Can't get key of nothing"),
+            ChessPiece::Square(_) => Err("No key for Void".to_string()),
         };
     }
 
-    pub fn value<'a>(&self) -> Result<u16, &'a str> {
+    pub fn value(&self) -> Result<u16, String> {
         return match self {
             ChessPiece::B(b) => Ok(b.value),
             ChessPiece::K(k) => Ok(k.value),
@@ -663,7 +663,7 @@ impl ChessPiece {
             ChessPiece::P(p) => Ok(p.value),
             ChessPiece::Q(q) => Ok(q.value),
             ChessPiece::R(r) => Ok(r.value),
-            ChessPiece::Square(_) => Err("Can't get value of nothing"),
+            ChessPiece::Square(_) => Err("No value for Void".to_string()),
         };
     }
 
@@ -788,14 +788,14 @@ impl ChessPiece {
             }
             ChessPiece::K(k) => Ok(k.legal_moves(&board, en_peasant_target)),
             ChessPiece::Square(_) => Err(GameError::CustomError(
-                "no legal moves for an empty square".to_string(),
+                "No legal moves for an empty square".to_string(),
             )),
         };
     }
 
     pub fn id(&self) -> GameResult<u8> {
         return match self {
-            ChessPiece::Square(_) => Err(GameError::CustomError("no id for void".to_string())),
+            ChessPiece::Square(_) => Err(GameError::CustomError("No id for void".to_string())),
             ChessPiece::B(b) => Ok(b.id),
             ChessPiece::K(k) => Ok(k.id),
             ChessPiece::N(n) => Ok(n.id),
