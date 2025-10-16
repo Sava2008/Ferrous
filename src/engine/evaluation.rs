@@ -4,7 +4,7 @@ use crate::{
         QUEEN_HEURISTICS, ROOK_HEURISTICS,
     },
     engine::Engine,
-    game_logic::{Board, pieces::ChessPiece},
+    game_logic::{Board, pieces::ChessPiece, state_enums::GameMode},
     helper_functions::reverse_idx,
 };
 
@@ -22,6 +22,17 @@ impl Engine {
     }
 
     pub fn evaluate(&mut self, board: &Board) -> () {
+        match board.gamemode {
+            GameMode::BlackWin => {
+                self.evaluation = self.worst_possible_score;
+                return ();
+            }
+            GameMode::WhiteWin => {
+                self.evaluation = self.best_possible_score;
+                return ();
+            }
+            _ => (),
+        };
         let white_material: &i16 = &board
             .white_locations
             .values()
@@ -36,7 +47,7 @@ impl Engine {
             .map(|idx: &usize| {
                 let piece: &ChessPiece = &board.squares[*idx];
                 piece.value().unwrap() as i16
-                    - Self::locate_piece_heuristics(piece, reverse_idx(*idx).unwrap())
+                    + Self::locate_piece_heuristics(piece, reverse_idx(*idx).unwrap())
             })
             .sum();
 

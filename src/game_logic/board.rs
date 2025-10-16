@@ -22,6 +22,8 @@ pub struct Board {
     pub black_vision: HashSet<usize>,
     pub checked: KingChecked,
     pub gamemode: GameMode,
+    pub en_peasant_susceptible: Option<usize>,
+    pub check: (KingChecked, Option<usize>, Option<usize>),
 }
 impl Clone for Board {
     fn clone(&self) -> Self {
@@ -33,6 +35,8 @@ impl Clone for Board {
             black_vision: self.black_vision.clone(),
             checked: self.checked.clone(),
             gamemode: self.gamemode.clone(),
+            en_peasant_susceptible: self.en_peasant_susceptible.clone(),
+            check: self.check.clone(),
         };
     }
 }
@@ -47,7 +51,24 @@ impl Board {
             black_vision: HashSet::new(),
             checked: KingChecked::None,
             gamemode: GameMode::SelectionWhite,
+            en_peasant_susceptible: None,
+            check: (KingChecked::None, None, None),
         });
+    }
+
+    pub fn reset_en_peasant_target(&mut self, initial_pos: usize, final_pos: usize) -> () {
+        if let ChessPiece::P(p) = &self.squares[final_pos] {
+            if p.moved_two_squares(initial_pos) {
+                self.en_peasant_susceptible = match p.key.0 {
+                    PieceColor::Black => Some(final_pos - 8),
+                    PieceColor::White => Some(final_pos + 8),
+                }
+            } else {
+                self.en_peasant_susceptible = None;
+            }
+        } else {
+            self.en_peasant_susceptible = None;
+        }
     }
 
     pub fn set(&mut self) -> GameResult {
@@ -119,6 +140,33 @@ impl Board {
         return Ok(());
     }
 
+    fn any_legal_moves(&mut self, color: PieceColor) -> bool {
+        let (map, checked_king_idx) = match color {
+            PieceColor::Black => (
+                &self.black_locations,
+                *self.black_locations.get(&14).unwrap(),
+            ),
+            PieceColor::White => (
+                &self.white_locations,
+                *self.white_locations.get(&15).unwrap(),
+            ),
+        };
+        for (_, idx) in map {
+            let legal_moves: GameResult<Vec<usize>> = self.squares[*idx].legal_moves(
+                &self,
+                self.en_peasant_susceptible,
+                &self.check,
+                checked_king_idx,
+            );
+            if let Ok(legal_moves_vec) = legal_moves {
+                if legal_moves_vec.len() > 0 {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     pub fn perform_move(
         &mut self,
         initial_pos: usize,
@@ -138,7 +186,6 @@ impl Board {
                             PieceColor::Black => final_pos + 8,
                             PieceColor::White => final_pos - 8,
                         };
-                        println!("enemy pawn idx: {enemy_pawn_idx}, final_pos: {final_pos}");
                         self.take_piece(enemy_pawn_idx)?;
                         let _ = std::mem::replace(
                             &mut self.squares[enemy_pawn_idx],
@@ -149,6 +196,7 @@ impl Board {
             }
             _ => (),
         };
+        self.reset_en_peasant_target(initial_pos, final_pos);
         if self.squares[final_pos].is_piece() && self.squares[final_pos].color() != Some(whose_turn)
         {
             self.take_piece(final_pos)?;
@@ -160,6 +208,11 @@ impl Board {
         if let ChessPiece::P(p) = &self.squares[final_pos] {
             self.promote(p.index);
         }
+        match self.squares[final_pos].color().unwrap() {
+            PieceColor::Black => &mut self.black_locations,
+            PieceColor::White => &mut self.white_locations,
+        }
+        .insert(moving_piece.id().unwrap(), final_pos);
         if let ChessPiece::K(k) = &self.squares[final_pos]
             && std::cmp::max(initial_pos, final_pos) - std::cmp::min(initial_pos, final_pos) == 2
         {
@@ -193,20 +246,35 @@ impl Board {
                 self.black_locations
                     .insert(self.squares[final_pos].id()?, final_pos);
                 self.black_vision()?;
+                if !self.any_legal_moves(PieceColor::White) {
+                    if self.checked == KingChecked::White {
+                        self.gamemode = GameMode::BlackWin;
+                    } else {
+                        self.gamemode = GameMode::Draw;
+                    }
+                }
             }
             PieceColor::White => {
                 self.white_locations
                     .insert(self.squares[final_pos].id()?, final_pos);
                 self.white_vision()?;
+                if !self.any_legal_moves(PieceColor::Black) {
+                    if self.checked == KingChecked::Black {
+                        self.gamemode = GameMode::WhiteWin;
+                    } else {
+                        self.gamemode = GameMode::Draw;
+                    }
+                }
             }
         }
         return Ok(());
     }
 
     pub fn take_piece(&mut self, final_pos: usize) -> GameResult {
-        match self.squares[final_pos].color().unwrap() {
-            PieceColor::Black => self.black_locations.remove(&self.squares[final_pos].id()?),
-            PieceColor::White => self.white_locations.remove(&self.squares[final_pos].id()?),
+        match self.squares[final_pos].color() {
+            Some(PieceColor::Black) => self.black_locations.remove(&self.squares[final_pos].id()?),
+            Some(PieceColor::White) => self.white_locations.remove(&self.squares[final_pos].id()?),
+            None => Some(1),
         };
         return Ok(());
     }
@@ -235,10 +303,7 @@ impl Board {
         return Ok(());
     }
 
-    pub fn is_check(
-        &mut self,
-        attacker_color: PieceColor,
-    ) -> (KingChecked, Option<usize>, Option<usize>) {
+    pub fn is_check(&mut self, attacker_color: PieceColor) -> () {
         let (search_map, enemy_map, enemy_king_id, mut under_check) = match attacker_color {
             PieceColor::White => (
                 &self.white_locations,
@@ -276,13 +341,14 @@ impl Board {
                         && attackers_counter == 1
                     {
                         attacker2 = Some(other.index().unwrap());
-                        return (under_check, attacker1, attacker2);
+                        self.check = (under_check, attacker1, attacker2);
+                        return ();
                     }
                 }
             }
         }
         self.checked = under_check;
-        return (under_check, attacker1, attacker2);
+        self.check = (under_check, attacker1, attacker2);
     }
 
     pub fn promote(&mut self, index: usize) -> () {

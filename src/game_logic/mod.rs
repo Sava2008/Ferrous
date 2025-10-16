@@ -5,7 +5,7 @@ pub mod state_enums;
 use crate::{
     constants::{COORDS, SQUARE_SIDE},
     engine::Engine,
-    game_logic::{pieces::ChessPiece, state_enums::KingChecked},
+    game_logic::pieces::ChessPiece,
     helper_functions::{coords_to_index, load_images},
 };
 pub use board::Board;
@@ -21,10 +21,7 @@ pub use ggez::{
     mint::Point2,
 };
 use state_enums::{GameMode, PieceColor, PieceVariant};
-use std::{
-    cmp::{max, min},
-    collections::HashMap,
-};
+use std::collections::HashMap;
 
 pub struct MainState {
     pub engine: Engine,
@@ -39,9 +36,7 @@ pub struct MainState {
     pub mouse_pos: Point2<f32>,
     pub selected: Option<usize>,
     pub destination: Option<usize>,
-    pub en_peasant_susceptible: Option<usize>,
     pub legal_moves: Vec<usize>,
-    pub check: (KingChecked, Option<usize>, Option<usize>),
     pub player_side: PieceColor,
 }
 
@@ -86,9 +81,7 @@ impl MainState {
             mouse_pos: Point2 { x: -5., y: -5. },
             selected: None,
             destination: None,
-            en_peasant_susceptible: None,
             legal_moves: Vec::new(),
-            check: (KingChecked::None, None, None),
             player_side: PieceColor::White,
         });
     }
@@ -119,39 +112,16 @@ impl MainState {
         return Ok(());
     }
 
-    fn any_legal_moves(&mut self, color: PieceColor) -> bool {
-        let (map, checked_king_idx) = match color {
-            PieceColor::Black => (
-                &self.board.black_locations,
-                *self.board.black_locations.get(&14).unwrap(),
-            ),
-            PieceColor::White => (
-                &self.board.white_locations,
-                *self.board.white_locations.get(&15).unwrap(),
-            ),
-        };
-        for (_, idx) in map {
-            let legal_moves: GameResult<Vec<usize>> = self.board.squares[*idx].legal_moves(
-                &self.board,
-                self.en_peasant_susceptible,
-                &self.check,
-                checked_king_idx,
-            );
-            if let Ok(legal_moves_vec) = legal_moves {
-                if legal_moves_vec.len() > 0 {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     fn handle_selection(&mut self) -> GameResult {
         match self.board.gamemode {
             GameMode::SelectionBlack => {
                 (self.engine_moves) = Some(
                     self.engine
-                        .find_best_move(&self.board, &self.check, self.en_peasant_susceptible)
+                        .find_best_move(
+                            &self.board,
+                            &&self.board.check,
+                            self.board.en_peasant_susceptible,
+                        )
                         .unwrap(),
                 )
             }
@@ -176,8 +146,8 @@ impl MainState {
                 | (&GameMode::SelectionBlack, Some(PieceColor::Black)) => {
                     self.legal_moves = piece.legal_moves(
                         &self.board,
-                        self.en_peasant_susceptible,
-                        &self.check,
+                        self.board.en_peasant_susceptible,
+                        &self.board.check,
                         match piece.color().unwrap() {
                             PieceColor::Black => *self.board.black_locations.get(&14).unwrap(),
                             PieceColor::White => *self.board.white_locations.get(&15).unwrap(),
@@ -259,21 +229,6 @@ impl MainState {
         return Ok(());
     }
 
-    fn reset_en_peasant_target(&mut self, selection_idx: usize, destination_idx: usize) -> () {
-        if let ChessPiece::P(p) = &self.board.squares[destination_idx] {
-            if p.moved_two_squares(selection_idx) {
-                self.en_peasant_susceptible = match p.key.0 {
-                    PieceColor::Black => Some(destination_idx - 8),
-                    PieceColor::White => Some(destination_idx + 8),
-                }
-            } else {
-                self.en_peasant_susceptible = None;
-            }
-        } else {
-            self.en_peasant_susceptible = None;
-        }
-    }
-
     fn handle_movement(&mut self) -> GameResult {
         match self.board.gamemode {
             GameMode::MovementBlack => self.board.black_vision.clear(),
@@ -307,7 +262,7 @@ impl MainState {
             self.board.perform_move(
                 selection_idx,
                 destination_idx,
-                self.en_peasant_susceptible,
+                self.board.en_peasant_susceptible,
                 match self.board.gamemode {
                     GameMode::MovementBlack => PieceColor::Black,
                     GameMode::MovementWhite => PieceColor::White,
@@ -315,34 +270,12 @@ impl MainState {
                 },
             )?;
             self.reset_mainstate(destination_idx, true)?;
-            self.check = self
-                .board
+            self.board
                 .is_check(self.board.squares[destination_idx].color().unwrap());
-            self.reset_en_peasant_target(selection_idx, destination_idx);
         } else {
             self.reset_mainstate(destination_idx, false)?;
         }
         (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
-        if !self.any_legal_moves(match self.board.gamemode {
-            GameMode::SelectionWhite => PieceColor::White,
-            GameMode::SelectionBlack => PieceColor::Black,
-            _ => return Ok(()),
-        }) {
-            match self.check.0 {
-                KingChecked::None => {
-                    self.board.gamemode = GameMode::Draw;
-                    println!("gamemode: {:?}", self.board.gamemode);
-                }
-                KingChecked::Black => {
-                    self.board.gamemode = GameMode::BlackWin;
-                    println!("gamemode: {:?}", self.board.gamemode);
-                }
-                KingChecked::White => {
-                    self.board.gamemode = GameMode::WhiteWin;
-                    println!("gamemode: {:?}", self.board.gamemode);
-                }
-            };
-        };
         return Ok(());
     }
 

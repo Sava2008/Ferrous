@@ -48,9 +48,3 @@ pub enum KingChecked {
     Black,
     None,
 }
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum EvalBoost {
-    Maximizing,
-    Minimizing,
-}

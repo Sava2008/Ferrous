@@ -382,3 +382,17 @@ pub fn reverse_idx(white_idx: usize) -> Result<usize, String> {
     }
     return Ok(63 - white_idx);
 }
+
+pub fn kings_ids(board: &Board) -> (Option<u8>, Option<u8>) {
+    let mut w_k_index: Option<u8> = None;
+    let mut b_k_index: Option<u8> = None;
+    for x in board.squares {
+        if let ChessPiece::K(k) = x {
+            match k.key.0 {
+                PieceColor::Black => b_k_index = Some(k.id),
+                PieceColor::White => w_k_index = Some(k.id),
+            };
+        }
+    }
+    return (w_k_index, b_k_index);
+}

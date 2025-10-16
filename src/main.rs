@@ -3,6 +3,7 @@ pub mod converters;
 pub mod engine;
 pub mod game_logic;
 pub mod helper_functions;
+pub mod logging;
 pub mod tests;
 use constants::WIN_SCALES;
 use game_logic::{GameResult, MainState};
