@@ -24,6 +24,10 @@ pub struct Board {
     pub gamemode: GameMode,
     pub en_peasant_susceptible: Option<usize>,
     pub check: (KingChecked, Option<usize>, Option<usize>),
+    pub chosen_piece: Option<usize>,
+    pub dest_square: Option<usize>,
+    pub engine_move: Option<(usize, usize)>,
+    pub legal_moves: Vec<usize>,
 }
 impl Clone for Board {
     fn clone(&self) -> Self {
@@ -37,6 +41,10 @@ impl Clone for Board {
             gamemode: self.gamemode.clone(),
             en_peasant_susceptible: self.en_peasant_susceptible.clone(),
             check: self.check.clone(),
+            chosen_piece: self.chosen_piece.clone(),
+            dest_square: self.dest_square.clone(),
+            engine_move: self.engine_move.clone(),
+            legal_moves: self.legal_moves.clone(),
         };
     }
 }
@@ -53,6 +61,10 @@ impl Board {
             gamemode: GameMode::SelectionWhite,
             en_peasant_susceptible: None,
             check: (KingChecked::None, None, None),
+            chosen_piece: None,
+            dest_square: None,
+            engine_move: None,
+            legal_moves: Vec::new(),
         });
     }
 
@@ -62,13 +74,13 @@ impl Board {
                 self.en_peasant_susceptible = match p.key.0 {
                     PieceColor::Black => Some(final_pos - 8),
                     PieceColor::White => Some(final_pos + 8),
-                }
-            } else {
-                self.en_peasant_susceptible = None;
+                };
+                return ();
             }
-        } else {
             self.en_peasant_susceptible = None;
+            return ();
         }
+        self.en_peasant_susceptible = None;
     }
 
     pub fn set(&mut self) -> GameResult {
@@ -140,6 +152,60 @@ impl Board {
         return Ok(());
     }
 
+    pub fn handle_selection(&mut self) -> GameResult {
+        let selection_idx: usize = if let Some(x) = self.chosen_piece {
+            x
+        } else {
+            return Ok(());
+        };
+
+        match &self.squares[selection_idx] {
+            ChessPiece::Square(_) => (),
+            piece => match (&self.gamemode, piece.color()) {
+                (&GameMode::SelectionWhite, Some(PieceColor::White))
+                | (&GameMode::SelectionBlack, Some(PieceColor::Black)) => {
+                    self.legal_moves = piece.legal_moves(
+                        &self,
+                        self.en_peasant_susceptible,
+                        &self.check,
+                        match piece.color().unwrap() {
+                            PieceColor::Black => *self.black_locations.get(&14).unwrap(),
+                            PieceColor::White => *self.white_locations.get(&15).unwrap(),
+                        },
+                    )?;
+                    piece.generate_vision(&self);
+                }
+                _ => return Ok(()),
+            },
+        };
+
+        match (
+            &self.gamemode,
+            &self.squares[selection_idx].is_piece(),
+            &self.squares[selection_idx],
+        ) {
+            (GameMode::SelectionWhite, true, piece) => {
+                if piece.color() != Some(PieceColor::White) {
+                    self.chosen_piece = None;
+                } else {
+                    self.gamemode = GameMode::MovementWhite;
+                }
+            }
+            (GameMode::SelectionBlack, true, piece) => {
+                if piece.color() != Some(PieceColor::Black) {
+                    self.chosen_piece = None;
+                } else {
+                    self.gamemode = GameMode::MovementBlack;
+                }
+            }
+            _ => {
+                self.chosen_piece = None;
+            }
+        };
+
+        return Ok(());
+    }
+
     fn any_legal_moves(&mut self, color: PieceColor) -> bool {
         let (map, checked_king_idx) = match color {
             PieceColor::Black => (
@@ -183,8 +249,8 @@ impl Board {
                 if let Some(target) = en_peasant_target {
                     if target == final_pos {
                         let enemy_pawn_idx: usize = match p.key.0 {
-                            PieceColor::Black => final_pos + 8,
-                            PieceColor::White => final_pos - 8,
+                            PieceColor::Black => final_pos - 8,
+                            PieceColor::White => final_pos + 8,
                         };
                         self.take_piece(enemy_pawn_idx)?;
                         let _ = std::mem::replace(
@@ -206,7 +272,25 @@ impl Board {
 
         let _ = std::mem::replace(&mut self.squares[final_pos], moving_piece);
         if let ChessPiece::P(p) = &self.squares[final_pos] {
-            self.promote(p.index);
+            match self.gamemode {
+                GameMode::MovementBlack => self.promote(p.index, "q"),
+                GameMode::MovementWhite => {
+                    let mut promotion_choice: String = String::new();
+                    loop {
+                        println!(
+                            "choose a piece you want your pawn to become: q (queen), r (rook), b (bishop), n (knight)"
+                        );
+                        stdin().read_line(&mut promotion_choice).unwrap();
+                        if ["q", "r", "n", "b"]
+                            .contains(&promotion_choice.trim().to_ascii_lowercase().as_str())
+                        {
+                            break;
+                        }
+                    }
+                    self.promote(p.index, &promotion_choice);
+                }
+                _ => unreachable!(),
+            }
         }
         match self.squares[final_pos].color().unwrap() {
             PieceColor::Black => &mut self.black_locations,
@@ -252,6 +336,8 @@ impl Board {
                     } else {
                         self.gamemode = GameMode::Draw;
                     }
+                } else {
+                    self.gamemode = GameMode::SelectionWhite;
                 }
             }
             PieceColor::White => {
@@ -264,6 +350,8 @@ impl Board {
                     } else {
                         self.gamemode = GameMode::Draw;
                     }
+                } else {
+                    self.gamemode = GameMode::SelectionBlack;
                 }
             }
         }
@@ -271,10 +359,9 @@ impl Board {
     }
 
     pub fn take_piece(&mut self, final_pos: usize) -> GameResult {
-        match self.squares[final_pos].color() {
-            Some(PieceColor::Black) => self.black_locations.remove(&self.squares[final_pos].id()?),
-            Some(PieceColor::White) => self.white_locations.remove(&self.squares[final_pos].id()?),
-            None => Some(1),
+        match self.squares[final_pos].color().unwrap() {
+            PieceColor::Black => self.black_locations.remove(&self.squares[final_pos].id()?),
+            PieceColor::White => self.white_locations.remove(&self.squares[final_pos].id()?),
         };
         return Ok(());
     }
@@ -351,7 +438,7 @@ impl Board {
         self.check = (under_check, attacker1, attacker2);
     }
 
-    pub fn promote(&mut self, index: usize) -> () {
+    pub fn promote(&mut self, index: usize, choice: &str) -> () {
         if let ChessPiece::P(p) = &self.squares[index] {
             if match p.key.0 {
                 PieceColor::Black => 56..=63,
@@ -360,44 +447,33 @@ impl Board {
             .contains(&p.index)
             {
                 let (color, id) = (p.key.0, p.id);
-                loop {
-                    println!(
-                        "choose a piece you want your pawn to become: q (queen), r (rook), b (bishop), n (knight)"
-                    );
-                    let mut promotion_choice: String = String::new();
-                    stdin().read_line(&mut promotion_choice).unwrap();
-                    match promotion_choice.trim().to_ascii_lowercase().as_str() {
-                        "q" => {
-                            let _ = std::mem::replace(
-                                &mut self.squares[index],
-                                ChessPiece::Q(Queen::new(color, index, id)),
-                            );
-                            break;
-                        }
-                        "r" => {
-                            let _ = std::mem::replace(
-                                &mut self.squares[index],
-                                ChessPiece::R(Rook::new(color, index, id)),
-                            );
-                            break;
-                        }
-                        "b" => {
-                            let _ = std::mem::replace(
-                                &mut self.squares[index],
-                                ChessPiece::B(Bishop::new(color, index, id)),
-                            );
-                            break;
-                        }
-                        "n" => {
-                            let _ = std::mem::replace(
-                                &mut self.squares[index],
-                                ChessPiece::N(Knight::new(color, index, id)),
-                            );
-                            break;
-                        }
-                        _ => println!("one of the four letters must be entered: q, r, b or n"),
-                    };
-                }
+                match choice.trim().to_ascii_lowercase().as_str() {
+                    "q" => {
+                        let _ = std::mem::replace(
+                            &mut self.squares[index],
+                            ChessPiece::Q(Queen::new(color, index, id)),
+                        );
+                    }
+                    "r" => {
+                        let _ = std::mem::replace(
+                            &mut self.squares[index],
+                            ChessPiece::R(Rook::new(color, index, id)),
+                        );
+                    }
+                    "b" => {
+                        let _ = std::mem::replace(
+                            &mut self.squares[index],
+                            ChessPiece::B(Bishop::new(color, index, id)),
+                        );
+                    }
+                    "n" => {
+                        let _ = std::mem::replace(
+                            &mut self.squares[index],
+                            ChessPiece::N(Knight::new(color, index, id)),
+                        );
+                    }
+                    _ => println!("one of the four letters must be entered: q, r, b or n"),
+                };
             }
         }
     }

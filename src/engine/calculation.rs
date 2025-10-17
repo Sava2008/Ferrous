@@ -53,6 +53,9 @@ impl Engine {
                     .unwrap()
                 };
                 for m in legal_moves {
+                    if let ChessPiece::K(_) = board.squares[m] {
+                        break;
+                    }
                     let mut copied_board: Board = board.clone();
                     let _ = copied_board
                         .perform_move(*piece_idx, m, en_peasant_target, PieceColor::White)
@@ -103,6 +106,9 @@ impl Engine {
                     .unwrap()
                 };
                 for m in legal_moves {
+                    if let ChessPiece::K(_) = board.squares[m] {
+                        break;
+                    }
                     let mut copied_board: Board = board.clone();
                     let _ = copied_board
                         .perform_move(*piece_idx, m, en_peasant_target, PieceColor::Black)

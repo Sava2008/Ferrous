@@ -34,7 +34,7 @@ pub const fn generate_coords() -> [(u8, u8); BOARD_AREA] {
 }
 
 pub fn generate_empty_board() -> [ChessPiece; BOARD_AREA] {
-    return std::array::from_fn(|_| ChessPiece::Square(Void {}));
+    return std::array::from_fn(|_| ChessPiece::Square(Void));
 }
 
 pub fn load_images(

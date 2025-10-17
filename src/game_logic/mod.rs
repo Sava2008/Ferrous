@@ -5,7 +5,6 @@ pub mod state_enums;
 use crate::{
     constants::{COORDS, SQUARE_SIDE},
     engine::Engine,
-    game_logic::pieces::ChessPiece,
     helper_functions::{coords_to_index, load_images},
 };
 pub use board::Board;
@@ -25,18 +24,13 @@ use std::collections::HashMap;
 
 pub struct MainState {
     pub engine: Engine,
-    pub engine_moves: Option<(usize, usize)>,
     pub legal_move_mesh: Mesh,
     pub board_mesh: Mesh,
-    pub max_id: u8,
     pub board: Board,
     pub pieces_images: HashMap<(PieceColor, PieceVariant), ImageGeneric<GlBackendSpec>>,
     pub mouse_clicked: bool,
     pub mouse_pressed: bool,
     pub mouse_pos: Point2<f32>,
-    pub selected: Option<usize>,
-    pub destination: Option<usize>,
-    pub legal_moves: Vec<usize>,
     pub player_side: PieceColor,
 }
 
@@ -60,28 +54,20 @@ impl MainState {
         }
         return Ok(MainState {
             engine: Engine::new(PieceColor::Black),
-            engine_moves: None,
-            legal_move_mesh: Mesh::new_rectangle(
+            legal_move_mesh: Mesh::new_circle(
                 ctx,
                 graphics::DrawMode::fill(),
-                graphics::Rect {
-                    x: 0.,
-                    y: 0.,
-                    w: 10.,
-                    h: 10.,
-                },
-                graphics::Color::GREEN,
+                Point2 { x: 0., y: 0. },
+                10.,
+                0.4,
+                graphics::Color::RED,
             )?,
             board_mesh: mesh_builder.build(ctx)?,
-            max_id: 0,
             board: Board::new()?,
             pieces_images: load_images(ctx)?,
             mouse_clicked: false,
             mouse_pressed: false,
             mouse_pos: Point2 { x: -5., y: -5. },
-            selected: None,
-            destination: None,
-            legal_moves: Vec::new(),
             player_side: PieceColor::White,
         });
     }
@@ -112,85 +98,12 @@ impl MainState {
         return Ok(());
     }
 
-    fn handle_selection(&mut self) -> GameResult {
-        match self.board.gamemode {
-            GameMode::SelectionBlack => {
-                (self.engine_moves) = Some(
-                    self.engine
-                        .find_best_move(
-                            &self.board,
-                            &&self.board.check,
-                            self.board.en_peasant_susceptible,
-                        )
-                        .unwrap(),
-                )
-            }
-            _ => (),
-        };
-
-        self.selected = match self.board.gamemode {
-            GameMode::SelectionBlack => Some(self.engine_moves.unwrap().0),
-            GameMode::SelectionWhite => coords_to_index(self.mouse_pos),
-            _ => unreachable!(),
-        };
-        let selection_idx: usize = if let Some(x) = self.selected {
-            x
-        } else {
-            return Ok(());
-        };
-
-        match &self.board.squares[selection_idx] {
-            ChessPiece::Square(_) => (),
-            piece => match (&self.board.gamemode, piece.color()) {
-                (&GameMode::SelectionWhite, Some(PieceColor::White))
-                | (&GameMode::SelectionBlack, Some(PieceColor::Black)) => {
-                    self.legal_moves = piece.legal_moves(
-                        &self.board,
-                        self.board.en_peasant_susceptible,
-                        &self.board.check,
-                        match piece.color().unwrap() {
-                            PieceColor::Black => *self.board.black_locations.get(&14).unwrap(),
-                            PieceColor::White => *self.board.white_locations.get(&15).unwrap(),
-                        },
-                    )?;
-                    piece.generate_vision(&self.board);
-                }
-                _ => return Ok(()),
-            },
-        };
-
-        match (
-            &self.board.gamemode,
-            &self.board.squares[selection_idx].is_piece(),
-            &self.board.squares[selection_idx],
-        ) {
-            (GameMode::SelectionWhite, true, piece) => {
-                if piece.color() != Some(PieceColor::White) {
-                    self.selected = None;
-                } else {
-                    self.board.gamemode = GameMode::MovementWhite;
-                }
-            }
-            (GameMode::SelectionBlack, true, piece) => {
-                if piece.color() != Some(PieceColor::Black) {
-                    self.selected = None;
-                } else {
-                    self.board.gamemode = GameMode::MovementBlack;
-                }
-            }
-            _ => {
-                self.selected = None;
-            }
-        };
-
-        return Ok(());
-    }
-
     fn legit_move(&self, selection_idx: usize, destination_idx: usize) -> bool {
         if selection_idx > 63 || destination_idx > 63 {
             return false;
         }
         if !self
+            .board
             .legal_moves
             .iter()
             .any(|idx: &usize| idx == &destination_idx)
@@ -234,24 +147,24 @@ impl MainState {
             GameMode::MovementBlack => self.board.black_vision.clear(),
             GameMode::MovementWhite => self.board.white_vision.clear(),
             _ => unreachable!(),
-        }
-        self.destination = match self.board.gamemode {
+        };
+        self.board.dest_square = match self.board.gamemode {
             GameMode::MovementWhite => coords_to_index(self.mouse_pos),
-            GameMode::MovementBlack => Some(self.engine_moves.unwrap().1),
+            GameMode::MovementBlack => Some(self.board.engine_move.unwrap().1),
             _ => unreachable!(),
         };
 
-        let destination_idx: usize = match self.destination {
+        let destination_idx: usize = match self.board.dest_square {
             Some(i) => i,
             None => return Ok(()),
         };
-        let selection_idx: usize = match self.selected {
+        let selection_idx: usize = match self.board.chosen_piece {
             Some(i) => i,
             None => return Ok(()),
         };
 
         if !self.legit_move(selection_idx, destination_idx) {
-            self.legal_moves.clear();
+            self.board.legal_moves.clear();
             self.reset_mainstate(destination_idx, false)?;
             return Ok(());
         }
@@ -275,7 +188,36 @@ impl MainState {
         } else {
             self.reset_mainstate(destination_idx, false)?;
         }
-        (self.selected, self.destination, self.legal_moves) = (None, None, Vec::new());
+        (
+            self.board.chosen_piece,
+            self.board.dest_square,
+            self.board.legal_moves,
+        ) = (None, None, Vec::new());
+        return Ok(());
+    }
+
+    fn handle_selection(&mut self) -> GameResult {
+        match self.board.gamemode {
+            GameMode::SelectionBlack => {
+                (self.board.engine_move) = Some(
+                    self.engine
+                        .find_best_move(
+                            &self.board,
+                            &&self.board.check,
+                            self.board.en_peasant_susceptible,
+                        )
+                        .unwrap(),
+                )
+            }
+            _ => (),
+        };
+
+        self.board.chosen_piece = match self.board.gamemode {
+            GameMode::SelectionBlack => Some(self.board.engine_move.unwrap().0),
+            GameMode::SelectionWhite => coords_to_index(self.mouse_pos),
+            _ => unreachable!(),
+        };
+        self.board.handle_selection()?;
         return Ok(());
     }
 
@@ -313,18 +255,19 @@ impl EventHandler for MainState {
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         clear(ctx, Color::from_rgb(198, 131, 70));
-
         draw(ctx, &self.board_mesh, DrawParam::default())?;
         self.draw_pieces(ctx)?;
-        for m in &self.legal_moves {
-            graphics::draw(
-                ctx,
-                &self.legal_move_mesh,
-                DrawParam::default().dest(Point2 {
-                    x: (*m % 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
-                    y: (*m / 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
-                }),
-            )?
+        if self.board.gamemode == GameMode::MovementWhite {
+            for m in &self.board.legal_moves {
+                graphics::draw(
+                    ctx,
+                    &self.legal_move_mesh,
+                    DrawParam::default().dest(Point2 {
+                        x: (*m % 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
+                        y: (*m / 8 * SQUARE_SIDE as usize + SQUARE_SIDE as usize / 2) as f32,
+                    }),
+                )?
+            }
         }
 
         ggez::graphics::present(ctx)?;
