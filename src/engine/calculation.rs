@@ -60,6 +60,7 @@ impl Engine {
                     let _ = copied_board
                         .perform_move(*piece_idx, m, en_peasant_target, PieceColor::White)
                         .unwrap();
+                    copied_board.is_check(PieceColor::White);
 
                     best_score = max(
                         self.alpha_beta_pruning(
@@ -113,6 +114,7 @@ impl Engine {
                     let _ = copied_board
                         .perform_move(*piece_idx, m, en_peasant_target, PieceColor::Black)
                         .unwrap();
+                    copied_board.is_check(PieceColor::Black);
 
                     best_score = min(
                         self.alpha_beta_pruning(

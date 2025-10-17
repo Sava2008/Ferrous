@@ -14,6 +14,48 @@ use crate::{
     helper_functions::generate_empty_board,
 };
 
+pub struct MoveCancellation {
+    pub moved_piece: Option<(u8, usize)>,
+    pub check_state: (KingChecked, Option<usize>, Option<usize>),
+    pub captured_piece: Option<(u8, usize)>,
+    pub en_peasant: Option<usize>,
+    pub castled_rook: Option<(u8, usize)>,
+    pub promoted_pawn: Option<(u8, usize)>,
+    pub whose_turn: Option<PieceColor>,
+    pub was_moved: bool,
+    pub gamemode: Option<GameMode>,
+}
+impl MoveCancellation {
+    pub fn new() -> Self {
+        return MoveCancellation {
+            moved_piece: None,
+            check_state: (KingChecked::None, None, None),
+            captured_piece: None,
+            en_peasant: None,
+            castled_rook: None,
+            promoted_pawn: None,
+            whose_turn: None,
+            was_moved: false,
+            gamemode: None,
+        };
+    }
+}
+impl Clone for MoveCancellation {
+    fn clone(&self) -> Self {
+        return MoveCancellation {
+            moved_piece: self.moved_piece.clone(),
+            check_state: self.check_state.clone(),
+            captured_piece: self.captured_piece.clone(),
+            en_peasant: self.en_peasant.clone(),
+            castled_rook: self.castled_rook.clone(),
+            promoted_pawn: self.promoted_pawn.clone(),
+            whose_turn: self.whose_turn.clone(),
+            was_moved: self.was_moved.clone(),
+            gamemode: self.gamemode.clone(),
+        };
+    }
+}
+
 pub struct Board {
     pub squares: [ChessPiece; BOARD_AREA],
     pub white_locations: HashMap<u8, usize>,
@@ -28,6 +70,7 @@ pub struct Board {
     pub dest_square: Option<usize>,
     pub engine_move: Option<(usize, usize)>,
     pub legal_moves: Vec<usize>,
+    pub move_history: Vec<MoveCancellation>,
 }
 impl Clone for Board {
     fn clone(&self) -> Self {
@@ -45,6 +88,7 @@ impl Clone for Board {
             dest_square: self.dest_square.clone(),
             engine_move: self.engine_move.clone(),
             legal_moves: self.legal_moves.clone(),
+            move_history: self.move_history.clone(),
         };
     }
 }
@@ -65,6 +109,7 @@ impl Board {
             dest_square: None,
             engine_move: None,
             legal_moves: Vec::new(),
+            move_history: Vec::new(),
         });
     }
 
@@ -241,11 +286,23 @@ impl Board {
         whose_turn: PieceColor,
     ) -> GameResult {
         self.squares[initial_pos].new_idx(final_pos);
+
+        let mut this_move: MoveCancellation = MoveCancellation::new();
+        this_move.moved_piece = Some((self.squares[final_pos].id().unwrap(), initial_pos));
+        this_move.en_peasant = en_peasant_target;
+
         match self.squares[initial_pos] {
-            ChessPiece::R(ref mut r) => r.was_moved = true,
-            ChessPiece::K(ref mut k) => k.was_moved = true,
+            ChessPiece::R(ref mut r) => {
+                r.was_moved = true;
+                this_move.was_moved = true;
+            }
+            ChessPiece::K(ref mut k) => {
+                k.was_moved = true;
+                this_move.was_moved = true;
+            }
             ChessPiece::P(ref mut p) => {
                 p.was_moved = true;
+                this_move.was_moved = true;
                 if let Some(target) = en_peasant_target {
                     if target == final_pos {
                         let enemy_pawn_idx: usize = match p.key.0 {
@@ -272,25 +329,28 @@ impl Board {
 
         let _ = std::mem::replace(&mut self.squares[final_pos], moving_piece);
         if let ChessPiece::P(p) = &self.squares[final_pos] {
+            this_move.promoted_pawn = Some((self.squares[final_pos].id().unwrap(), initial_pos));
             match self.gamemode {
                 GameMode::MovementBlack => self.promote(p.index, "q"),
                 GameMode::MovementWhite => {
-                    let mut promotion_choice: String = String::new();
-                    loop {
-                        println!(
-                            "choose a piece you want your pawn to become: q (queen), r (rook), b (bishop), n (knight)"
-                        );
-                        stdin().read_line(&mut promotion_choice).unwrap();
-                        if ["q", "r", "n", "b"]
-                            .contains(&promotion_choice.trim().to_ascii_lowercase().as_str())
-                        {
-                            break;
+                    if (0..=7).contains(&p.index) {
+                        let mut promotion_choice: String = String::new();
+                        loop {
+                            println!(
+                                "choose a piece you want your pawn to become: q (queen), r (rook), b (bishop), n (knight)"
+                            );
+                            stdin().read_line(&mut promotion_choice).unwrap();
+                            if ["q", "r", "n", "b"]
+                                .contains(&promotion_choice.trim().to_ascii_lowercase().as_str())
+                            {
+                                break;
+                            }
                         }
+                        self.promote(p.index, &promotion_choice);
                     }
-                    self.promote(p.index, &promotion_choice);
                 }
-                _ => unreachable!(),
-            }
+                _ => (),
+            };
         }
         match self.squares[final_pos].color().unwrap() {
             PieceColor::Black => &mut self.black_locations,
@@ -355,7 +415,15 @@ impl Board {
                 }
             }
         }
+        this_move.check_state = self.check;
+        this_move.whose_turn = Some(whose_turn);
+        this_move.gamemode = Some(self.gamemode.clone());
+        self.move_history.push(this_move);
         return Ok(());
+    }
+
+    pub fn cancel_move(&mut self) -> GameResult {
+        todo!();
     }
 
     pub fn take_piece(&mut self, final_pos: usize) -> GameResult {
