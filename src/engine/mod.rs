@@ -68,7 +68,7 @@ impl Engine {
             for m in legal_moves {
                 let mut copied_board: Board = board.clone();
                 let _ = copied_board
-                    .perform_move(*piece_idx, m, en_peasant_target, PieceColor::Black)
+                    .perform_move(*piece_idx, m, PieceColor::Black)
                     .unwrap();
                 let score: i16 = self.alpha_beta_pruning(
                     &copied_board,

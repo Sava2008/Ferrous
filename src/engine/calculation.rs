@@ -58,7 +58,7 @@ impl Engine {
                     }
                     let mut copied_board: Board = board.clone();
                     let _ = copied_board
-                        .perform_move(*piece_idx, m, en_peasant_target, PieceColor::White)
+                        .perform_move(*piece_idx, m, PieceColor::White)
                         .unwrap();
                     copied_board.is_check(PieceColor::White);
 
@@ -112,7 +112,7 @@ impl Engine {
                     }
                     let mut copied_board: Board = board.clone();
                     let _ = copied_board
-                        .perform_move(*piece_idx, m, en_peasant_target, PieceColor::Black)
+                        .perform_move(*piece_idx, m, PieceColor::Black)
                         .unwrap();
                     copied_board.is_check(PieceColor::Black);
 

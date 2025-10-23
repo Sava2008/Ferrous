@@ -175,7 +175,6 @@ impl MainState {
             self.board.perform_move(
                 selection_idx,
                 destination_idx,
-                self.board.en_peasant_susceptible,
                 match self.board.gamemode {
                     GameMode::MovementBlack => PieceColor::Black,
                     GameMode::MovementWhite => PieceColor::White,

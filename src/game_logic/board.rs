@@ -9,7 +9,7 @@ use crate::{
     game_logic::{
         PieceColor,
         pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook, Void},
-        state_enums::{GameMode, KingChecked},
+        state_enums::{GameMode, KingChecked, PieceVariant},
     },
     helper_functions::generate_empty_board,
 };
@@ -17,13 +17,13 @@ use crate::{
 pub struct MoveCancellation {
     pub moved_piece: Option<(u8, usize)>,
     pub check_state: (KingChecked, Option<usize>, Option<usize>),
-    pub captured_piece: Option<(u8, usize)>,
+    pub captured_piece: Option<(u8, usize, PieceVariant)>,
     pub en_peasant: Option<usize>,
     pub castled_rook: Option<(u8, usize)>,
     pub promoted_pawn: Option<(u8, usize)>,
     pub whose_turn: Option<PieceColor>,
     pub was_moved: bool,
-    pub gamemode: Option<GameMode>,
+    pub previous_gamemode: Option<GameMode>,
 }
 impl MoveCancellation {
     pub fn new() -> Self {
@@ -36,7 +36,7 @@ impl MoveCancellation {
             promoted_pawn: None,
             whose_turn: None,
             was_moved: false,
-            gamemode: None,
+            previous_gamemode: None,
         };
     }
 }
@@ -51,7 +51,7 @@ impl Clone for MoveCancellation {
             promoted_pawn: self.promoted_pawn.clone(),
             whose_turn: self.whose_turn.clone(),
             was_moved: self.was_moved.clone(),
-            gamemode: self.gamemode.clone(),
+            previous_gamemode: self.previous_gamemode.clone(),
         };
     }
 }
@@ -282,14 +282,13 @@ impl Board {
         &mut self,
         initial_pos: usize,
         final_pos: usize,
-        en_peasant_target: Option<usize>,
         whose_turn: PieceColor,
     ) -> GameResult {
         self.squares[initial_pos].new_idx(final_pos);
 
         let mut this_move: MoveCancellation = MoveCancellation::new();
-        this_move.moved_piece = Some((self.squares[final_pos].id().unwrap(), initial_pos));
-        this_move.en_peasant = en_peasant_target;
+        this_move.moved_piece = Some((self.squares[initial_pos].id().unwrap(), initial_pos));
+        this_move.en_peasant = self.en_peasant_susceptible;
 
         match self.squares[initial_pos] {
             ChessPiece::R(ref mut r) => {
@@ -303,7 +302,7 @@ impl Board {
             ChessPiece::P(ref mut p) => {
                 p.was_moved = true;
                 this_move.was_moved = true;
-                if let Some(target) = en_peasant_target {
+                if let Some(target) = self.en_peasant_susceptible {
                     if target == final_pos {
                         let enemy_pawn_idx: usize = match p.key.0 {
                             PieceColor::Black => final_pos - 8,
@@ -320,16 +319,21 @@ impl Board {
             _ => (),
         };
         self.reset_en_peasant_target(initial_pos, final_pos);
-        if self.squares[final_pos].is_piece() && self.squares[final_pos].color() != Some(whose_turn)
-        {
+        let taken_piece: ChessPiece = self.squares[final_pos];
+        if taken_piece.is_piece() && taken_piece.color() != Some(whose_turn) {
+            this_move.captured_piece = Some((
+                taken_piece.id().unwrap(),
+                final_pos,
+                taken_piece.key().unwrap().1,
+            ));
             self.take_piece(final_pos)?;
         }
-        let moving_piece: ChessPiece =
-            std::mem::replace(&mut self.squares[initial_pos], ChessPiece::Square(Void));
+        self.squares[final_pos] = self.squares[initial_pos];
+        self.squares[initial_pos] = ChessPiece::Square(Void);
+        let moving_piece: ChessPiece = self.squares[final_pos];
 
-        let _ = std::mem::replace(&mut self.squares[final_pos], moving_piece);
-        if let ChessPiece::P(p) = &self.squares[final_pos] {
-            this_move.promoted_pawn = Some((self.squares[final_pos].id().unwrap(), initial_pos));
+        if let ChessPiece::P(p) = &moving_piece {
+            this_move.promoted_pawn = Some((p.id, initial_pos));
             match self.gamemode {
                 GameMode::MovementBlack => self.promote(p.index, "q"),
                 GameMode::MovementWhite => {
@@ -357,31 +361,29 @@ impl Board {
             PieceColor::White => &mut self.white_locations,
         }
         .insert(moving_piece.id().unwrap(), final_pos);
-        if let ChessPiece::K(k) = &self.squares[final_pos]
+        if let ChessPiece::K(k) = &moving_piece
             && std::cmp::max(initial_pos, final_pos) - std::cmp::min(initial_pos, final_pos) == 2
         {
             match k.key.0 {
                 PieceColor::Black => {
-                    if initial_pos > final_pos {
-                        self.perform_move(0, final_pos + 1, en_peasant_target, PieceColor::Black)?;
-                        self.black_locations
-                            .insert(self.squares[final_pos + 1].id()?, final_pos + 1);
+                    let (rook_initial_idx, rook_final_idx) = if initial_pos > final_pos {
+                        (0, final_pos + 1)
                     } else {
-                        self.perform_move(7, final_pos - 1, en_peasant_target, PieceColor::Black)?;
-                        self.black_locations
-                            .insert(self.squares[final_pos - 1].id()?, final_pos - 1);
-                    }
+                        (7, final_pos - 1)
+                    };
+                    self.perform_move(rook_initial_idx, rook_final_idx, PieceColor::Black)?;
+                    self.black_locations
+                        .insert(self.squares[rook_final_idx].id()?, rook_final_idx);
                 }
                 PieceColor::White => {
-                    if initial_pos > final_pos {
-                        self.perform_move(56, final_pos + 1, en_peasant_target, PieceColor::White)?;
-                        self.white_locations
-                            .insert(self.squares[final_pos + 1].id()?, final_pos + 1);
+                    let (rook_initial_idx, rook_final_idx) = if initial_pos > final_pos {
+                        (56, final_pos + 1)
                     } else {
-                        self.perform_move(63, final_pos - 1, en_peasant_target, PieceColor::White)?;
-                        self.white_locations
-                            .insert(self.squares[final_pos - 1].id()?, final_pos - 1);
-                    }
+                        (63, final_pos - 1)
+                    };
+                    self.perform_move(rook_initial_idx, rook_final_idx, PieceColor::White)?;
+                    self.white_locations
+                        .insert(self.squares[rook_final_idx].id()?, rook_final_idx);
                 }
             }
         }
@@ -417,13 +419,53 @@ impl Board {
         }
         this_move.check_state = self.check;
         this_move.whose_turn = Some(whose_turn);
-        this_move.gamemode = Some(self.gamemode.clone());
+        this_move.previous_gamemode = Some(self.gamemode.clone());
         self.move_history.push(this_move);
         return Ok(());
     }
 
     pub fn cancel_move(&mut self) -> GameResult {
-        todo!();
+        if let Some(takeback) = self.move_history.pop() {
+            let (map, enemy_map) = match takeback.whose_turn.unwrap() {
+                PieceColor::Black => (&mut self.black_locations, &mut self.white_locations),
+                PieceColor::White => (&mut self.white_locations, &mut self.black_locations),
+            };
+            let new_idx: usize = *map.get(&takeback.moved_piece.unwrap().0).unwrap();
+            let old_idx: usize = takeback.moved_piece.unwrap().1;
+            let piece: &mut ChessPiece = &mut self.squares[new_idx];
+            piece.new_idx(old_idx);
+            let piece: &ChessPiece = &self.squares[new_idx];
+            self.squares[old_idx] = *piece;
+            self.squares[new_idx] = ChessPiece::Square(Void);
+            if let Some(piece) = takeback.captured_piece {
+                let taken_piece_color = match takeback.whose_turn.unwrap() {
+                    PieceColor::Black => PieceColor::White,
+                    PieceColor::White => PieceColor::Black,
+                };
+                self.squares[new_idx] = match piece.2 {
+                    PieceVariant::B => {
+                        ChessPiece::B(Bishop::new(taken_piece_color, piece.1, piece.0))
+                    }
+                    PieceVariant::N => {
+                        ChessPiece::N(Knight::new(taken_piece_color, piece.1, piece.0))
+                    }
+                    PieceVariant::R => {
+                        ChessPiece::R(Rook::new(taken_piece_color, piece.1, piece.0))
+                    }
+                    PieceVariant::Q => {
+                        ChessPiece::Q(Queen::new(taken_piece_color, piece.1, piece.0))
+                    }
+                    PieceVariant::P => {
+                        ChessPiece::P(Pawn::new(taken_piece_color, piece.1, piece.0))
+                    }
+                    _ => unreachable!(),
+                };
+                enemy_map.insert(piece.0, piece.1);
+            }
+
+            map.insert(takeback.moved_piece.unwrap().0, old_idx);
+        }
+        return Ok(());
     }
 
     pub fn take_piece(&mut self, final_pos: usize) -> GameResult {
