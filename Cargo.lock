@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "Ferrous"
+version = "0.1.0"
+dependencies = [
+ "ggez",
+ "rand",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,14 +282,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ced0551234e87afee12411d535648dd89d2e7f34c78b753395567aff3d447ff"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "chess_engine"
-version = "0.1.0"
-dependencies = [
- "ggez",
- "rand",
 ]
 
 [[package]]
