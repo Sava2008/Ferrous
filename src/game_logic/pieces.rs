@@ -793,9 +793,13 @@ impl ChessPiece {
         };
     }
 
+    #[track_caller]
     pub fn id(&self) -> GameResult<u8> {
         return match self {
-            ChessPiece::Square(_) => Err(GameError::CustomError("No id for void".to_string())),
+            ChessPiece::Square(_) => Err(GameError::CustomError(format!(
+                "No id for void on line {}",
+                std::panic::Location::caller()
+            ))),
             ChessPiece::B(b) => Ok(b.id),
             ChessPiece::K(k) => Ok(k.id),
             ChessPiece::N(n) => Ok(n.id),
@@ -854,6 +858,15 @@ impl ChessPiece {
                 return Some(q_vision);
             }
             ChessPiece::R(r) => Some(r.generate_linear_vision(&board, r.key.0, r.index)),
+        };
+    }
+
+    pub fn reset_was_moved(&mut self, parameter: bool) -> () {
+        match self {
+            ChessPiece::B(_) | ChessPiece::N(_) | ChessPiece::Q(_) | ChessPiece::Square(_) => (),
+            ChessPiece::K(k) => k.was_moved = parameter,
+            ChessPiece::P(p) => p.was_moved = parameter,
+            ChessPiece::R(r) => r.was_moved = parameter,
         };
     }
 }

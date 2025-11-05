@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    constants::BOARD_AREA,
+    constants::{BOARD_AREA, PAWN_VALUE, ROOK_VALUE},
     game_logic::{
         PieceColor,
         pieces::{Bishop, ChessPiece, King, Knight, Pawn, Queen, Rook, Void},
@@ -14,12 +14,13 @@ use crate::{
     helper_functions::generate_empty_board,
 };
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct MoveCancellation {
     pub moved_piece: Option<(u8, usize)>,
     pub check_state: (KingChecked, Option<usize>, Option<usize>),
     pub captured_piece: Option<(u8, usize, PieceVariant)>,
     pub en_peasant: Option<usize>,
-    pub castled_rook: Option<(u8, usize)>,
+    pub castled_rook: Option<(u8, usize, usize)>, // (ID, initial_pos, final_pos)
     pub promoted_pawn: Option<(u8, usize)>,
     pub whose_turn: Option<PieceColor>,
     pub was_moved: bool,
@@ -56,6 +57,7 @@ impl Clone for MoveCancellation {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct Board {
     pub squares: [ChessPiece; BOARD_AREA],
     pub white_locations: HashMap<u8, usize>,
@@ -287,7 +289,7 @@ impl Board {
         self.squares[initial_pos].new_idx(final_pos);
 
         let mut this_move: MoveCancellation = MoveCancellation::new();
-        this_move.moved_piece = Some((self.squares[initial_pos].id().unwrap(), initial_pos));
+        this_move.previous_gamemode = Some(self.gamemode.clone());
         this_move.en_peasant = self.en_peasant_susceptible;
 
         match self.squares[initial_pos] {
@@ -321,16 +323,16 @@ impl Board {
         self.reset_en_peasant_target(initial_pos, final_pos);
         let taken_piece: ChessPiece = self.squares[final_pos];
         if taken_piece.is_piece() && taken_piece.color() != Some(whose_turn) {
-            this_move.captured_piece = Some((
-                taken_piece.id().unwrap(),
-                final_pos,
-                taken_piece.key().unwrap().1,
-            ));
+            this_move.captured_piece =
+                Some((taken_piece.id()?, final_pos, taken_piece.key().unwrap().1));
             self.take_piece(final_pos)?;
         }
+        println!("initial: {:?}", self.squares[initial_pos]);
         self.squares[final_pos] = self.squares[initial_pos];
         self.squares[initial_pos] = ChessPiece::Square(Void);
         let moving_piece: ChessPiece = self.squares[final_pos];
+        println!("final: {:?}", self.squares[final_pos]);
+        this_move.moved_piece = Some((moving_piece.id()?, initial_pos));
 
         if let ChessPiece::P(p) = &moving_piece {
             this_move.promoted_pawn = Some((p.id, initial_pos));
@@ -360,32 +362,37 @@ impl Board {
             PieceColor::Black => &mut self.black_locations,
             PieceColor::White => &mut self.white_locations,
         }
-        .insert(moving_piece.id().unwrap(), final_pos);
+        .insert(moving_piece.id()?, final_pos);
+
         if let ChessPiece::K(k) = &moving_piece
             && std::cmp::max(initial_pos, final_pos) - std::cmp::min(initial_pos, final_pos) == 2
         {
-            match k.key.0 {
-                PieceColor::Black => {
-                    let (rook_initial_idx, rook_final_idx) = if initial_pos > final_pos {
-                        (0, final_pos + 1)
-                    } else {
-                        (7, final_pos - 1)
-                    };
-                    self.perform_move(rook_initial_idx, rook_final_idx, PieceColor::Black)?;
-                    self.black_locations
-                        .insert(self.squares[rook_final_idx].id()?, rook_final_idx);
-                }
-                PieceColor::White => {
-                    let (rook_initial_idx, rook_final_idx) = if initial_pos > final_pos {
-                        (56, final_pos + 1)
-                    } else {
-                        (63, final_pos - 1)
-                    };
-                    self.perform_move(rook_initial_idx, rook_final_idx, PieceColor::White)?;
-                    self.white_locations
-                        .insert(self.squares[rook_final_idx].id()?, rook_final_idx);
-                }
+            let color: PieceColor = match k.key.0 {
+                c => c,
+            };
+            let king_rank: usize = initial_pos / 8;
+            let left_rook_idx: usize = king_rank * 8 + 0;
+            let right_rook_idx: usize = king_rank * 8 + 7;
+            let (rook_initial_idx, rook_final_idx) = if initial_pos > final_pos {
+                (left_rook_idx, final_pos + 1)
+            } else {
+                (right_rook_idx, final_pos - 1)
+            };
+            self.perform_move(rook_initial_idx, rook_final_idx, color)?;
+            // Remove the auxiliary rook move from history; castling should be a single user move
+            let _ = self.move_history.pop();
+            {
+                let map: &mut HashMap<u8, usize> = match color {
+                    PieceColor::Black => &mut self.black_locations,
+                    PieceColor::White => &mut self.white_locations,
+                };
+                map.insert(self.squares[rook_final_idx].id()?, rook_final_idx);
             }
+            this_move.castled_rook = Some((
+                self.squares[rook_final_idx].id()?,
+                rook_initial_idx,
+                rook_final_idx,
+            ));
         }
         match whose_turn {
             PieceColor::Black => {
@@ -419,7 +426,6 @@ impl Board {
         }
         this_move.check_state = self.check;
         this_move.whose_turn = Some(whose_turn);
-        this_move.previous_gamemode = Some(self.gamemode.clone());
         self.move_history.push(this_move);
         return Ok(());
     }
@@ -430,15 +436,56 @@ impl Board {
                 PieceColor::Black => (&mut self.black_locations, &mut self.white_locations),
                 PieceColor::White => (&mut self.white_locations, &mut self.black_locations),
             };
-            let new_idx: usize = *map.get(&takeback.moved_piece.unwrap().0).unwrap();
+            let moved_id: u8 = takeback.moved_piece.unwrap().0;
+            let mut new_idx: usize = 0;
+            for i in 0..BOARD_AREA {
+                if self.squares[i].is_piece() {
+                    if let Ok(id) = self.squares[i].id() {
+                        if id == moved_id {
+                            new_idx = i;
+                            break;
+                        }
+                    }
+                }
+            }
             let old_idx: usize = takeback.moved_piece.unwrap().1;
             let piece: &mut ChessPiece = &mut self.squares[new_idx];
             piece.new_idx(old_idx);
+            if takeback.was_moved {
+                piece.reset_was_moved(false);
+            }
             let piece: &ChessPiece = &self.squares[new_idx];
-            self.squares[old_idx] = *piece;
-            self.squares[new_idx] = ChessPiece::Square(Void);
+            if let Some(pawn) = takeback.promoted_pawn {
+                self.squares[old_idx] = ChessPiece::P(Pawn {
+                    index: old_idx,
+                    value: PAWN_VALUE,
+                    key: piece.key().unwrap(),
+                    was_moved: true,
+                    id: pawn.0,
+                    is_pinned: false,
+                });
+            } else {
+                self.squares[old_idx] = *piece;
+            }
+
+            if let Some(rook) = takeback.castled_rook {
+                let castled_rook: ChessPiece = self.squares[rook.2];
+                let castled_rook_id = castled_rook.id()?;
+                let castled_rook_key = castled_rook.key().unwrap();
+                self.squares[rook.1] = ChessPiece::R(Rook {
+                    value: ROOK_VALUE,
+                    key: castled_rook_key,
+                    was_moved: false,
+                    index: rook.1,
+                    id: castled_rook_id,
+                    is_pinned: false,
+                });
+                self.squares[rook.2] = ChessPiece::Square(Void);
+                map.insert(castled_rook_id, rook.1);
+            }
+
             if let Some(piece) = takeback.captured_piece {
-                let taken_piece_color = match takeback.whose_turn.unwrap() {
+                let taken_piece_color: PieceColor = match takeback.whose_turn.unwrap() {
                     PieceColor::Black => PieceColor::White,
                     PieceColor::White => PieceColor::Black,
                 };
@@ -461,9 +508,15 @@ impl Board {
                     _ => unreachable!(),
                 };
                 enemy_map.insert(piece.0, piece.1);
+            } else {
+                self.squares[new_idx] = ChessPiece::Square(Void);
             }
 
             map.insert(takeback.moved_piece.unwrap().0, old_idx);
+            self.checked = takeback.check_state.0;
+            self.check = takeback.check_state;
+            self.en_peasant_susceptible = takeback.en_peasant;
+            self.gamemode = takeback.previous_gamemode.unwrap();
         }
         return Ok(());
     }
