@@ -36,18 +36,20 @@ impl Engine {
         let white_material: &i16 = &board
             .white_locations
             .values()
-            .map(|idx: &usize| {
+            .filter_map(|idx: &usize| {
                 let piece: &ChessPiece = &board.squares[*idx];
-                piece.value().unwrap() as i16 + Self::locate_piece_heuristics(piece, *idx)
+                let value = piece.value().ok()?;
+                Some(value as i16 + Self::locate_piece_heuristics(piece, *idx))
             })
             .sum();
         let black_material: &i16 = &board
             .black_locations
             .values()
-            .map(|idx: &usize| {
+            .filter_map(|idx: &usize| {
                 let piece: &ChessPiece = &board.squares[*idx];
-                piece.value().unwrap() as i16
-                    + Self::locate_piece_heuristics(piece, reverse_idx(*idx).unwrap())
+                let value = piece.value().ok()?;
+                let reversed_idx = reverse_idx(*idx).ok()?;
+                Some(value as i16 + Self::locate_piece_heuristics(piece, reversed_idx))
             })
             .sum();
 

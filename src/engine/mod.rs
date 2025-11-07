@@ -43,6 +43,9 @@ impl Engine {
         let mut best_move: Option<(usize, usize)> = None;
         let king_idx: usize = *board.black_locations.get(&14).unwrap();
 
+        let mut search_board: Board = board.clone();
+
+        let mut moves_to_try: Vec<(usize, usize)> = Vec::new();
         for (_, piece_idx) in &board.black_locations {
             let piece: &ChessPiece = &board.squares[*piece_idx];
             let legal_moves: Vec<usize> = if let ChessPiece::K(k) = piece {
@@ -66,24 +69,32 @@ impl Engine {
             };
 
             for m in legal_moves {
-                let mut copied_board: Board = board.clone();
-                let _ = copied_board
-                    .perform_move(*piece_idx, m, PieceColor::Black)
-                    .unwrap();
-                let score: i16 = self.alpha_beta_pruning(
-                    &copied_board,
-                    self.depth,
-                    self.worst_possible_score,
-                    self.best_possible_score,
-                    true,
-                    checked,
-                    en_peasant_target,
-                );
-
-                if score < best_score {
-                    best_score = score;
-                    best_move = Some((*piece_idx, m));
+                if !matches!(board.squares[m], ChessPiece::K(_)) {
+                    moves_to_try.push((*piece_idx, m));
                 }
+            }
+        }
+
+        for (piece_idx, m) in moves_to_try {
+            let _ = search_board
+                .perform_move(piece_idx, m, PieceColor::Black)
+                .unwrap();
+
+            let score: i16 = self.alpha_beta_pruning(
+                &mut search_board,
+                self.depth,
+                self.worst_possible_score,
+                self.best_possible_score,
+                true,
+                checked,
+                en_peasant_target,
+            );
+
+            search_board.cancel_move().unwrap();
+
+            if score < best_score {
+                best_score = score;
+                best_move = Some((piece_idx, m));
             }
         }
         return best_move;

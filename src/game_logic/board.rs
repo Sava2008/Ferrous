@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct MoveCancellation {
-    pub moved_piece: Option<(u8, usize)>,
+    pub moved_piece: Option<(u8, usize, usize)>, // (ID, initial_pos, final_pos)
     pub check_state: (KingChecked, Option<usize>, Option<usize>),
     pub captured_piece: Option<(u8, usize, PieceVariant)>,
     pub en_peasant: Option<usize>,
@@ -327,12 +327,10 @@ impl Board {
                 Some((taken_piece.id()?, final_pos, taken_piece.key().unwrap().1));
             self.take_piece(final_pos)?;
         }
-        println!("initial: {:?}", self.squares[initial_pos]);
         self.squares[final_pos] = self.squares[initial_pos];
         self.squares[initial_pos] = ChessPiece::Square(Void);
         let moving_piece: ChessPiece = self.squares[final_pos];
-        println!("final: {:?}", self.squares[final_pos]);
-        this_move.moved_piece = Some((moving_piece.id()?, initial_pos));
+        this_move.moved_piece = Some((moving_piece.id()?, initial_pos, final_pos));
 
         if let ChessPiece::P(p) = &moving_piece {
             this_move.promoted_pawn = Some((p.id, initial_pos));
@@ -379,7 +377,6 @@ impl Board {
                 (right_rook_idx, final_pos - 1)
             };
             self.perform_move(rook_initial_idx, rook_final_idx, color)?;
-            // Remove the auxiliary rook move from history; castling should be a single user move
             let _ = self.move_history.pop();
             {
                 let map: &mut HashMap<u8, usize> = match color {
@@ -436,18 +433,8 @@ impl Board {
                 PieceColor::Black => (&mut self.black_locations, &mut self.white_locations),
                 PieceColor::White => (&mut self.white_locations, &mut self.black_locations),
             };
-            let moved_id: u8 = takeback.moved_piece.unwrap().0;
-            let mut new_idx: usize = 0;
-            for i in 0..BOARD_AREA {
-                if self.squares[i].is_piece() {
-                    if let Ok(id) = self.squares[i].id() {
-                        if id == moved_id {
-                            new_idx = i;
-                            break;
-                        }
-                    }
-                }
-            }
+            let new_idx: usize = takeback.moved_piece.unwrap().2;
+
             let old_idx: usize = takeback.moved_piece.unwrap().1;
             let piece: &mut ChessPiece = &mut self.squares[new_idx];
             piece.new_idx(old_idx);
@@ -470,7 +457,7 @@ impl Board {
 
             if let Some(rook) = takeback.castled_rook {
                 let castled_rook: ChessPiece = self.squares[rook.2];
-                let castled_rook_id = castled_rook.id()?;
+                let castled_rook_id: u8 = castled_rook.id()?;
                 let castled_rook_key = castled_rook.key().unwrap();
                 self.squares[rook.1] = ChessPiece::R(Rook {
                     value: ROOK_VALUE,
