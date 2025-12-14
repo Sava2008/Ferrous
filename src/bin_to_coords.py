@@ -3,7 +3,7 @@ from string import ascii_lowercase
 idx_to_coords: dict[int, tuple] = dict(
     enumerate(
         (
-            (col, str(row))
+            "".join((col, str(row)))
             for row in range(8, 0, -1)
             for col in ascii_lowercase[:8][::-1]
         )
@@ -12,19 +12,16 @@ idx_to_coords: dict[int, tuple] = dict(
 
 
 def bin_to_chess_coords(num: str) -> list[str]:
-    return [
-        "".join(idx_to_coords[i])
-        for i, bit in enumerate(num[2:])
-        if bit == "1"
-    ]
+    return [idx_to_coords[i] for i, bit in enumerate(num) if bit == "1"]
 
 
 def reverse_bin(num: str) -> str:
     return "0b" + num[::-1]
 
 
-print(
-    bin_to_chess_coords(
-        "1110000010111111111000000101000001001000010001000100001001000001"
+def assemble_bin_from_coords(squares: list[str]) -> str:
+    """accepts a list of chess coordinates as an input
+    and outputs a binary representation of those coordinates"""
+    return "".join(
+        ("1" if item[1] in squares else "0" for item in idx_to_coords.items())
     )
-)

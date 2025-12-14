@@ -37,7 +37,7 @@ impl Board {
             | ((map & !(FILE_H | RANK_7 | RANK_8)) << 17 & not_teammates);
     }
 
-    fn linear_moves(&self, square: u8) -> Bitboard {
+    pub fn linear_moves(&self, square: u8) -> Bitboard {
         let mut moves: u64 = 0;
         let blockers: &u64 = &self.total_occupancy.unwrap();
 
@@ -99,7 +99,7 @@ impl Board {
             };
     }
 
-    fn diagonal_moves(&self, square: u8) -> Bitboard {
+    pub fn diagonal_moves(&self, square: u8) -> Bitboard {
         let mut moves: u64 = 0;
         let blockers: &u64 = &self.total_occupancy.unwrap();
 
@@ -179,5 +179,9 @@ impl Board {
                 PieceColor::Black => self.black_occupancy.unwrap(),
                 PieceColor::White => self.white_occupancy.unwrap(),
             };
+    }
+
+    pub fn king_moves(&self, _color: PieceColor) -> Bitboard {
+        todo!();
     }
 }
