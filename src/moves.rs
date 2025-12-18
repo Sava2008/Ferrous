@@ -3,22 +3,26 @@ use crate::board_geometry_templates::*;
 use crate::enums::PieceColor;
 
 impl Board {
-    pub fn white_pawn_moves(&self) -> Bitboard {
+    pub fn pawn_moves(&self, color: PieceColor) -> Bitboard {
         let empty: &Bitboard = &!self.total_occupancy.unwrap();
-        let enemies: &Bitboard = &self.black_occupancy.unwrap();
-        return ((!RANK_8 & self.white_pawns) << 8 & empty)
-            | ((self.white_pawns & RANK_2) << 16 & empty & (empty << 8))
-            | ((!RANK_8 & self.white_pawns & !FILE_A) << 9 & enemies)
-            | ((!RANK_8 & self.white_pawns & !FILE_H) << 7 & enemies);
-    }
-
-    pub fn black_pawn_moves(&self) -> Bitboard {
-        let empty: &Bitboard = &!self.total_occupancy.unwrap();
-        let enemies: &Bitboard = &self.white_occupancy.unwrap();
-        return ((!RANK_1 & self.black_pawns) >> 8 & empty)
-            | ((self.black_pawns & RANK_7) >> 16 & empty & (empty >> 8))
-            | ((!RANK_1 & self.black_pawns & !FILE_A) >> 9 & enemies)
-            | ((!RANK_1 & self.black_pawns & !FILE_H) >> 7 & enemies);
+        let enemies: &Bitboard = match color {
+            PieceColor::Black => &self.white_occupancy.unwrap(),
+            PieceColor::White => &self.black_occupancy.unwrap(),
+        };
+        return match color {
+            PieceColor::Black => {
+                ((!RANK_1 & self.black_pawns) >> 8 & empty)
+                    | ((self.black_pawns & RANK_7) >> 16 & empty & (empty >> 8))
+                    | ((!RANK_1 & self.black_pawns & !FILE_A) >> 9 & enemies)
+                    | ((!RANK_1 & self.black_pawns & !FILE_H) >> 7 & enemies)
+            }
+            PieceColor::White => {
+                ((!RANK_8 & self.white_pawns) << 8 & empty)
+                    | ((self.white_pawns & RANK_2) << 16 & empty & (empty << 8))
+                    | ((!RANK_8 & self.white_pawns & !FILE_A) << 9 & enemies)
+                    | ((!RANK_8 & self.white_pawns & !FILE_H) << 7 & enemies)
+            }
+        };
     }
 
     pub fn knight_moves(&self, color: PieceColor) -> Bitboard {
@@ -181,7 +185,19 @@ impl Board {
             };
     }
 
-    pub fn king_moves(&self, _color: PieceColor) -> Bitboard {
-        todo!();
+    pub fn king_moves(&self, color: PieceColor) -> Bitboard {
+        let (not_teammates, map) = match color {
+            PieceColor::White => (&!self.white_occupancy.unwrap(), &self.white_king),
+            PieceColor::Black => (&!self.black_occupancy.unwrap(), &self.black_king),
+        };
+
+        return ((map & !FILE_H) << 1 & not_teammates)
+            | ((map & !RANK_8) << 8 & not_teammates)
+            | ((map & !RANK_1) >> 8 & not_teammates)
+            | ((map & !FILE_A) >> 1 & not_teammates)
+            | ((map & !(FILE_H | RANK_8)) << 9 & not_teammates)
+            | ((map & !(FILE_A | RANK_1)) >> 9 & not_teammates)
+            | ((map & !(FILE_A | RANK_8)) << 7 & not_teammates)
+            | ((map & !(FILE_H | RANK_1)) >> 7 & not_teammates);
     }
 }
