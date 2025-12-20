@@ -1,4 +1,4 @@
-use crate::board_geometry_templates::*;
+use crate::{board_geometry_templates::*, gamestate::GameState};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 pub struct Board {
     pub white_pawns: Bitboard,

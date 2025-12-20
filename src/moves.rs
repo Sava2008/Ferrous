@@ -1,9 +1,10 @@
 use crate::board::Board;
 use crate::board_geometry_templates::*;
 use crate::enums::PieceColor;
+use crate::gamestate::{GameState, PieceMove};
 
 impl Board {
-    pub fn pawn_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn pawn_destinations(&self, color: PieceColor) -> Bitboard {
         let empty: &Bitboard = &!self.total_occupancy.unwrap();
         let enemies: &Bitboard = match color {
             PieceColor::Black => &self.white_occupancy.unwrap(),
@@ -25,7 +26,7 @@ impl Board {
         };
     }
 
-    pub fn knight_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn knight_destinations(&self, color: PieceColor) -> Bitboard {
         let (not_teammates, map) = match color {
             PieceColor::White => (&!self.white_occupancy.unwrap(), &self.white_knights),
             PieceColor::Black => (&!self.black_occupancy.unwrap(), &self.black_knights),
@@ -84,7 +85,7 @@ impl Board {
         return moves;
     }
 
-    pub fn rook_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn rook_destinations(&self, color: PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut rooks: u64 = match color {
             PieceColor::White => self.white_rooks,
@@ -146,7 +147,7 @@ impl Board {
         return moves;
     }
 
-    pub fn bishop_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn bishop_destinations(&self, color: PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut bishops: u64 = match color {
             PieceColor::White => self.white_bishops,
@@ -165,7 +166,7 @@ impl Board {
             };
     }
 
-    pub fn queen_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn queen_destinations(&self, color: PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut queens: u64 = match color {
             PieceColor::White => self.white_queens,
@@ -185,7 +186,7 @@ impl Board {
             };
     }
 
-    pub fn king_moves(&self, color: PieceColor) -> Bitboard {
+    pub fn king_destinations(&self, color: PieceColor) -> Bitboard {
         let (not_teammates, map) = match color {
             PieceColor::White => (&!self.white_occupancy.unwrap(), &self.white_king),
             PieceColor::Black => (&!self.black_occupancy.unwrap(), &self.black_king),
@@ -199,5 +200,20 @@ impl Board {
             | ((map & !(FILE_A | RANK_1)) >> 9 & not_teammates)
             | ((map & !(FILE_A | RANK_8)) << 7 & not_teammates)
             | ((map & !(FILE_H | RANK_1)) >> 7 & not_teammates);
+    }
+
+    pub fn knight_moves(&self, _state: GameState, _color: PieceColor) -> Option<Vec<PieceMove>> {
+        /*if let Some(checked_king) = state.check_info.checked_king {
+            match (
+                state.check_info.first_checker,
+                state.check_info.second_checker,
+            ) {
+                (Some(c), None) => (),
+                (Some(_), Some(_)) => return None,
+                _ => unreachable!(),
+            };
+        }
+        let mut moves: Vec<PieceMove> = Vec::new();*/
+        todo!();
     }
 }

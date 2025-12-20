@@ -28,11 +28,11 @@ pub fn pawn_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.pawn_moves(PieceColor::White),
+        test_board.pawn_destinations(PieceColor::White),
         0b0000000000000000000000000000000000000010000000110000000000000000
     );
     assert_eq!(
-        test_board.pawn_moves(PieceColor::Black),
+        test_board.pawn_destinations(PieceColor::Black),
         0b0000000000000000000000000000000000000000000000000000001000000000
     );
 }
@@ -61,11 +61,11 @@ pub fn pawn_moves_test2() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.pawn_moves(PieceColor::White),
+        test_board.pawn_destinations(PieceColor::White),
         0b0000000000000000000000000011100000000000000000000000000000000000
     );
     assert_eq!(
-        test_board.pawn_moves(PieceColor::Black),
+        test_board.pawn_destinations(PieceColor::Black),
         0b0000000000000000000000000001000000011000000000000000000000000000
     );
 }
@@ -94,11 +94,11 @@ pub fn knight_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.knight_moves(PieceColor::Black),
+        test_board.knight_destinations(PieceColor::Black),
         0b0000100000100000010010000000010100000000000000000000000000000000
     );
     assert_eq!(
-        test_board.knight_moves(PieceColor::White),
+        test_board.knight_destinations(PieceColor::White),
         0b0010100001000100000000000100010000101101010010000010000000001000
     );
 }
@@ -128,11 +128,11 @@ pub fn knight_moves_test2() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.knight_moves(PieceColor::Black),
+        test_board.knight_destinations(PieceColor::Black),
         0b0000000000000000000000000001000010000000000000001000000000000000
     );
     assert_eq!(
-        test_board.knight_moves(PieceColor::White),
+        test_board.knight_destinations(PieceColor::White),
         0b0000000000000000000000000000000000000000000000000000000000000000
     );
 }
@@ -162,11 +162,11 @@ pub fn bishop_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.bishop_moves(PieceColor::White),
+        test_board.bishop_destinations(PieceColor::White),
         0b0000000000010000000010000000010000000010000000010000000000000000
     );
     assert_eq!(
-        test_board.bishop_moves(PieceColor::Black),
+        test_board.bishop_destinations(PieceColor::Black),
         0b0000000000000000100000000100000000100000000100000000100000000000
     );
 }
@@ -196,11 +196,11 @@ pub fn bishop_moves_test2() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.bishop_moves(PieceColor::Black),
+        test_board.bishop_destinations(PieceColor::Black),
         0b0000000010100000000100000000100000000000000000000000000000000000
     );
     assert_eq!(
-        test_board.bishop_moves(PieceColor::White),
+        test_board.bishop_destinations(PieceColor::White),
         0b0000000000000000000000000100000100100010000101000000000000000000
     );
 }
@@ -230,10 +230,13 @@ pub fn rook_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.rook_moves(PieceColor::White),
+        test_board.rook_destinations(PieceColor::White),
         0b0000000000000000000000000000000000000000000000100000001000001100
     );
-    assert_eq!(test_board.rook_moves(PieceColor::Black), FILE_A & !RANK_3);
+    assert_eq!(
+        test_board.rook_destinations(PieceColor::Black),
+        FILE_A & !RANK_3
+    );
 }
 
 #[test]
@@ -261,11 +264,11 @@ pub fn rook_moves_test2() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.rook_moves(PieceColor::Black),
+        test_board.rook_destinations(PieceColor::Black),
         0b0000000011111111111111111111111111111111111111111111111111111111
     );
     assert_eq!(
-        test_board.rook_moves(PieceColor::White),
+        test_board.rook_destinations(PieceColor::White),
         0b1111111111111111111111111111111111111111111111111111111100000000
     )
 }
@@ -295,11 +298,11 @@ pub fn queen_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.queen_moves(PieceColor::White),
+        test_board.queen_destinations(PieceColor::White),
         0b0111111111000000101000001001000010001000100001001000001010000001
     );
     assert_eq!(
-        test_board.queen_moves(PieceColor::Black),
+        test_board.queen_destinations(PieceColor::Black),
         0b0000011111111101000001110000101000010010001000100100001010000010
     );
 }
@@ -394,11 +397,11 @@ pub fn king_moves_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.king_moves(PieceColor::White),
+        test_board.king_destinations(PieceColor::White),
         0b0000000000000000000000000000000000000000000000000000000000000000
     );
     assert_eq!(
-        test_board.king_moves(PieceColor::Black),
+        test_board.king_destinations(PieceColor::Black),
         0b0000000000000000000000000000000000000000000000000000011100000100
     );
 }
@@ -428,7 +431,7 @@ pub fn king_moves_test2() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.king_moves(PieceColor::White),
+        test_board.king_destinations(PieceColor::White),
         0b0000001100000010000000110000000000000000000000000000000000000000
     );
 }

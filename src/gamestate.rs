@@ -1,3 +1,4 @@
+use crate::enums::PieceType;
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares
     pub castling_rights: CastlingRights,
@@ -15,9 +16,9 @@ struct CastlingRights {
 }
 
 struct CheckInfo {
-    checked_king: Option<u8>,
-    first_checker: Option<u8>,
-    second_checker: Option<u8>, // most of the times will be None, exists for double checks only
+    pub checked_king: Option<u8>,
+    pub first_checker: Option<u8>,
+    pub second_checker: Option<u8>, // most of the times will be None, exists for double checks only
 }
 
 struct PinInfo {
@@ -33,6 +34,20 @@ struct Previous_move {
     pub previous_fifty_moves_rule_counter: u8,
     pub previous_check_info: CheckInfo,
     pub previous_pin_info: PinInfo,
-    pub previous_moves_history: Vec<Previous_move>,
-    pub captured_piece_type: Option<u8>, // needs a discrete enum
+    pub captured_piece_type: Option<PieceType>,
+}
+
+pub struct PieceMove {
+    pub from: u8,
+    pub to: u8,
+}
+
+impl GameState {
+    pub fn update_check_info(&mut self) -> Result<(), String> {
+        todo!();
+    }
+
+    pub fn update_pin_info(&mut self) -> Result<(), String> {
+        todo!();
+    }
 }
