@@ -1,1 +1,18 @@
-The queens' moves are not generated correctly, even though the bishops' and the rooks' moves are. I cannot figure out the issue, and the process might last for an undefined interval of time. I tried different AI agents, and none could facilitate the process. Thanks in advance in case you provide assistance
+### Currently actualized
+- bitboard generation
+- occupancy generation
+- heuristics & piece values
+- attack tables
+- fen converter
+
+### Planned on being carried out
+- actual move generation (from_square: to_square)
+- magic bitboards
+- pgn converter
+- alpha beta pruning algorithm (already present in previous versions of Ferrous)
+- terminal-based UI
+- UCI protocol
+- syzygy database
+
+#### Credits
+developer: Sava2008

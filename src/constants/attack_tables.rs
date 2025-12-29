@@ -1,6 +1,6 @@
 use crate::{board_geometry_templates::Bitboard, enums::PieceColor};
 
-const KNIGHT_ATTACKS: [Bitboard; 64] = knight_attacks();
+pub const KNIGHT_ATTACKS: [Bitboard; 64] = knight_attacks();
 
 #[allow(unused)]
 const fn knight_attacks() -> [Bitboard; 64] {
@@ -42,7 +42,7 @@ const fn knight_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-const KING_ATTACKS: [Bitboard; 64] = king_attacks();
+pub const KING_ATTACKS: [Bitboard; 64] = king_attacks();
 
 #[allow(unused)]
 const fn king_attacks() -> [Bitboard; 64] {
@@ -84,8 +84,8 @@ const fn king_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::White);
-const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::Black);
+pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::White);
+pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::Black);
 
 #[allow(unused)]
 const fn pawn_attacks(color: PieceColor) -> [Bitboard; 64] {
@@ -102,13 +102,13 @@ const fn pawn_attacks(color: PieceColor) -> [Bitboard; 64] {
             if file > 0 {
                 attacks |= match color {
                     PieceColor::White => 1 << ((rank + 1) * 8 + (file - 1)),
-                    PieceColor::Black => 1 >> ((rank - 1) * 8 + (file - 1)),
+                    PieceColor::Black => 1 << ((rank - 1) * 8 + (file - 1)),
                 };
             }
             if file < 7 {
                 attacks |= match color {
                     PieceColor::White => 1 << ((rank + 1) * 8 + (file + 1)),
-                    PieceColor::Black => 1 >> ((rank - 1) * 8 + (file + 1)),
+                    PieceColor::Black => 1 << ((rank - 1) * 8 + (file + 1)),
                 };
             }
         }

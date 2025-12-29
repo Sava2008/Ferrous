@@ -1,7 +1,9 @@
+#[allow(unused_imports)]
 use crate::{
     board::Board,
     board_geometry_templates::{Bitboard, FILE_A, FILE_B, FILE_H, RANK_3, RANK_7, RANK_8},
     enums::PieceColor,
+    gamestate::{CastlingRights, CheckInfo, GameState, PinInfo},
 };
 
 #[test]

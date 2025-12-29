@@ -3,6 +3,7 @@ pub enum PieceColor {
     Black,
 }
 
+#[derive(Debug)]
 pub enum PieceType {
     Pawn,
     Knight,
