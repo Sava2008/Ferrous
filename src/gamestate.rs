@@ -1,4 +1,7 @@
-use crate::enums::{PieceColor, PieceType};
+use crate::{
+    board::Board,
+    enums::{PieceColor, PieceType},
+};
 #[derive(Debug)]
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares
@@ -17,6 +20,16 @@ pub struct CastlingRights {
     pub white_two_zeros: bool,
     pub black_three_zeros: bool,
     pub black_two_zeros: bool,
+}
+impl CastlingRights {
+    pub fn to_array(&self) -> [bool; 4] {
+        return [
+            self.white_three_zeros,
+            self.white_two_zeros,
+            self.black_three_zeros,
+            self.black_two_zeros,
+        ];
+    }
 }
 
 #[derive(Debug)]
@@ -51,11 +64,16 @@ pub struct PieceMove {
 }
 
 impl GameState {
-    pub fn update_check_info(&mut self) -> Result<(), String> {
+    pub fn update_check_info(&mut self, _board: &Board) -> Result<(), String> {
         todo!();
     }
 
-    pub fn update_pin_info(&mut self) -> Result<(), String> {
-        todo!();
+    pub fn update_pin_info(&mut self, board: &Board) -> () {
+        self.pin_info = PinInfo {
+            white_king: board.white_king.trailing_zeros() as u8,
+            black_king: board.black_king.trailing_zeros() as u8,
+            white_pinned_pieces: Vec::new(), // temporary solutions instead of calculating pins
+            black_pinned_pieces: Vec::new(),
+        };
     }
 }
