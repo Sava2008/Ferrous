@@ -45,6 +45,25 @@ fn board_to_array(board: &Board) -> [ChessPiece; 64] {
     return array_board;
 }
 
+fn index_to_chess_notation(idx: u8) -> String {
+    let coords: (u8, u8) = (idx / 8, idx % 8);
+    return format!(
+        "{},{}",
+        match coords.0 {
+            0 => 'a',
+            1 => 'b',
+            2 => 'c',
+            3 => 'd',
+            4 => 'e',
+            5 => 'f',
+            6 => 'g',
+            7 => 'h',
+            _ => unreachable!(),
+        },
+        coords.1 + 1
+    );
+}
+
 fn update_fen_with_piece(
     fen: &mut String,
     empty_square_counter: u8,
@@ -114,11 +133,11 @@ pub fn board_to_fen(board: &Board, state: &GameState) -> String {
         .collect::<String>();
     fen.push_str(if castling.is_empty() { "-" } else { &castling });
 
-    /*if let Some(i) = en_passant_possible_on {
+    if let Some(i) = state.en_passant_target {
         fen.push_str(&format!(" {}", index_to_chess_notation(i)));
-    } else {*/
-    fen.push_str(" -");
-    //}
+    } else {
+        fen.push_str(" -");
+    }
     fen = fen.chars().filter(|x: &char| *x != '0').collect::<String>();
 
     fen.push_str(&format!(

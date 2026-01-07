@@ -1,6 +1,6 @@
 use crate::board::Board;
 use crate::board_geometry_templates::*;
-use crate::constants::attack_tables::*;
+use crate::constants::attacks::*;
 use crate::enums::PieceColor;
 use crate::gamestate::{GameState, PieceMove};
 
@@ -295,10 +295,7 @@ impl Board {
 
         while king_bitboard != 0 {
             let initial_pos: u8 = king_bitboard.trailing_zeros() as u8;
-            let attacks: u64 = match color {
-                PieceColor::White => WHITE_PAWN_ATTACKS[initial_pos as usize],
-                PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
-            };
+            let attacks: u64 = KING_ATTACKS[initial_pos as usize];
             let mut dest_bitboard: u64 = attacks
                 & !match color {
                     PieceColor::White => self.white_occupancy.unwrap(),
