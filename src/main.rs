@@ -1,3 +1,5 @@
+pub mod board;
+pub mod board_geometry_templates;
 pub mod constants;
 pub mod converters;
 pub mod enums;

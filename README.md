@@ -4,10 +4,10 @@
 - heuristics & piece values
 - attack tables
 - fen converter
+- magic bitboards
 
 ### Planned on being carried out
-- actual move generation (from_square: to_square)
-- magic bitboards
+- actual move generation (from_square: to_square, partially implemented)
 - pgn converter
 - alpha beta pruning algorithm (already present in previous versions of Ferrous)
 - terminal-based UI
