@@ -1,10 +1,25 @@
 use crate::board::Board;
 use crate::board_geometry_templates::*;
-use crate::constants::attacks::{self, *};
-use crate::enums::{PieceColor, PieceType};
+use crate::constants::attacks::*;
+use crate::enums::PieceColor;
 use crate::gamestate::{GameState, PieceMove};
 
 impl Board {
+    pub fn pawn_destintions(&self, color: &PieceColor) -> Bitboard {
+        let empty: &Bitboard = &!self.total_occupancy.unwrap();
+
+        return match color {
+            PieceColor::White => {
+                ((!RANK_8 & self.white_pawns) >> 8 & empty)
+                    | ((self.white_pawns & RANK_2) >> 16 & empty & (empty >> 8))
+            }
+            PieceColor::Black => {
+                ((!RANK_1 & self.black_pawns) << 8 & empty)
+                    | ((self.black_pawns & RANK_2) << 16 & empty & (empty << 8))
+            }
+        };
+    }
+
     pub fn linear_destinations(&self, square: u8) -> Bitboard {
         let mut moves: u64 = 0;
         let blockers: &u64 = &self.total_occupancy.unwrap();
@@ -48,7 +63,7 @@ impl Board {
         return moves;
     }
 
-    pub fn rook_destinations(&self, color: PieceColor) -> Bitboard {
+    pub fn rook_destinations(&self, color: &PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut rooks: u64 = match color {
             PieceColor::White => self.white_rooks,
@@ -110,7 +125,7 @@ impl Board {
         return moves;
     }
 
-    pub fn bishop_destinations(&self, color: PieceColor) -> Bitboard {
+    pub fn bishop_destinations(&self, color: &PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut bishops: u64 = match color {
             PieceColor::White => self.white_bishops,
@@ -129,7 +144,7 @@ impl Board {
             };
     }
 
-    pub fn queen_destinations(&self, color: PieceColor) -> Bitboard {
+    pub fn queen_destinations(&self, color: &PieceColor) -> Bitboard {
         let mut all_moves: u64 = 0;
         let mut queens: u64 = match color {
             PieceColor::White => self.white_queens,
@@ -149,7 +164,7 @@ impl Board {
             };
     }
 
-    pub fn king_destinations(&self, color: PieceColor) -> Bitboard {
+    pub fn king_destinations(&self, color: &PieceColor) -> Bitboard {
         let (not_teammates, map) = match color {
             PieceColor::White => (&!self.white_occupancy.unwrap(), &self.white_king),
             PieceColor::Black => (&!self.black_occupancy.unwrap(), &self.black_king),
@@ -165,7 +180,7 @@ impl Board {
             | ((map & !(FILE_H | RANK_1)) >> 7 & not_teammates);
     }
 
-    pub fn knight_moves(&self, state: GameState, color: PieceColor) -> Option<Vec<PieceMove>> {
+    pub fn knight_moves(&self, state: GameState, color: &PieceColor) -> Option<Vec<PieceMove>> {
         if let Some(_checked_king) = state.check_info.checked_king {
             match (
                 state.check_info.first_checker,
@@ -177,15 +192,15 @@ impl Board {
             };
         }
         let mut moves: Vec<PieceMove> = Vec::new();
-        let mut knights_bitboard: u64 = match color {
+        let mut knights_bitboard: Bitboard = match color {
             PieceColor::Black => self.black_knights,
             PieceColor::White => self.white_knights,
         };
 
         while knights_bitboard != 0 {
             let initial_pos: u8 = knights_bitboard.trailing_zeros() as u8;
-            let attacks: u64 = KNIGHT_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: u64 = attacks
+            let attacks: Bitboard = KNIGHT_ATTACKS[initial_pos as usize];
+            let mut dest_bitboard: Bitboard = attacks
                 & !match color {
                     PieceColor::White => self.white_occupancy.unwrap(),
                     PieceColor::Black => self.black_occupancy.unwrap(),
@@ -205,7 +220,7 @@ impl Board {
         return Some(moves);
     }
 
-    pub fn pawn_moves(&self, state: GameState, color: PieceColor) -> Option<Vec<PieceMove>> {
+    pub fn pawn_moves(&self, state: GameState, color: &PieceColor) -> Option<Vec<PieceMove>> {
         if let Some(_checked_king) = state.check_info.checked_king {
             match (
                 state.check_info.first_checker,
@@ -217,23 +232,48 @@ impl Board {
             };
         }
         let mut moves: Vec<PieceMove> = Vec::new();
-        let mut pawns_bitboard: u64 = match color {
+        let mut pawns_bitboard: Bitboard = match color {
             PieceColor::Black => self.black_pawns,
             PieceColor::White => self.white_pawns,
         };
 
         while pawns_bitboard != 0 {
             let initial_pos: u8 = pawns_bitboard.trailing_zeros() as u8;
-            let attacks: u64 = match color {
+            let forward_square: u8 = match color {
+                &PieceColor::Black => initial_pos.wrapping_sub(8),
+                &PieceColor::White => initial_pos + 8,
+            };
+            if forward_square < 64 && (self.total_occupancy.unwrap() >> forward_square) & 1 == 0 {
+                moves.push(PieceMove {
+                    from: initial_pos,
+                    to: forward_square,
+                });
+                let second_forward_square: u8 = match color {
+                    &PieceColor::Black => initial_pos.wrapping_sub(16),
+                    &PieceColor::White => initial_pos + 16,
+                };
+                if match color {
+                    PieceColor::Black => (initial_pos + 4) / 50,
+                    PieceColor::White => (initial_pos + 4) / 10,
+                } == 1
+                    && second_forward_square < 64
+                    && (self.total_occupancy.unwrap() >> second_forward_square) & 1 == 0
+                {
+                    moves.push(PieceMove {
+                        from: initial_pos,
+                        to: second_forward_square,
+                    });
+                }
+            }
+            let attacks: Bitboard = match color {
                 PieceColor::White => WHITE_PAWN_ATTACKS[initial_pos as usize],
                 PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
-            let mut dest_bitboard: u64 = attacks
-                & !match color {
-                    PieceColor::White => self.white_occupancy.unwrap(),
-                    PieceColor::Black => self.black_occupancy.unwrap(),
+            let mut dest_bitboard: Bitboard = attacks
+                & match color {
+                    PieceColor::White => self.black_occupancy.unwrap(),
+                    PieceColor::Black => self.white_occupancy.unwrap(),
                 };
-
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
                 moves.push(PieceMove {
@@ -248,17 +288,17 @@ impl Board {
         return Some(moves);
     }
 
-    pub fn king_moves(&self, _state: GameState, color: PieceColor) -> Option<Vec<PieceMove>> {
+    pub fn king_moves(&self, _state: GameState, color: &PieceColor) -> Option<Vec<PieceMove>> {
         let mut moves: Vec<PieceMove> = Vec::new();
-        let mut king_bitboard: u64 = match color {
+        let mut king_bitboard: Bitboard = match color {
             PieceColor::Black => self.black_king,
             PieceColor::White => self.white_king,
         };
 
         while king_bitboard != 0 {
             let initial_pos: u8 = king_bitboard.trailing_zeros() as u8;
-            let attacks: u64 = KING_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: u64 = attacks
+            let attacks: Bitboard = KING_ATTACKS[initial_pos as usize];
+            let mut dest_bitboard: Bitboard = attacks
                 & !match color {
                     PieceColor::White => self.white_occupancy.unwrap(),
                     PieceColor::Black => self.black_occupancy.unwrap(),
@@ -278,19 +318,53 @@ impl Board {
         return Some(moves);
     }
 
-    pub fn sliding_moves(
-        &self,
-        square: u8,
-        piece_type: PieceType,
-        color: PieceColor,
-    ) -> Option<Vec<PieceMove>> {
+    pub fn rook_moves(&self, state: GameState, color: &PieceColor) -> Option<Vec<PieceMove>> {
+        if let Some(_checked_king) = state.check_info.checked_king {
+            match (
+                state.check_info.first_checker,
+                state.check_info.second_checker,
+            ) {
+                (Some(_c), None) => return None, // temporary solution
+                (Some(_), Some(_)) => return None,
+                _ => unreachable!(),
+            };
+        }
+
         let mut moves: Vec<PieceMove> = Vec::new();
-        let attacks: Bitboard = match piece_type {
-            PieceType::Queen => self.queen_destinations(color),
-            PieceType::Rook => self.rook_destinations(color),
-            PieceType::Bishop => self.bishop_destinations(color),
-            _ => panic!("Invalid piece type"),
+        let mut rooks_bitboard: Bitboard = match color {
+            PieceColor::Black => self.black_rooks,
+            PieceColor::White => self.white_rooks,
         };
+
+        let occupancy = self.total_occupancy.unwrap();
+        let friendly_occupancy = match color {
+            PieceColor::White => self.white_occupancy.unwrap(),
+            PieceColor::Black => self.black_occupancy.unwrap(),
+        };
+
+        while rooks_bitboard != 0 {
+            let initial_pos: usize = rooks_bitboard.trailing_zeros() as usize;
+
+            let masked_blockers = occupancy & ROOK_MASKS[initial_pos];
+            let idx: usize = ((masked_blockers.wrapping_mul(ROOK_MAGICS[initial_pos]))
+                >> ROOK_SHIFTS[initial_pos]) as usize;
+            let offset: usize = ROOK_OFFSETS[initial_pos];
+
+            let attacks: Bitboard = unsafe { ROOK_ATTACKS[offset + idx] };
+
+            let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+
+            while dest_bitboard != 0 {
+                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
+                moves.push(PieceMove {
+                    from: initial_pos as u8,
+                    to: final_pos,
+                });
+                dest_bitboard &= dest_bitboard - 1;
+            }
+
+            rooks_bitboard &= rooks_bitboard - 1;
+        }
 
         return Some(moves);
     }

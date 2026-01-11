@@ -119,8 +119,7 @@ const fn pawn_attacks(color: PieceColor) -> [Bitboard; 64] {
 }
 
 // taken from another chess engine's source code
-#[allow(unused)]
-const ROOK_MAGICS: [Bitboard; 64] = [
+pub const ROOK_MAGICS: [Bitboard; 64] = [
     0xA180022080400230,
     0x0040100040022000,
     0x0080088020001002,
@@ -187,8 +186,7 @@ const ROOK_MAGICS: [Bitboard; 64] = [
     0x7645FFFECBFEA79E,
 ];
 
-#[allow(unused)]
-const BISHOP_MAGICS: [Bitboard; 64] = [
+pub const BISHOP_MAGICS: [Bitboard; 64] = [
     0xFFEDF9FD7CFCFFFF,
     0xFC0962854A77F576,
     0x5822022042000000,
@@ -341,7 +339,8 @@ const fn bishop_mask() -> [Bitboard; 64] {
 pub const ROOK_MASKS: [Bitboard; 64] = rook_masks();
 pub const BISHOP_MASKS: [Bitboard; 64] = bishop_mask();
 
-fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
+#[allow(unused)]
+pub fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
     let bits: Vec<u32> = (0..64).filter(|&i| (mask >> i) & 1 == 1).collect();
 
     let n: usize = bits.len();
@@ -361,11 +360,30 @@ fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
 
     return blockers;
 }
+pub static mut ROOK_ATTACKS: [Bitboard; 64 * 4096] = [0; 64 * 4096];
+pub static mut BISHOP_ATTACKS: [Bitboard; 64 * 512] = [0; 64 * 512];
 
-static mut ROOK_ATTACKS: [Bitboard; 64 * 4096] = [69; 64 * 4096];
-static mut BISHOP_ATTACKS: [Bitboard; 64 * 512] = [69; 64 * 512];
+pub const ROOK_OFFSETS: [usize; 64] = {
+    let mut offsets: [usize; 64] = [0; 64];
+    let mut idx: usize = 0;
+    while idx < 64 {
+        offsets[idx] = idx * 4096;
+        idx += 1;
+    }
+    offsets
+};
 
-fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
+pub const BISHOP_OFFSETS: [usize; 64] = {
+    let mut offsets: [usize; 64] = [0; 64];
+    let mut idx: usize = 0;
+    while idx < 64 {
+        offsets[idx] = idx * 512;
+        idx += 1;
+    }
+    offsets
+};
+
+pub fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
     let (rank, file) = (square / 8, square % 8);
     let mut attacks = 0u64;
 
@@ -412,9 +430,9 @@ fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
     return attacks;
 }
 
-fn bishop_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
+pub fn bishop_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
     let (rank, file) = (square / 8, square % 8);
-    let mut attacks = 0u64;
+    let mut attacks: Bitboard = 0;
 
     let (mut r, mut f) = (rank as i32 + 1, file as i32 + 1);
     while r < 8 && f < 8 {
@@ -463,7 +481,7 @@ fn bishop_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
     return attacks;
 }
 
-fn initialize_sliding_attack_tables() -> () {
+pub fn initialize_sliding_attack_tables() -> () {
     let mut square: usize = 0;
     unsafe {
         while square < 64 {
@@ -475,18 +493,19 @@ fn initialize_sliding_attack_tables() -> () {
 
             let mut blockers_index: usize = 0;
             while blockers_index < rook_blockers.len() {
-                let idx: usize = ((rook_blockers[blockers_index] * ROOK_MAGICS[square])
+                let idx: usize = ((rook_blockers[blockers_index].wrapping_mul(ROOK_MAGICS[square]))
                     >> ROOK_SHIFTS[square]) as usize;
-                ROOK_ATTACKS[square * 4096 + idx] =
+                ROOK_ATTACKS[ROOK_OFFSETS[square] + idx] =
                     rook_attacks_with_blockers(square, rook_blockers[blockers_index]);
                 blockers_index += 1;
             }
 
             blockers_index = 0;
             while blockers_index < bishop_blockers.len() {
-                let idx: usize = ((bishop_blockers[blockers_index] * BISHOP_MAGICS[square])
+                let idx: usize = ((bishop_blockers[blockers_index]
+                    .wrapping_mul(BISHOP_MAGICS[square]))
                     >> BISHOP_SHIFTS[square]) as usize;
-                BISHOP_ATTACKS[square * 512 + idx] =
+                BISHOP_ATTACKS[BISHOP_OFFSETS[square] + idx] =
                     bishop_attacks_with_blockers(square, bishop_blockers[blockers_index]);
                 blockers_index += 1;
             }

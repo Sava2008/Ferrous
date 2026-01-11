@@ -1,3 +1,5 @@
+use crate::constants::attacks::initialize_sliding_attack_tables;
+
 pub mod board;
 pub mod board_geometry_templates;
 pub mod constants;
@@ -8,5 +10,5 @@ pub mod moves;
 pub mod tests;
 
 fn main() {
-    println!("Hello, world!");
+    initialize_sliding_attack_tables();
 }
