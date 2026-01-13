@@ -79,4 +79,27 @@ impl Board {
         };
         self.total_occupancy = Some(self.white_occupancy.unwrap() | self.black_occupancy.unwrap());
     }
+
+    pub fn bitboard_to_indices(mut bitboard: Bitboard) -> Vec<usize> {
+        let mut indices: Vec<usize> = Vec::new();
+        while bitboard != 0 {
+            let index: usize = bitboard.trailing_zeros() as usize;
+            indices.push(index);
+            bitboard &= bitboard - 1;
+        }
+        return indices;
+    }
+
+    pub fn indices_to_bitboard(indices: &Vec<usize>) -> Bitboard {
+        let mut bitboard: Bitboard = 0;
+        for index in indices {
+            if *index > 63 {
+                panic!(
+                    "can annotate a chess board only with indices from 0 (inclusive) to 63 (inclusive)"
+                );
+            }
+            bitboard |= 1 << index;
+        }
+        return bitboard;
+    }
 }

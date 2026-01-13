@@ -513,3 +513,21 @@ pub fn initialize_sliding_attack_tables() -> () {
         }
     }
 }
+
+pub fn rook_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
+    let masked_blockers: Bitboard = occupancy & ROOK_MASKS[initial_pos];
+    let idx: usize = ((masked_blockers.wrapping_mul(ROOK_MAGICS[initial_pos]))
+        >> ROOK_SHIFTS[initial_pos]) as usize;
+    let offset: usize = ROOK_OFFSETS[initial_pos];
+
+    return unsafe { ROOK_ATTACKS[offset + idx] };
+}
+
+pub fn bishop_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
+    let masked_blockers: Bitboard = occupancy & BISHOP_MASKS[initial_pos];
+    let idx: usize = ((masked_blockers.wrapping_mul(BISHOP_MAGICS[initial_pos]))
+        >> BISHOP_SHIFTS[initial_pos]) as usize;
+    let offset: usize = BISHOP_OFFSETS[initial_pos];
+
+    return unsafe { BISHOP_ATTACKS[offset + idx] };
+}

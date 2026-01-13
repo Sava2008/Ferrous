@@ -1,3 +1,4 @@
+mod bitboard_conversion_tests;
 mod converters_tests;
 mod occupancy_tests;
 

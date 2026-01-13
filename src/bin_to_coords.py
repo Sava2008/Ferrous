@@ -25,3 +25,14 @@ def assemble_bin_from_coords(squares: list[str]) -> str:
     return "".join(
         ("1" if item[1] in squares else "0" for item in idx_to_coords.items())
     )
+
+
+def bin_to_indices(num: str) -> list[int]:
+    return [63 - i for i, digit in enumerate(num) if digit == "1"][::-1]
+
+
+def indices_to_bin(indices: list[int]) -> str:
+    return assemble_bin_from_coords([idx_to_coords[i] for i in indices])
+
+
+print(assemble_bin_from_coords(["d4", "h2"]))
