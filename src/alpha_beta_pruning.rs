@@ -1,8 +1,14 @@
-/* Alpha beta pruning is an algorithm that calculates
-the best move by searching into the position on a
-certain depth. Its advantage over minimax is that it
-cuts off unlikely good branches */
+use crate::enums::PieceColor;
+pub struct Engine {
+    pub side: PieceColor, // which color Ferrous plays
+    pub best_possible_score: i32,
+    pub worst_possible_score: i32,
+    pub depth: u8,
+    pub evaluation: i32,
+}
 
-pub fn alpha_beta_pruning() -> () {
-    todo!();
+impl Engine {
+    pub fn alpha_beta_pruning() -> () {
+        todo!();
+    }
 }

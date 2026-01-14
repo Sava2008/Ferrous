@@ -100,16 +100,16 @@ pub fn board_to_fen(board: &Board, state: &GameState) -> String {
                 let symbol: char = match piece {
                     &ChessPiece::BB => 'b',
                     &ChessPiece::BN => 'n',
-                    &ChessPiece::BQ => 'q',
+                    &ChessPiece::BQ => 'k',
                     &ChessPiece::BR => 'r',
                     &ChessPiece::BP => 'p',
-                    &ChessPiece::BK => 'k',
+                    &ChessPiece::BK => 'q',
                     &ChessPiece::WB => 'B',
                     &ChessPiece::WN => 'N',
-                    &ChessPiece::WQ => 'Q',
+                    &ChessPiece::WQ => 'K',
                     &ChessPiece::WR => 'R',
                     &ChessPiece::WP => 'P',
-                    &ChessPiece::WK => 'K',
+                    &ChessPiece::WK => 'Q',
                     _ => unreachable!(),
                 };
                 (previous_empty, empty_square_counter) =
