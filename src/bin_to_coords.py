@@ -33,6 +33,3 @@ def bin_to_indices(num: str) -> list[int]:
 
 def indices_to_bin(indices: list[int]) -> str:
     return assemble_bin_from_coords([idx_to_coords[i] for i in indices])
-
-
-print(assemble_bin_from_coords(["d4", "h2"]))
