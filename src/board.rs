@@ -1,4 +1,8 @@
-use crate::board_geometry_templates::*;
+use crate::{
+    board_geometry_templates::*,
+    enums::{PieceColor, PieceType},
+    gamestate::PieceMove,
+};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 pub struct Board {
     pub white_pawns: Bitboard,
@@ -102,5 +106,77 @@ impl Board {
             bitboard |= 1 << index;
         }
         return bitboard;
+    }
+
+    #[inline]
+    fn reset_bit(&mut self, bitboard: (PieceColor, PieceType), bit_position: u8) -> () {
+        let mask: Bitboard = !(1 << bit_position);
+        match bitboard {
+            (PieceColor::White, PieceType::Bishop) => self.white_bishops &= mask,
+            (PieceColor::White, PieceType::Knight) => self.white_knights &= mask,
+            (PieceColor::White, PieceType::Pawn) => self.white_pawns &= mask,
+            (PieceColor::White, PieceType::Rook) => self.white_rooks &= mask,
+            (PieceColor::White, PieceType::Queen) => self.white_queens &= mask,
+            (PieceColor::White, PieceType::King) => self.white_king &= mask,
+            (PieceColor::Black, PieceType::Bishop) => self.black_bishops &= mask,
+            (PieceColor::Black, PieceType::Knight) => self.black_knights &= mask,
+            (PieceColor::Black, PieceType::Pawn) => self.black_pawns &= mask,
+            (PieceColor::Black, PieceType::Rook) => self.black_rooks &= mask,
+            (PieceColor::Black, PieceType::Queen) => self.black_queens &= mask,
+            (PieceColor::Black, PieceType::King) => self.black_king &= mask,
+        };
+    }
+
+    #[inline]
+    fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
+        let mask: Bitboard = 1 << index;
+        if self.total_occupancy.unwrap() & mask == 0 {
+            return None;
+        }
+
+        if &self.white_pawns & mask != 0 {
+            return Some((PieceColor::White, PieceType::Pawn));
+        }
+        if &self.white_knights & mask != 0 {
+            return Some((PieceColor::White, PieceType::Knight));
+        }
+        if &self.white_bishops & mask != 0 {
+            return Some((PieceColor::White, PieceType::Bishop));
+        }
+        if &self.white_rooks & mask != 0 {
+            return Some((PieceColor::White, PieceType::Rook));
+        }
+        if &self.white_queens & mask != 0 {
+            return Some((PieceColor::White, PieceType::Queen));
+        }
+        if &self.white_king & mask != 0 {
+            return Some((PieceColor::White, PieceType::King));
+        }
+
+        if &self.black_pawns & mask != 0 {
+            return Some((PieceColor::Black, PieceType::Pawn));
+        }
+        if &self.black_knights & mask != 0 {
+            return Some((PieceColor::Black, PieceType::Knight));
+        }
+        if &self.black_bishops & mask != 0 {
+            return Some((PieceColor::Black, PieceType::Bishop));
+        }
+        if &self.black_rooks & mask != 0 {
+            return Some((PieceColor::Black, PieceType::Rook));
+        }
+        if &self.black_queens & mask != 0 {
+            return Some((PieceColor::Black, PieceType::Queen));
+        }
+        if &self.black_king & mask != 0 {
+            return Some((PieceColor::Black, PieceType::King));
+        }
+
+        return None;
+    }
+
+    // performs verified moves, so there is no need for another verification
+    pub fn perform_move(&mut self, from_to: PieceMove) -> () {
+        self.reset_bit(self.bitboard_contains(from_to.from).unwrap(), from_to.to);
     }
 }
