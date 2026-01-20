@@ -1,6 +1,6 @@
 use crate::{
     board_geometry_templates::*,
-    enums::{PieceColor, PieceType},
+    enums::{InclusiveRange, PieceColor, PieceType},
     gamestate::PieceMove,
 };
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
@@ -178,5 +178,29 @@ impl Board {
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: PieceMove) -> () {
         self.reset_bit(self.bitboard_contains(from_to.from).unwrap(), from_to.to);
+    }
+
+    pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
+        let mut rng: Bitboard = 0;
+        let sq1_sq2_range: u8 = (square2 as i8 - square1 as i8).abs() as u8;
+        let increment: u8 = match sq1_sq2_range {
+            num if num % 9 == 0 => 9,
+            num if num % 7 == 0 => 7,
+            num if num <= 7 => 1,
+            num if num % 8 == 0 => 8,
+            _ => panic!("no straight path between {square1} and {square2}"),
+        };
+        let mut square: u8 = square1;
+        while square < square2 - increment {
+            square += increment;
+            rng |= 1 << square
+        }
+        match inclusion {
+            &InclusiveRange::Both => rng |= 1 << square1 | 1 << square2,
+            &InclusiveRange::FirstOnly => rng |= 1 << square1,
+            &InclusiveRange::LastOnly => rng |= 1 << square2,
+            &InclusiveRange::None => (),
+        }
+        return rng;
     }
 }

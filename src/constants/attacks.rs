@@ -346,13 +346,13 @@ pub fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
     let n: usize = bits.len();
     let total: usize = 1 << n;
 
-    let mut blockers: Vec<u64> = Vec::with_capacity(total);
+    let mut blockers: Vec<Bitboard> = Vec::with_capacity(total);
 
     for i in 0..total {
-        let mut blocker_config: u64 = 0u64;
+        let mut blocker_config: Bitboard = 0;
         for j in 0..n {
             if (i >> j) & 1 == 1 {
-                blocker_config |= 1u64 << bits[j];
+                blocker_config |= 1 << bits[j];
             }
         }
         blockers.push(blocker_config);
