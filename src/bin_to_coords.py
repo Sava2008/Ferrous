@@ -12,16 +12,24 @@ idx_to_coords: dict[int, tuple] = dict(
 
 
 def bin_to_chess_coords(num: str) -> list[str]:
+    length: int = len(num)
+    if length > 64:
+        raise ValueError("a chess board cannot have more than 64 squares")
+
+    num: str = (
+        "".join(["0" for _ in range(64 - length)]) + num
+        if length < 64
+        else num
+    )
+
     return [idx_to_coords[i] for i, bit in enumerate(num) if bit == "1"]
 
 
 def reverse_bin(num: str) -> str:
-    return "0b" + num[::-1]
+    return num[::-1]
 
 
 def assemble_bin_from_coords(squares: list[str]) -> str:
-    """accepts a list of chess coordinates as an input
-    and outputs a binary representation of those coordinates"""
     return "".join(
         ("1" if item[1] in squares else "0" for item in idx_to_coords.items())
     )

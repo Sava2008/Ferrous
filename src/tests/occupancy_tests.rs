@@ -9,11 +9,11 @@ pub fn occupancy_test1() -> () {
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.white_occupancy.unwrap(),
+        test_board.black_occupancy.unwrap(),
         0b1111111111111111000000000000000000000000000000000000000000000000
     );
     assert_eq!(
-        test_board.black_occupancy.unwrap(),
+        test_board.white_occupancy.unwrap(),
         0b0000000000000000000000000000000000000000000000001111111111111111
     );
     assert_eq!(

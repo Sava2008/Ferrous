@@ -29,7 +29,7 @@ pub fn board_to_fen_test1() -> () {
     test_board.black_occupancy();
     test_board.total_occupancy();
 
-    let mut test_state: GameState = GameState {
+    let test_state: GameState = GameState {
         en_passant_target: None,
         castling_rights: CastlingRights::new(),
         fifty_moves_rule_counter: 0,
@@ -39,7 +39,6 @@ pub fn board_to_fen_test1() -> () {
         total_moves_amount: 1,
         whose_turn: PieceColor::White,
     };
-    test_state.pin_info.update(&test_board);
 
     assert_eq!(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

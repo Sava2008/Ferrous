@@ -153,39 +153,58 @@ impl PinInfo {
         };
     }
 
-    pub fn update(&mut self, board: &Board) -> () {
+    pub fn update(&mut self, board: &Board, color: &PieceColor) -> () {
         self.white_king = board.white_king.trailing_zeros() as u8;
         self.black_king = board.black_king.trailing_zeros() as u8;
-        // logic for white
-        let lines: Bitboard =
-            rook_attacks(self.white_king as usize, board.black_occupancy.unwrap());
-        let mut linear_attackers: Bitboard = lines & (&board.black_queens | &board.black_rooks);
+
+        let (lines, diagonals) = match color {
+            &PieceColor::White => (
+                rook_attacks(self.white_king as usize, board.black_occupancy.unwrap()),
+                bishop_attacks(self.white_king as usize, board.black_occupancy.unwrap()),
+            ),
+            &PieceColor::Black => (
+                rook_attacks(self.black_king as usize, board.white_occupancy.unwrap()),
+                bishop_attacks(self.black_king as usize, board.white_occupancy.unwrap()),
+            ),
+        };
+        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy) =
+            match color {
+                PieceColor::White => (
+                    lines & (&board.black_queens | &board.black_rooks),
+                    diagonals & (&board.black_queens | &board.black_bishops),
+                    &mut self.white_pinned_pieces,
+                    &self.white_king,
+                    &board.white_occupancy.unwrap(),
+                ),
+                PieceColor::Black => (
+                    lines & (&board.white_queens | &board.white_rooks),
+                    diagonals & (&board.white_queens | &board.white_bishops),
+                    &mut self.black_pinned_pieces,
+                    &self.black_king,
+                    &board.black_occupancy.unwrap(),
+                ),
+            };
         while linear_attackers != 0 {
             let pinned_piece: u8 = (Board::generate_range(
-                self.white_king,
+                *king,
                 linear_attackers.trailing_zeros() as u8,
                 &InclusiveRange::None,
-            ) & board.white_occupancy.unwrap())
-            .trailing_zeros() as u8;
+            ) & friendly_occupancy)
+                .trailing_zeros() as u8;
             if pinned_piece != 0 {
-                self.white_pinned_pieces.push(pinned_piece);
+                pinned_pieces.push(pinned_piece);
             }
             linear_attackers &= linear_attackers - 1;
         }
-
-        let diagonals: Bitboard =
-            bishop_attacks(self.white_king as usize, board.black_occupancy.unwrap());
-        let mut diagonal_attackers: Bitboard =
-            diagonals & (&board.black_queens | &board.black_bishops);
         while diagonal_attackers != 0 {
             let pinned_piece: u8 = (Board::generate_range(
-                self.white_king,
+                *king,
                 diagonal_attackers.trailing_zeros() as u8,
                 &InclusiveRange::None,
-            ) & board.white_occupancy.unwrap())
-            .trailing_zeros() as u8;
+            ) & friendly_occupancy)
+                .trailing_zeros() as u8;
             if pinned_piece != 0 {
-                self.white_pinned_pieces.push(pinned_piece);
+                pinned_pieces.push(pinned_piece);
             }
             diagonal_attackers &= diagonal_attackers - 1;
         }

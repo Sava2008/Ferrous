@@ -3,6 +3,7 @@ use crate::{
     enums::{InclusiveRange, PieceColor, PieceType},
     gamestate::PieceMove,
 };
+use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 pub struct Board {
     pub white_pawns: Bitboard,
@@ -181,19 +182,19 @@ impl Board {
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
+        let (mut lower_square, higher_square) = (min(square1, square2), max(square1, square2));
         let mut rng: Bitboard = 0;
-        let sq1_sq2_range: u8 = (square2 as i8 - square1 as i8).abs() as u8;
+        let sq1_sq2_range: u8 = higher_square - lower_square;
         let increment: u8 = match sq1_sq2_range {
             num if num % 9 == 0 => 9,
-            num if num % 7 == 0 => 7,
+            num if num % 7 == 0 && ((1 << num) & FILE_A) == 0 => 7,
             num if num <= 7 => 1,
             num if num % 8 == 0 => 8,
             _ => panic!("no straight path between {square1} and {square2}"),
         };
-        let mut square: u8 = square1;
-        while square < square2 - increment {
-            square += increment;
-            rng |= 1 << square
+        while lower_square < higher_square - increment {
+            lower_square += increment;
+            rng |= 1 << lower_square;
         }
         match inclusion {
             &InclusiveRange::Both => rng |= 1 << square1 | 1 << square2,
