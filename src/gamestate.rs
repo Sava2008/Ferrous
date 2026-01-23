@@ -4,7 +4,7 @@ use crate::{
     constants::attacks::{
         BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
     },
-    enums::{InclusiveRange, PieceColor, PieceType},
+    enums::{GameResult, InclusiveRange, PieceColor, PieceType},
 };
 #[derive(Debug)]
 pub struct GameState {
@@ -16,6 +16,7 @@ pub struct GameState {
     pub moves_history: Vec<PreviousMove>,
     pub total_moves_amount: u16,
     pub whose_turn: PieceColor,
+    pub result: GameResult,
 }
 
 #[derive(Debug)]
@@ -120,7 +121,9 @@ impl CheckInfo {
                 (None, None) => self.first_checker = Some(checker),
                 _ => unreachable!(),
             };
-            if i == 0 && enemy_bitboard.count_ones() > 1 {
+            if
+            /*  i == 0  &&*/
+            enemy_bitboard.count_ones() > 1 {
                 let mut bb: Bitboard = **enemy_bitboard;
                 bb &= bb - 1;
                 let checker: u8 = (bb & (diagonals | lines)).trailing_zeros() as u8;
@@ -239,6 +242,7 @@ impl GameState {
             moves_history: Vec::new(),
             total_moves_amount: 0,
             whose_turn: PieceColor::White,
+            result: GameResult::Going,
         };
     }
 }

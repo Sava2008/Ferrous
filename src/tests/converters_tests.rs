@@ -38,6 +38,7 @@ pub fn board_to_fen_test1() -> () {
         moves_history: Vec::new(),
         total_moves_amount: 1,
         whose_turn: PieceColor::White,
+        result: crate::enums::GameResult::Going,
     };
 
     assert_eq!(

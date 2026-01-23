@@ -22,3 +22,11 @@ pub enum InclusiveRange {
     FirstOnly, // 1 inclusive, 10 exclusive
     LastOnly,  // 1 exclusive, 10 inclusive
 }
+
+#[derive(Debug)]
+pub enum GameResult {
+    Going,
+    WhiteWins,
+    BlackWins,
+    Draw,
+}
