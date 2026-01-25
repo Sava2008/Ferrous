@@ -6,6 +6,15 @@ use crate::{
     },
     enums::{GameResult, InclusiveRange, PieceColor, PieceType},
 };
+
+/* order of updating the fields:
+1. whose_turn
+2. result
+3. fifty_move_rule_counter
+4. total_moves_amount
+5. check_info, pin_info
+6. check_contraints  */
+
 #[derive(Debug)]
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares
@@ -17,6 +26,7 @@ pub struct GameState {
     pub total_moves_amount: u16,
     pub whose_turn: PieceColor,
     pub result: GameResult,
+    pub check_contraints: Bitboard, // all the allowed squares for friendly pieces except the king during a check
 }
 
 #[derive(Debug)]
@@ -243,6 +253,28 @@ impl GameState {
             total_moves_amount: 0,
             whose_turn: PieceColor::White,
             result: GameResult::Going,
+            check_contraints: 0,
+        };
+    }
+
+    pub fn update_check_constraints(&mut self, board: &Board, color: &PieceColor) -> () {
+        if self.check_info.checked_king.is_none() | self.check_info.second_checker.is_some() {
+            self.check_contraints = 0;
+            return;
+        }
+        let checker_index: u8 = self.check_info.first_checker.unwrap();
+        let piece: (PieceColor, PieceType) = board.bitboard_contains(checker_index).unwrap();
+        if piece.0 == *color {
+            panic!("irrelevant color");
+        }
+        self.check_contraints = match board.bitboard_contains(checker_index).unwrap().1 {
+            PieceType::Bishop | PieceType::Queen | PieceType::Rook => Board::generate_range(
+                self.check_info.checked_king.unwrap(),
+                checker_index,
+                &InclusiveRange::LastOnly,
+            ),
+            PieceType::Knight | PieceType::Pawn => 1 << checker_index,
+            _ => panic!("irrelevant piece color or piece type"),
         };
     }
 }

@@ -129,7 +129,7 @@ impl Board {
     }
 
     #[inline]
-    fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
+    pub fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
         let mask: Bitboard = 1 << index;
         if self.total_occupancy.unwrap() & mask == 0 {
             return None;

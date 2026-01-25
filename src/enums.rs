@@ -1,7 +1,19 @@
-#[derive(Debug)]
+use std::ops::Not;
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum PieceColor {
     White,
     Black,
+}
+
+impl Not for PieceColor {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        return match self {
+            PieceColor::Black => PieceColor::White,
+            PieceColor::White => PieceColor::Black,
+        };
+    }
 }
 
 #[derive(Debug)]

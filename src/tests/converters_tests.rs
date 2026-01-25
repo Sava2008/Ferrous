@@ -39,6 +39,7 @@ pub fn board_to_fen_test1() -> () {
         total_moves_amount: 1,
         whose_turn: PieceColor::White,
         result: crate::enums::GameResult::Going,
+        check_contraints: 0,
     };
 
     assert_eq!(

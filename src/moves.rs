@@ -201,25 +201,33 @@ impl Board {
                 state.check_info.first_checker,
                 state.check_info.second_checker,
             ) {
-                (Some(_c), None) => return None, // temporary solution
+                (Some(_c), None) => (),
                 (Some(_), Some(_)) => return None,
                 _ => unreachable!(),
             };
         }
         let mut moves: Vec<PieceMove> = Vec::new();
-        let mut knights_bitboard: Bitboard = match color {
-            PieceColor::Black => self.black_knights,
-            PieceColor::White => self.white_knights,
+        let (mut knights_bitboard, pinned_pieces) = match color {
+            PieceColor::Black => (self.black_knights, &state.pin_info.black_pinned_pieces),
+            PieceColor::White => (self.white_knights, &state.pin_info.white_pinned_pieces),
         };
 
         while knights_bitboard != 0 {
             let initial_pos: u8 = knights_bitboard.trailing_zeros() as u8;
+
+            if pinned_pieces.contains(&initial_pos) {
+                continue;
+            }
+
             let attacks: Bitboard = KNIGHT_ATTACKS[initial_pos as usize];
             let mut dest_bitboard: Bitboard = attacks
                 & !match color {
                     PieceColor::White => self.white_occupancy.unwrap(),
                     PieceColor::Black => self.black_occupancy.unwrap(),
                 };
+            if state.check_contraints != 0 {
+                dest_bitboard &= &state.check_contraints;
+            }
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
@@ -241,7 +249,7 @@ impl Board {
                 state.check_info.first_checker,
                 state.check_info.second_checker,
             ) {
-                (Some(_c), None) => return None, // temporary solution
+                (Some(_c), None) => (),
                 (Some(_), Some(_)) => return None,
                 _ => unreachable!(),
             };
@@ -294,6 +302,9 @@ impl Board {
                 PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
             let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
+            if state.check_contraints != 0 {
+                dest_bitboard &= &state.check_contraints;
+            }
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
                 moves.push(PieceMove {
@@ -357,7 +368,7 @@ impl Board {
                 state.check_info.first_checker,
                 state.check_info.second_checker,
             ) {
-                (Some(_c), None) => return None, // temporary solution
+                (Some(_c), None) => (),
                 (Some(_), Some(_)) => return None,
                 _ => unreachable!(),
             };
@@ -379,6 +390,9 @@ impl Board {
             let initial_pos: usize = rooks_bitboard.trailing_zeros() as usize;
             let attacks: Bitboard = rook_attacks(initial_pos, occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            if state.check_contraints != 0 {
+                dest_bitboard &= &state.check_contraints;
+            }
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
@@ -423,6 +437,9 @@ impl Board {
             let initial_pos: usize = bishops_bitboard.trailing_zeros() as usize;
             let attacks: Bitboard = bishop_attacks(initial_pos, occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            if state.check_contraints != 0 {
+                dest_bitboard &= &state.check_contraints;
+            }
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
@@ -469,6 +486,9 @@ impl Board {
                 bishop_attacks(initial_pos, occupancy) | rook_attacks(initial_pos, occupancy);
 
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            if state.check_contraints != 0 {
+                dest_bitboard &= &state.check_contraints;
+            }
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;

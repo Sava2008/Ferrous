@@ -38,6 +38,7 @@ pub fn pin_test1() -> () {
         total_moves_amount: 15,
         whose_turn: PieceColor::White,
         result: crate::enums::GameResult::Going,
+        check_contraints: 0,
     };
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
@@ -77,6 +78,7 @@ pub fn pin_test2() -> () {
         total_moves_amount: 15,
         whose_turn: PieceColor::White,
         result: crate::enums::GameResult::Going,
+        check_contraints: 0,
     };
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
@@ -116,6 +118,7 @@ fn check_test1() -> () {
         total_moves_amount: 15,
         whose_turn: PieceColor::Black,
         result: crate::enums::GameResult::Going,
+        check_contraints: 0,
     };
     state.check_info.update(&board, &PieceColor::Black);
     assert_eq!(
@@ -159,6 +162,7 @@ fn check_test2() -> () {
         total_moves_amount: 15,
         whose_turn: PieceColor::Black,
         result: crate::enums::GameResult::Going,
+        check_contraints: 0,
     };
     state.check_info.update(&board, &PieceColor::White);
     assert_eq!(
