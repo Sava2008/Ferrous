@@ -234,7 +234,7 @@ pub struct PreviousMove {
     pub captured_piece_type: Option<PieceType>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PieceMove {
     pub from: u8,
     pub to: u8,

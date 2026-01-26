@@ -2,7 +2,7 @@
 use crate::board::Board;
 
 #[test]
-pub fn bitboard_to_indices_test() -> () {
+fn bitboard_to_indices_test() -> () {
     assert_eq!(
         Board::bitboard_to_indices(
             0b0000000000000000000000010000000000001100000000000000100000001000
@@ -24,7 +24,7 @@ pub fn bitboard_to_indices_test() -> () {
 }
 
 #[test]
-pub fn indices_to_bitboard_test() -> () {
+fn indices_to_bitboard_test() -> () {
     assert_eq!(
         Board::indices_to_bitboard(&vec![3, 11, 26, 27, 40]),
         0b0000000000000000000000010000000000001100000000000000100000001000

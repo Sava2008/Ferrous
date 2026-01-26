@@ -275,11 +275,13 @@ impl Board {
                 &PieceColor::Black => initial_pos.wrapping_sub(8),
                 &PieceColor::White => initial_pos + 8,
             };
+            let attacks: Bitboard = match color {
+                PieceColor::White => WHITE_PAWN_ATTACKS[initial_pos as usize],
+                PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
+            };
+            let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
             if forward_square < 64 && (self.total_occupancy.unwrap() >> forward_square) & 1 == 0 {
-                moves.push(PieceMove {
-                    from: initial_pos,
-                    to: forward_square,
-                });
+                dest_bitboard |= 1 << forward_square;
                 let second_forward_square: u8 = match color {
                     &PieceColor::Black => initial_pos.wrapping_sub(16),
                     &PieceColor::White => initial_pos + 16,
@@ -291,17 +293,9 @@ impl Board {
                     && second_forward_square < 64
                     && (self.total_occupancy.unwrap() >> second_forward_square) & 1 == 0
                 {
-                    moves.push(PieceMove {
-                        from: initial_pos,
-                        to: second_forward_square,
-                    });
+                    dest_bitboard |= 1 << second_forward_square;
                 }
             }
-            let attacks: Bitboard = match color {
-                PieceColor::White => WHITE_PAWN_ATTACKS[initial_pos as usize],
-                PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
-            };
-            let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
             if state.check_contraints != 0 {
                 dest_bitboard &= &state.check_contraints;
             }
@@ -334,6 +328,7 @@ impl Board {
                     | self.knight_destinations(&PieceColor::White)
                     | self.pawn_destintions(&PieceColor::White)
                     | self.king_destinations(&PieceColor::White)
+                    | self.queen_destinations(&PieceColor::White)
             }
             PieceColor::White => {
                 self.bishop_destinations(&PieceColor::Black)
@@ -341,6 +336,7 @@ impl Board {
                     | self.knight_destinations(&PieceColor::Black)
                     | self.pawn_destintions(&PieceColor::Black)
                     | self.king_destinations(&PieceColor::Black)
+                    | self.queen_destinations(&PieceColor::Black)
             }
         };
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
@@ -415,7 +411,7 @@ impl Board {
                 state.check_info.first_checker,
                 state.check_info.second_checker,
             ) {
-                (Some(_c), None) => return None, // temporary solution
+                (Some(_c), None) => (),
                 (Some(_), Some(_)) => return None,
                 _ => unreachable!(),
             };

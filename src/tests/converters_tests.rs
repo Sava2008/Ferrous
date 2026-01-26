@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[test]
-pub fn board_to_fen_test1() -> () {
+fn board_to_fen_test1() -> () {
     let mut test_board: Board = Board {
         white_pawns: 0b0000000000000000000000000000000000000000000000001111111100000000,
         white_knights: 0b0000000000000000000000000000000000000000000000000000000001000010,

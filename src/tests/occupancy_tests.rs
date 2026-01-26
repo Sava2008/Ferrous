@@ -2,7 +2,7 @@
 use crate::board::Board;
 
 #[test]
-pub fn occupancy_test1() -> () {
+fn occupancy_test1() -> () {
     let mut test_board: Board = Board::set();
     test_board.white_occupancy();
     test_board.black_occupancy();
@@ -23,7 +23,7 @@ pub fn occupancy_test1() -> () {
 }
 
 #[test]
-pub fn occupancy_test2() -> () {
+fn occupancy_test2() -> () {
     let mut test_board: Board = Board {
         white_pawns: 0b0000000011010000001000000000000000000000000000000000000000000000,
         white_knights: 0b0000000000000000010000000000000000010000100000000000000000000000,
