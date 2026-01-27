@@ -1,6 +1,21 @@
 use crate::{board_geometry_templates::Bitboard, enums::PieceColor};
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 pub const KNIGHT_ATTACKS: [Bitboard; 64] = knight_attacks();
+pub const INDICES_TO_COORDS: Lazy<HashMap<String, u8>> = Lazy::new(|| {
+    (0..=63)
+        .map(|i: u8| {
+            let (col, row) = (i as u32 / 8 + 1, i as u32 % 8);
+            {
+                (
+                    format!("{}{}", std::char::from_u32(row + 97).unwrap(), col),
+                    i,
+                )
+            }
+        })
+        .collect()
+});
 
 #[allow(unused)]
 const fn knight_attacks() -> [Bitboard; 64] {

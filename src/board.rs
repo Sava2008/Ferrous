@@ -5,6 +5,7 @@ use crate::{
 };
 use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
+#[derive(Debug)]
 pub struct Board {
     pub white_pawns: Bitboard,
     pub white_knights: Bitboard,
@@ -110,22 +111,31 @@ impl Board {
     }
 
     #[inline]
-    fn reset_bit(&mut self, bitboard: (PieceColor, PieceType), bit_position: u8) -> () {
-        let mask: Bitboard = !(1 << bit_position);
-        match bitboard {
-            (PieceColor::White, PieceType::Bishop) => self.white_bishops &= mask,
-            (PieceColor::White, PieceType::Knight) => self.white_knights &= mask,
-            (PieceColor::White, PieceType::Pawn) => self.white_pawns &= mask,
-            (PieceColor::White, PieceType::Rook) => self.white_rooks &= mask,
-            (PieceColor::White, PieceType::Queen) => self.white_queens &= mask,
-            (PieceColor::White, PieceType::King) => self.white_king &= mask,
-            (PieceColor::Black, PieceType::Bishop) => self.black_bishops &= mask,
-            (PieceColor::Black, PieceType::Knight) => self.black_knights &= mask,
-            (PieceColor::Black, PieceType::Pawn) => self.black_pawns &= mask,
-            (PieceColor::Black, PieceType::Rook) => self.black_rooks &= mask,
-            (PieceColor::Black, PieceType::Queen) => self.black_queens &= mask,
-            (PieceColor::Black, PieceType::King) => self.black_king &= mask,
+    fn reset_bit(
+        &mut self,
+        bitboard: (PieceColor, PieceType),
+        bit_position1: u8,
+        bit_position2: u8,
+    ) -> () {
+        let from_mask: Bitboard = !(1 << bit_position1);
+        let to_mask: Bitboard = 1 << bit_position2;
+        let bitboard_to_mutate: &mut Bitboard = match bitboard {
+            (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,
+            (PieceColor::White, PieceType::Knight) => &mut self.white_knights,
+            (PieceColor::White, PieceType::Pawn) => &mut self.white_pawns,
+            (PieceColor::White, PieceType::Rook) => &mut self.white_rooks,
+            (PieceColor::White, PieceType::Queen) => &mut self.white_queens,
+            (PieceColor::White, PieceType::King) => &mut self.white_king,
+            (PieceColor::Black, PieceType::Bishop) => &mut self.black_bishops,
+            (PieceColor::Black, PieceType::Knight) => &mut self.black_knights,
+            (PieceColor::Black, PieceType::Pawn) => &mut self.black_pawns,
+            (PieceColor::Black, PieceType::Rook) => &mut self.black_rooks,
+            (PieceColor::Black, PieceType::Queen) => &mut self.black_queens,
+            (PieceColor::Black, PieceType::King) => &mut self.black_king,
         };
+
+        *bitboard_to_mutate &= from_mask;
+        *bitboard_to_mutate |= to_mask;
     }
 
     #[inline]
@@ -178,7 +188,11 @@ impl Board {
 
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: PieceMove) -> () {
-        self.reset_bit(self.bitboard_contains(from_to.from).unwrap(), from_to.to);
+        self.reset_bit(
+            self.bitboard_contains(from_to.from).unwrap(),
+            from_to.from,
+            from_to.to,
+        );
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
