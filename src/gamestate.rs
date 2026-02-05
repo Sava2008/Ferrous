@@ -15,7 +15,7 @@ use crate::{
 5. check_info, pin_info
 6. check_contraints  */
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares
     pub castling_rights: CastlingRights,
@@ -29,7 +29,7 @@ pub struct GameState {
     pub check_contraints: Bitboard, // all the allowed squares for friendly pieces except the king during a check
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CastlingRights {
     pub white_three_zeros: bool,
     pub white_two_zeros: bool,
@@ -56,7 +56,7 @@ impl CastlingRights {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CheckInfo {
     pub checked_king: Option<u8>,
     pub first_checker: Option<u8>,
@@ -148,7 +148,7 @@ impl CheckInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PinInfo {
     pub white_king: u8,
     pub black_king: u8,
@@ -224,7 +224,7 @@ impl PinInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreviousMove {
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: CastlingRights,
@@ -234,7 +234,7 @@ pub struct PreviousMove {
     pub captured_piece_type: Option<PieceType>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PieceMove {
     pub from: u8,
     pub to: u8,

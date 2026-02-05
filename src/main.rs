@@ -23,13 +23,9 @@ fn main() {
     let mut state: GameState = GameState::new();
     let mut engine: Engine = Engine {
         side: PieceColor::White,
-        best_possible_score: i32::MAX,
-        worst_possible_score: i32::MIN,
         depth: 6,
         evaluation: 0,
     };
-
-    game_control(&mut state, &mut board, &mut engine).unwrap();
 }
 
 // the main loop
@@ -39,9 +35,20 @@ fn game_control(
     engine: &mut Engine,
 ) -> Result<(), io::Error> {
     loop {
-        board.white_occupancy();
-        board.black_occupancy();
         board.total_occupancy();
+        state.check_info.update(&board, &PieceColor::White);
+        state.pin_info.update(&board, &PieceColor::White);
+        state.update_check_constraints(&board, &PieceColor::White);
+
+        // white's move
+
+        board.total_occupancy();
+        state.check_info.update(&board, &PieceColor::Black);
+        state.pin_info.update(&board, &PieceColor::Black);
+        state.update_check_constraints(&board, &PieceColor::Black);
+
+        // black's move
+
         println!("input a move, for example:\ne2 e4");
         let mut user_move: String = String::with_capacity(7);
         io::stdin().read_line(&mut user_move)?;
@@ -77,7 +84,6 @@ fn game_control(
         .into_iter()
         .filter(|p_m: &PieceMove| p_m.from == piece_move[0])
         .collect();
-        println!("{:?}", board.queen_moves(&state, &piece.0).unwrap());
 
         println!("legal_moves = {legal_moves:?}, piece_move = {piece_move:?}");
 
@@ -90,8 +96,6 @@ fn game_control(
             println!("illegal move");
             continue;
         }
-
-        println!("board = {:?}", board);
 
         match state.result {
             GameResult::Going => continue,

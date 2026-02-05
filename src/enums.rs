@@ -1,6 +1,6 @@
 use std::ops::Not;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PieceColor {
     White,
     Black,
@@ -16,7 +16,7 @@ impl Not for PieceColor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum PieceType {
     Pawn,
     Knight,
@@ -35,7 +35,7 @@ pub enum InclusiveRange {
     LastOnly,  // 1 exclusive, 10 inclusive
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GameResult {
     Going,
     WhiteWins,

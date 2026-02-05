@@ -5,7 +5,7 @@ use crate::{
 };
 use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     pub white_pawns: Bitboard,
     pub white_knights: Bitboard,
@@ -71,19 +71,8 @@ impl Board {
     }
 
     pub fn total_occupancy(&mut self) -> () {
-        match (self.white_occupancy, self.black_occupancy) {
-            (None, None) => {
-                self.white_occupancy();
-                self.black_occupancy();
-            }
-            (None, Some(_)) => {
-                self.white_occupancy();
-            }
-            (Some(_), None) => {
-                self.black_occupancy();
-            }
-            (Some(_), Some(_)) => (),
-        };
+        self.white_occupancy();
+        self.black_occupancy();
         self.total_occupancy = Some(self.white_occupancy.unwrap() | self.black_occupancy.unwrap());
     }
 
