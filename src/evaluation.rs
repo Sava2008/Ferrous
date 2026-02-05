@@ -23,6 +23,7 @@ impl Engine {
     }
 
     pub fn evaluate(&mut self, board: &Board) -> () {
+        self.evaluation = 0;
         let mut p: Bitboard = board.white_bishops;
         while p != 0 {
             self.evaluation += WHITE_BISHOP_HEURISTICS[p.trailing_zeros() as usize];

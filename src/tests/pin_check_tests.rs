@@ -22,9 +22,9 @@ pub fn pin_test1() -> () {
         black_queens: 0,
         black_rooks: 0b0000000000000000000000000000100000000000000000000000000000000100,
         black_king: 0b0000000000000000000010000000000000000000000000000000000000000000,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -62,9 +62,9 @@ pub fn pin_test2() -> () {
         black_queens: 0,
         black_rooks: 0b0000000000000000000000000000000000000000000000000000000000001000,
         black_king: 0b1000000000000000000000000000000000000000000000000000000000000000,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -102,9 +102,9 @@ fn check_test1() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000010000000000000000000000000000000000000000000000000000,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -146,9 +146,9 @@ fn check_test2() -> () {
         black_queens: 0b0000000000000000010000000000000000000000000000000000000000000000,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -190,9 +190,9 @@ fn block_test1() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -210,9 +210,9 @@ fn block_test1() -> () {
     };
     state.check_info.update(&board, &PieceColor::White);
     state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board, &PieceColor::White);
+    state.update_check_constraints(&board);
     assert_eq!(
-        board.knight_moves(&state, &PieceColor::White).unwrap(),
+        board.knight_moves(&state, &PieceColor::White),
         [
             PieceMove { from: 15, to: 21 },
             PieceMove { from: 15, to: 30 }
@@ -236,9 +236,9 @@ fn block_test2() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
 
@@ -256,17 +256,14 @@ fn block_test2() -> () {
     };
     state.check_info.update(&board, &PieceColor::White);
     state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board, &PieceColor::White);
+    state.update_check_constraints(&board);
     assert_eq!(
-        board.rook_moves(&state, &PieceColor::White).unwrap(),
+        board.rook_moves(&state, &PieceColor::White),
         [PieceMove { from: 4, to: 3 }, PieceMove { from: 4, to: 12 }]
     );
     assert_eq!(
-        board.bishop_moves(&state, &PieceColor::White).unwrap(),
+        board.bishop_moves(&state, &PieceColor::White),
         [PieceMove { from: 23, to: 30 }]
     );
-    assert_eq!(
-        board.pawn_moves(&state, &PieceColor::White).unwrap().len(),
-        0
-    );
+    assert_eq!(board.pawn_moves(&state, &PieceColor::White).len(), 0);
 }

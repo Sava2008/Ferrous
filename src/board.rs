@@ -5,7 +5,7 @@ use crate::{
 };
 use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Board {
     pub white_pawns: Bitboard,
     pub white_knights: Bitboard,
@@ -21,9 +21,9 @@ pub struct Board {
     pub black_rooks: Bitboard,
     pub black_king: Bitboard,
 
-    pub white_occupancy: Option<Bitboard>,
-    pub black_occupancy: Option<Bitboard>,
-    pub total_occupancy: Option<Bitboard>,
+    pub white_occupancy: Bitboard,
+    pub black_occupancy: Bitboard,
+    pub total_occupancy: Bitboard,
 }
 
 impl Board {
@@ -42,38 +42,34 @@ impl Board {
             black_queens: 0b0000100000000000000000000000000000000000000000000000000000000000,
             black_rooks: 0b1000000100000000000000000000000000000000000000000000000000000000,
             black_king: 0b0001000000000000000000000000000000000000000000000000000000000000,
-            white_occupancy: None,
-            black_occupancy: None,
-            total_occupancy: None,
+            white_occupancy: 0,
+            black_occupancy: 0,
+            total_occupancy: 0,
         };
     }
 
     pub fn white_occupancy(&mut self) -> () {
-        self.white_occupancy = Some(
-            self.white_bishops
-                | self.white_king
-                | self.white_knights
-                | self.white_pawns
-                | self.white_queens
-                | self.white_rooks,
-        );
+        self.white_occupancy = self.white_bishops
+            | self.white_king
+            | self.white_knights
+            | self.white_pawns
+            | self.white_queens
+            | self.white_rooks;
     }
 
     pub fn black_occupancy(&mut self) -> () {
-        self.black_occupancy = Some(
-            self.black_bishops
-                | self.black_king
-                | self.black_knights
-                | self.black_pawns
-                | self.black_queens
-                | self.black_rooks,
-        );
+        self.black_occupancy = self.black_bishops
+            | self.black_king
+            | self.black_knights
+            | self.black_pawns
+            | self.black_queens
+            | self.black_rooks;
     }
 
     pub fn total_occupancy(&mut self) -> () {
         self.white_occupancy();
         self.black_occupancy();
-        self.total_occupancy = Some(self.white_occupancy.unwrap() | self.black_occupancy.unwrap());
+        self.total_occupancy = self.white_occupancy | self.black_occupancy;
     }
 
     pub fn bitboard_to_indices(mut bitboard: Bitboard) -> Vec<usize> {
@@ -130,10 +126,10 @@ impl Board {
     #[inline]
     pub fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
         let mask: Bitboard = 1 << index;
-        if self.total_occupancy.unwrap() & mask == 0 {
+
+        if &self.total_occupancy & mask == 0 {
             return None;
         }
-
         if &self.white_pawns & mask != 0 {
             return Some((PieceColor::White, PieceType::Pawn));
         }
@@ -176,7 +172,24 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
-    pub fn perform_move(&mut self, from_to: PieceMove) -> () {
+    pub fn perform_move(&mut self, from_to: &PieceMove) -> () {
+        if let Some(enemy) = self.bitboard_contains(from_to.to) {
+            let bitboard_for_capture: &mut Bitboard = match enemy {
+                (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,
+                (PieceColor::White, PieceType::Knight) => &mut self.white_knights,
+                (PieceColor::White, PieceType::Pawn) => &mut self.white_pawns,
+                (PieceColor::White, PieceType::Queen) => &mut self.white_queens,
+                (PieceColor::White, PieceType::Rook) => &mut self.white_rooks,
+                (PieceColor::White, PieceType::King) => &mut self.white_king,
+                (PieceColor::Black, PieceType::Bishop) => &mut self.black_bishops,
+                (PieceColor::Black, PieceType::Knight) => &mut self.black_knights,
+                (PieceColor::Black, PieceType::Pawn) => &mut self.black_pawns,
+                (PieceColor::Black, PieceType::Queen) => &mut self.black_queens,
+                (PieceColor::Black, PieceType::Rook) => &mut self.black_rooks,
+                (PieceColor::Black, PieceType::King) => &mut self.black_king,
+            };
+            *bitboard_for_capture &= !(1 << from_to.to);
+        }
         self.reset_bit(
             self.bitboard_contains(from_to.from).unwrap(),
             from_to.from,
@@ -206,5 +219,9 @@ impl Board {
             &InclusiveRange::None => (),
         }
         return rng;
+    }
+
+    pub fn is_capture(&self, m: &PieceMove) -> bool {
+        return self.bitboard_contains(m.to).is_some();
     }
 }

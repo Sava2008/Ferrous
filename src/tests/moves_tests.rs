@@ -22,9 +22,9 @@ fn king_moves_test1() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
     let state: GameState = GameState {
@@ -39,10 +39,7 @@ fn king_moves_test1() -> () {
         result: crate::enums::GameResult::Going,
         check_contraints: 0,
     };
-    assert_eq!(
-        board.king_moves(&state, &PieceColor::Black),
-        Some(Vec::new())
-    );
+    assert_eq!(board.king_moves(&state, &PieceColor::Black), Vec::new());
 }
 
 #[test]
@@ -61,9 +58,9 @@ fn king_moves_test2() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
     let state: GameState = GameState {
@@ -80,7 +77,7 @@ fn king_moves_test2() -> () {
     };
     assert_eq!(
         board.king_moves(&state, &PieceColor::Black),
-        Some(vec![PieceMove { from: 0, to: 1 }])
+        vec![PieceMove { from: 0, to: 1 }]
     );
 }
 
@@ -100,9 +97,9 @@ fn king_moves_test3() -> () {
         black_queens: 0,
         black_rooks: 0,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
     board.total_occupancy();
     let state: GameState = GameState {
@@ -119,6 +116,6 @@ fn king_moves_test3() -> () {
     };
     assert_eq!(
         board.king_moves(&state, &PieceColor::Black),
-        Some(vec![PieceMove { from: 0, to: 9 }])
+        vec![PieceMove { from: 0, to: 9 }]
     );
 }

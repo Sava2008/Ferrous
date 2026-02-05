@@ -21,12 +21,10 @@ fn board_to_fen_test1() -> () {
         black_queens: 0b0000100000000000000000000000000000000000000000000000000000000000,
         black_rooks: 0b1000000100000000000000000000000000000000000000000000000000000000,
         black_king: 0b0001000000000000000000000000000000000000000000000000000000000000,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
-    test_board.white_occupancy();
-    test_board.black_occupancy();
     test_board.total_occupancy();
 
     let test_state: GameState = GameState {

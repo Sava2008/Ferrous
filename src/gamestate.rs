@@ -73,6 +73,9 @@ impl CheckInfo {
     }
 
     pub fn update(&mut self, board: &Board, whose_turn: &PieceColor) -> () {
+        self.checked_king = None;
+        self.first_checker = None;
+        self.second_checker = None;
         let (king_square, enemy_pieces) = match whose_turn {
             PieceColor::White => (
                 board.white_king.trailing_zeros() as usize,
@@ -95,7 +98,7 @@ impl CheckInfo {
                 ],
             ),
         };
-        let occupancy: Bitboard = board.total_occupancy.unwrap();
+        let occupancy: Bitboard = board.total_occupancy;
         let (diagonals, lines, knight_deltas, pawn_deltas) = (
             bishop_attacks(king_square, occupancy),
             rook_attacks(king_square, occupancy),
@@ -170,33 +173,34 @@ impl PinInfo {
         self.white_king = board.white_king.trailing_zeros() as u8;
         self.black_king = board.black_king.trailing_zeros() as u8;
 
-        let (lines, diagonals) = match color {
+        let (lines, diagonals): (Bitboard, Bitboard) = match color {
             &PieceColor::White => (
-                rook_attacks(self.white_king as usize, board.black_occupancy.unwrap()),
-                bishop_attacks(self.white_king as usize, board.black_occupancy.unwrap()),
+                rook_attacks(self.white_king as usize, board.black_occupancy),
+                bishop_attacks(self.white_king as usize, board.black_occupancy),
             ),
             &PieceColor::Black => (
-                rook_attacks(self.black_king as usize, board.white_occupancy.unwrap()),
-                bishop_attacks(self.black_king as usize, board.white_occupancy.unwrap()),
+                rook_attacks(self.black_king as usize, board.white_occupancy),
+                bishop_attacks(self.black_king as usize, board.white_occupancy),
             ),
         };
-        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy) =
+        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy): (Bitboard, Bitboard, &mut Vec<u8>, &u8, &Bitboard) =
             match color {
                 PieceColor::White => (
                     lines & (&board.black_queens | &board.black_rooks),
                     diagonals & (&board.black_queens | &board.black_bishops),
                     &mut self.white_pinned_pieces,
                     &self.white_king,
-                    &board.white_occupancy.unwrap(),
+                    &board.white_occupancy,
                 ),
                 PieceColor::Black => (
                     lines & (&board.white_queens | &board.white_rooks),
                     diagonals & (&board.white_queens | &board.white_bishops),
                     &mut self.black_pinned_pieces,
                     &self.black_king,
-                    &board.black_occupancy.unwrap(),
+                    &board.black_occupancy,
                 ),
             };
+        pinned_pieces.clear();
         while linear_attackers != 0 {
             let pinned_piece: u8 = (Board::generate_range(
                 *king,
@@ -257,14 +261,22 @@ impl GameState {
         };
     }
 
-    pub fn update_check_constraints(&mut self, board: &Board, color: &PieceColor) -> () {
-        if self.check_info.checked_king.is_none() | self.check_info.second_checker.is_some() {
+    pub fn update_check_constraints(&mut self, board: &Board) -> () {
+        if self.check_info.checked_king.is_none() || self.check_info.second_checker.is_some() {
             self.check_contraints = 0;
             return;
         }
         let checker_index: u8 = self.check_info.first_checker.unwrap();
         let piece: (PieceColor, PieceType) = board.bitboard_contains(checker_index).unwrap();
-        if piece.0 == *color {
+        let color: PieceColor = board
+            .bitboard_contains(self.check_info.checked_king.unwrap())
+            .unwrap()
+            .0;
+        if piece.0 == color {
+            println!(
+                "piece: {:?}, check_info: {:?}, position: {:?}",
+                piece, self.check_info, board
+            );
             panic!("irrelevant color");
         }
         self.check_contraints = match board.bitboard_contains(checker_index).unwrap().1 {

@@ -4,20 +4,18 @@ use crate::board::Board;
 #[test]
 fn occupancy_test1() -> () {
     let mut test_board: Board = Board::set();
-    test_board.white_occupancy();
-    test_board.black_occupancy();
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.black_occupancy.unwrap(),
+        test_board.black_occupancy,
         0b1111111111111111000000000000000000000000000000000000000000000000
     );
     assert_eq!(
-        test_board.white_occupancy.unwrap(),
+        test_board.white_occupancy,
         0b0000000000000000000000000000000000000000000000001111111111111111
     );
     assert_eq!(
-        test_board.total_occupancy.unwrap(),
+        test_board.total_occupancy,
         0b1111111111111111000000000000000000000000000000001111111111111111
     );
 }
@@ -37,25 +35,23 @@ fn occupancy_test2() -> () {
         black_queens: 0b0000000000000000000000000000000000000000000000000000000000000000,
         black_rooks: 0b0000000000000000000000000000000000000000000000000000000000000000,
         black_king: 0b0000000000000000000000000000000000000000000000000000000000000001,
-        white_occupancy: None,
-        black_occupancy: None,
-        total_occupancy: None,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
     };
 
-    test_board.white_occupancy();
-    test_board.black_occupancy();
     test_board.total_occupancy();
 
     assert_eq!(
-        test_board.white_occupancy.unwrap(),
+        test_board.white_occupancy,
         0b0100000011010000011000000000000100010000100000000000000000000000
     );
     assert_eq!(
-        test_board.black_occupancy.unwrap(),
+        test_board.black_occupancy,
         0b0000000000000010100000000000000000000000000000000101011000100001
     );
     assert_eq!(
-        test_board.total_occupancy.unwrap(),
+        test_board.total_occupancy,
         0b0100000011010010111000000000000100010000100000000101011000100001
     );
 }

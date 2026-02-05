@@ -6,12 +6,12 @@
 - fen converter
 - magic bitboards
 - actual move generation (with checks and pin detection)
-- material calculation
+- evaluation function
+- alpha beta pruning algorithm
 
 ### Planned on being carried out
 - pgn converter
 - opening book
-- alpha beta pruning algorithm (already present in previous versions of Ferrous)
 - terminal-based UI
 - UCI protocol
 - syzygy database
