@@ -28,6 +28,19 @@ fn main() {
         evaluation: 0,
     };
     println!("best move: {:?}", engine.find_best_move(&board, &state));
+	/*board.perform_move(&PieceMove { from: 11, to: 19, });
+	board.total_occupancy();
+	board.perform_move(&PieceMove { from: 62, to: 47, });
+	board.total_occupancy();
+	board.perform_move(&PieceMove { from: 2, to: 47, });
+	board.total_occupancy();
+	board.perform_move(&PieceMove { from: 60, to: 61, });
+	board.total_occupancy();
+	state.check_info.update(&board, &PieceColor::Black);
+	state.pin_info.update(&board, &PieceColor::Black);
+	state.update_check_constraints(&board);
+	
+	println!("board: {board:?},\npin_info: {:?}, black pawn moves: {:?}", state.pin_info, board.pawn_moves(&state, &PieceColor::Black));*/
 }
 
 // the main loop

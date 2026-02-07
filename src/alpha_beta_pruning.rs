@@ -44,7 +44,7 @@ impl Engine {
             let mut current_alpha: i32 = alpha;
 
             let mut legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&PieceColor::White, &board, &state);
+                Self::generate_legal_moves(&state.whose_turn, &board, &state);
             if legal_moves.len() == 0 {
                 return if state.check_info.checked_king.is_some() {
                     i32::MIN
@@ -53,14 +53,19 @@ impl Engine {
                 };
             }
             legal_moves.sort_by_key(|m| if board.is_capture(m) { 0 } else { 1 });
-			println!("legal_moves after sorting: {legal_moves:?}");
+			// println!("legal_moves after sorting: {legal_moves:?},\nboard: {board:?}");
 
             for m in legal_moves {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = state.clone();
                 copied_board.perform_move(&m);
+				println!("move: {m:?}, board: {board:?}");
 
                 copied_board.total_occupancy();
+				copied_state.whose_turn = match copied_state.whose_turn {
+					PieceColor::White => PieceColor::Black,
+					PieceColor::Black => PieceColor::White,
+				};
                 copied_state
                     .check_info
                     .update(&copied_board, &PieceColor::Black);
@@ -68,6 +73,10 @@ impl Engine {
                     .pin_info
                     .update(&copied_board, &PieceColor::Black);
                 copied_state.update_check_constraints(&copied_board);
+				if copied_board.is_king_attacked(&PieceColor::White) {
+					println!("skippinng illegal move: {m:?}");
+					continue;
+				}
                 best_score = max(
                     self.alpha_beta_pruning(
                         &copied_board,
@@ -79,7 +88,7 @@ impl Engine {
                     ),
                     best_score,
                 );
-				println!("best score: {best_score}, current_alpha: {current_alpha}");
+				// println!("best score: {best_score}, current_alpha: {current_alpha}");
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
                     break;
@@ -92,10 +101,9 @@ impl Engine {
             let mut current_beta: i32 = beta;
 
             let mut legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&PieceColor::Black, &board, &state);
+                Self::generate_legal_moves(&state.whose_turn, &board, &state);
 
             if legal_moves.len() == 0 {
-                state.check_info.update(board, &PieceColor::Black);
                 return if state.check_info.checked_king.is_some() {
                     i32::MAX
                 } else {
@@ -108,8 +116,13 @@ impl Engine {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = state.clone();
                 copied_board.perform_move(&m);
+				println!("move: {m:?}, board: {board:?}");
 
                 copied_board.total_occupancy();
+				copied_state.whose_turn = match copied_state.whose_turn {
+					PieceColor::White => PieceColor::Black,
+					PieceColor::Black => PieceColor::White,
+				};
                 copied_state
                     .check_info
                     .update(&copied_board, &PieceColor::White);
@@ -117,6 +130,10 @@ impl Engine {
                     .pin_info
                     .update(&copied_board, &PieceColor::White);
                 copied_state.update_check_constraints(&copied_board);
+				if copied_board.is_king_attacked(&PieceColor::Black) {
+					println!("skippinng illegal move: {m:?}");
+					continue;
+				}
 
                 best_score = min(
                     self.alpha_beta_pruning(
@@ -151,6 +168,10 @@ impl Engine {
 
             copied_board.perform_move(&m);
             copied_board.total_occupancy();
+			copied_state.whose_turn = match copied_state.whose_turn {
+				PieceColor::White => PieceColor::Black,
+				PieceColor::Black => PieceColor::White,
+			};
             copied_state
                 .check_info
                 .update(&copied_board, &PieceColor::Black);

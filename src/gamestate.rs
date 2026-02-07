@@ -155,8 +155,8 @@ impl CheckInfo {
 pub struct PinInfo {
     pub white_king: u8,
     pub black_king: u8,
-    pub white_pinned_pieces: Vec<u8>,
-    pub black_pinned_pieces: Vec<u8>,
+    pub white_pinned_pieces: Vec<PinnedPiece>,
+    pub black_pinned_pieces: Vec<PinnedPiece>,
 }
 impl PinInfo {
     #[inline]
@@ -183,7 +183,7 @@ impl PinInfo {
                 bishop_attacks(self.black_king as usize, board.white_occupancy),
             ),
         };
-        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy): (Bitboard, Bitboard, &mut Vec<u8>, &u8, &Bitboard) =
+        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy): (Bitboard, Bitboard, &mut Vec<PinnedPiece>, &u8, &Bitboard) =
             match color {
                 PieceColor::White => (
                     lines & (&board.black_queens | &board.black_rooks),
@@ -202,30 +202,38 @@ impl PinInfo {
             };
         pinned_pieces.clear();
         while linear_attackers != 0 {
-            let pinned_piece: u8 = (Board::generate_range(
+			let pin_ray: Bitboard = Board::generate_range(
                 *king,
                 linear_attackers.trailing_zeros() as u8,
-                &InclusiveRange::None,
-            ) & friendly_occupancy)
+                &InclusiveRange::LastOnly,
+            );
+            let pinned_piece: u8 = (pin_ray & friendly_occupancy)
                 .trailing_zeros() as u8;
             if pinned_piece != 0 {
-                pinned_pieces.push(pinned_piece);
+                pinned_pieces.push(PinnedPiece { square: pinned_piece, pin_ray, });
             }
             linear_attackers &= linear_attackers - 1;
         }
         while diagonal_attackers != 0 {
-            let pinned_piece: u8 = (Board::generate_range(
+            let pin_ray: Bitboard = Board::generate_range(
                 *king,
                 diagonal_attackers.trailing_zeros() as u8,
-                &InclusiveRange::None,
-            ) & friendly_occupancy)
+                &InclusiveRange::LastOnly,
+            );
+            let pinned_piece: u8 = (pin_ray & friendly_occupancy)
                 .trailing_zeros() as u8;
             if pinned_piece != 0 {
-                pinned_pieces.push(pinned_piece);
+                pinned_pieces.push(PinnedPiece { square: pinned_piece, pin_ray, });
             }
             diagonal_attackers &= diagonal_attackers - 1;
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PinnedPiece {
+	pub square: u8,
+	pub pin_ray: Bitboard, // all available squares for the pinned piece
 }
 
 #[derive(Debug, Clone)]

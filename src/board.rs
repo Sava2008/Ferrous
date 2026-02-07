@@ -190,6 +190,12 @@ impl Board {
             };
             *bitboard_for_capture &= !(1 << from_to.to);
         }
+		if from_to.from >= 64 || from_to.to >= 64 {
+			panic!("Invalid move: {:?} (squares out of range)", from_to);
+		}
+		if self.bitboard_contains(from_to.from).is_none() {
+			panic!("No piece on 'from' square! Move: {:?}, board: {:?}", from_to, self);
+		}
         self.reset_bit(
             self.bitboard_contains(from_to.from).unwrap(),
             from_to.from,
@@ -224,4 +230,12 @@ impl Board {
     pub fn is_capture(&self, m: &PieceMove) -> bool {
         return self.bitboard_contains(m.to).is_some();
     }
+
+	pub fn is_king_attacked(&self, color: &PieceColor) -> bool {
+		let king_square = match color {
+			PieceColor::White => self.white_king.trailing_zeros() as u8,
+			PieceColor::Black => self.black_king.trailing_zeros() as u8,
+		};
+		return self.is_square_attacked(king_square, &!color.clone());
+	}
 }
