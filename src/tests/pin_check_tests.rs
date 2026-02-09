@@ -2,7 +2,7 @@
 use crate::{
     board::Board,
     enums::PieceColor,
-    gamestate::{CastlingRights, CheckInfo, GameState, PieceMove, PinInfo},
+    gamestate::{CastlingRights, CheckInfo, GameState, PieceMove, PinInfo, PinnedPiece},
     initialize_sliding_attack_tables,
 };
 
@@ -42,8 +42,26 @@ pub fn pin_test1() -> () {
     };
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
-    assert_eq!(state.pin_info.black_pinned_pieces, vec![35]);
-    assert_eq!(state.pin_info.white_pinned_pieces, vec![10, 27]);
+    assert_eq!(
+        state.pin_info.black_pinned_pieces,
+        vec![PinnedPiece {
+            square: 35,
+            pin_ray: 0b0000000000000000000000000000000000001000000000000000000000000000,
+        }]
+    );
+    assert_eq!(
+        state.pin_info.white_pinned_pieces,
+        vec![
+            PinnedPiece {
+                square: 10,
+                pin_ray: 0b0000000000000000000000000000000000000000000000000000000000000100,
+            },
+            PinnedPiece {
+                square: 27,
+                pin_ray: 0b0000000000000000000000000001000000000000000000000000000000000000,
+            },
+        ]
+    );
 }
 
 #[test]
@@ -82,8 +100,30 @@ pub fn pin_test2() -> () {
     };
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
-    assert_eq!(state.pin_info.black_pinned_pieces, vec![55, 62, 54]);
-    assert_eq!(state.pin_info.white_pinned_pieces, vec![43]);
+    assert_eq!(
+        state.pin_info.black_pinned_pieces,
+        vec![
+            PinnedPiece {
+                square: 55,
+                pin_ray: 0b0000000000000000100000001000000010000000100000001000000000000000
+            },
+            PinnedPiece {
+                square: 62,
+                pin_ray: 0b0011110000000000000000000000000000000000000000000000000000000000
+            },
+            PinnedPiece {
+                square: 54,
+                pin_ray: 0b0000000000000000001000000001000000001000000001000000001000000000,
+            }
+        ]
+    );
+    assert_eq!(
+        state.pin_info.white_pinned_pieces,
+        vec![PinnedPiece {
+            square: 43,
+            pin_ray: 0b0000000000000000000000000000100000001000000010000000100000001000,
+        }]
+    );
 }
 
 #[test]

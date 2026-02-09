@@ -126,10 +126,10 @@ impl Board {
     #[inline]
     pub fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
         let mask: Bitboard = 1 << index;
-
         if &self.total_occupancy & mask == 0 {
             return None;
         }
+
         if &self.white_pawns & mask != 0 {
             return Some((PieceColor::White, PieceType::Pawn));
         }
@@ -173,6 +173,7 @@ impl Board {
 
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: &PieceMove) -> () {
+        self.total_occupancy();
         if let Some(enemy) = self.bitboard_contains(from_to.to) {
             let bitboard_for_capture: &mut Bitboard = match enemy {
                 (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,
@@ -190,17 +191,18 @@ impl Board {
             };
             *bitboard_for_capture &= !(1 << from_to.to);
         }
-		if from_to.from >= 64 || from_to.to >= 64 {
-			panic!("Invalid move: {:?} (squares out of range)", from_to);
-		}
-		if self.bitboard_contains(from_to.from).is_none() {
-			panic!("No piece on 'from' square! Move: {:?}, board: {:?}", from_to, self);
-		}
+        /*if self.bitboard_contains(from_to.from).is_none() {
+            panic!(
+                "No piece on 'from' square! Move: {:?}, board: {:?}, state: {state:?}, maximizing: {maximizing}, legal moves: {legal_moves:?}",
+                from_to, self
+            );
+        }*/
         self.reset_bit(
             self.bitboard_contains(from_to.from).unwrap(),
             from_to.from,
             from_to.to,
         );
+        self.total_occupancy();
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
@@ -231,11 +233,11 @@ impl Board {
         return self.bitboard_contains(m.to).is_some();
     }
 
-	pub fn is_king_attacked(&self, color: &PieceColor) -> bool {
-		let king_square = match color {
-			PieceColor::White => self.white_king.trailing_zeros() as u8,
-			PieceColor::Black => self.black_king.trailing_zeros() as u8,
-		};
-		return self.is_square_attacked(king_square, &!color.clone());
-	}
+    pub fn is_king_attacked(&self, color: &PieceColor) -> bool {
+        let king_square = match color {
+            PieceColor::White => self.white_king.trailing_zeros() as u8,
+            PieceColor::Black => self.black_king.trailing_zeros() as u8,
+        };
+        return self.is_square_attacked(king_square, &!color.clone());
+    }
 }

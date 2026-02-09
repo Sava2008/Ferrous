@@ -73,6 +73,7 @@ impl CheckInfo {
     }
 
     pub fn update(&mut self, board: &Board, whose_turn: &PieceColor) -> () {
+        //println!("updating check_info for {whose_turn:?}");
         self.checked_king = None;
         self.first_checker = None;
         self.second_checker = None;
@@ -170,6 +171,7 @@ impl PinInfo {
     }
 
     pub fn update(&mut self, board: &Board, color: &PieceColor) -> () {
+        //println!("updating pin_info for {color:?}");
         self.white_king = board.white_king.trailing_zeros() as u8;
         self.black_king = board.black_king.trailing_zeros() as u8;
 
@@ -202,17 +204,20 @@ impl PinInfo {
             };
         pinned_pieces.clear();
         while linear_attackers != 0 {
-			let pin_ray: Bitboard = Board::generate_range(
+            let pin_ray: Bitboard = Board::generate_range(
                 *king,
                 linear_attackers.trailing_zeros() as u8,
                 &InclusiveRange::LastOnly,
             );
-            let pinned_piece: u8 = (pin_ray & friendly_occupancy)
-                .trailing_zeros() as u8;
-            if pinned_piece != 0 {
-                pinned_pieces.push(PinnedPiece { square: pinned_piece, pin_ray, });
-            }
             linear_attackers &= linear_attackers - 1;
+            let teammates_in_between: Bitboard = pin_ray & friendly_occupancy;
+            if teammates_in_between.count_ones() != 1 {
+                continue;
+            }
+            pinned_pieces.push(PinnedPiece {
+                square: teammates_in_between.trailing_zeros() as u8,
+                pin_ray,
+            });
         }
         while diagonal_attackers != 0 {
             let pin_ray: Bitboard = Board::generate_range(
@@ -220,20 +225,23 @@ impl PinInfo {
                 diagonal_attackers.trailing_zeros() as u8,
                 &InclusiveRange::LastOnly,
             );
-            let pinned_piece: u8 = (pin_ray & friendly_occupancy)
-                .trailing_zeros() as u8;
-            if pinned_piece != 0 {
-                pinned_pieces.push(PinnedPiece { square: pinned_piece, pin_ray, });
-            }
             diagonal_attackers &= diagonal_attackers - 1;
+            let teammates_in_between: Bitboard = pin_ray & friendly_occupancy;
+            if teammates_in_between.count_ones() != 1 {
+                continue;
+            }
+            pinned_pieces.push(PinnedPiece {
+                square: teammates_in_between.trailing_zeros() as u8,
+                pin_ray,
+            });
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PinnedPiece {
-	pub square: u8,
-	pub pin_ray: Bitboard, // all available squares for the pinned piece
+    pub square: u8,
+    pub pin_ray: Bitboard, // all available squares for the pinned piece
 }
 
 #[derive(Debug, Clone)]
@@ -270,6 +278,7 @@ impl GameState {
     }
 
     pub fn update_check_constraints(&mut self, board: &Board) -> () {
+        //println!("updating check constraints");
         if self.check_info.checked_king.is_none() || self.check_info.second_checker.is_some() {
             self.check_contraints = 0;
             return;
