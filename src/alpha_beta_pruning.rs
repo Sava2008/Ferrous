@@ -142,7 +142,10 @@ impl Engine {
     }
 
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<PieceMove> {
-        let mut best_score: i32 = i32::MIN;
+        let (mut best_score, maximizing): (i32, bool) = match self.side {
+            PieceColor::White => (i32::MIN, false),
+            PieceColor::Black => (i32::MAX, true),
+        };
         let mut best_move: Option<PieceMove> = None;
         let mut previous_state: GameState = state.clone();
 
@@ -172,12 +175,15 @@ impl Engine {
                 self.depth,
                 i32::MIN,
                 i32::MAX,
-                false,
+                maximizing,
                 &mut copied_state,
             );
             println!("passed the move");
 
-            if score > best_score {
+            if match self.side {
+                PieceColor::White => score > best_score,
+                PieceColor::Black => score < best_score,
+            } {
                 best_score = score;
                 best_move = Some(m.clone());
             }

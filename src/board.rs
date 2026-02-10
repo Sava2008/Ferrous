@@ -174,6 +174,49 @@ impl Board {
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: &PieceMove) -> () {
         self.total_occupancy();
+        if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
+            let (white_king, black_king): (u8, u8) = (
+                self.white_king.trailing_zeros() as u8,
+                self.black_king.trailing_zeros() as u8,
+            );
+            match from_to.from {
+                sq if sq == white_king => {
+                    let rook_from_to: (u8, u8) = match from_to.to {
+                        2 => (0, 3),
+                        6 => (7, 5),
+                        _ => unreachable!(),
+                    };
+                    self.reset_bit(
+                        (PieceColor::White, PieceType::King),
+                        from_to.from,
+                        from_to.to,
+                    );
+                    self.reset_bit(
+                        (PieceColor::White, PieceType::Rook),
+                        rook_from_to.0,
+                        rook_from_to.1,
+                    );
+                }
+                sq if sq == black_king => {
+                    let rook_from_to: (u8, u8) = match from_to.to {
+                        58 => (56, 59),
+                        62 => (63, 61),
+                        _ => unreachable!(),
+                    };
+                    self.reset_bit(
+                        (PieceColor::Black, PieceType::King),
+                        from_to.from,
+                        from_to.to,
+                    );
+                    self.reset_bit(
+                        (PieceColor::Black, PieceType::Rook),
+                        rook_from_to.0,
+                        rook_from_to.1,
+                    );
+                }
+                _ => (),
+            };
+        }
         if let Some(enemy) = self.bitboard_contains(from_to.to) {
             let bitboard_for_capture: &mut Bitboard = match enemy {
                 (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,

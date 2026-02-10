@@ -23,12 +23,15 @@ fn main() {
     board.total_occupancy();
     let mut state: GameState = GameState::new();
     let mut engine: Engine = Engine {
-        side: PieceColor::White,
+        side: PieceColor::Black,
         depth: 6,
         evaluation: 0,
     };
     board.perform_move(&PieceMove { from: 12, to: 28 });
-    board.perform_move(&PieceMove { from: 52, to: 36 });
+    board.perform_move(&PieceMove { from: 49, to: 41 });
+    board.perform_move(&PieceMove { from: 1, to: 18 });
+    //board.perform_move(&PieceMove { from: 52, to: 36 });
+    //board.perform_move(&PieceMove { from: 6, to: 21 });
     state.check_info.update(&board, &PieceColor::Black);
     state.check_info.update(&board, &PieceColor::White);
     state.pin_info.update(&board, &PieceColor::Black);

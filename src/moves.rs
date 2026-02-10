@@ -401,7 +401,7 @@ impl Board {
         return false;
     }
 
-    pub fn king_moves(&self, _state: &GameState, color: &PieceColor) -> Vec<PieceMove> {
+    pub fn king_moves(&self, state: &GameState, color: &PieceColor) -> Vec<PieceMove> {
         let mut moves: Vec<PieceMove> = Vec::new();
         let initial_pos: u8 = match color {
             &PieceColor::White => self.white_king,
@@ -423,6 +423,75 @@ impl Board {
                 });
             }
             dest_bitboard &= dest_bitboard - 1;
+        }
+        if Some(initial_pos) == state.check_info.checked_king {
+            return moves;
+        }
+        let castling_squares: (Option<u8>, Option<u8>) = match color {
+            &PieceColor::White => match (
+                &state.castling_rights.white_three_zeros,
+                &state.castling_rights.white_two_zeros,
+            ) {
+                (true, true) => (Some(2), Some(6)),
+                (false, false) => return moves,
+                (true, false) => (Some(2), None),
+                (false, true) => (None, Some(6)),
+            },
+            &PieceColor::Black => match (
+                &state.castling_rights.black_three_zeros,
+                &state.castling_rights.black_two_zeros,
+            ) {
+                (true, true) => (Some(58), Some(62)),
+                (false, false) => return moves,
+                (true, false) => (Some(58), None),
+                (false, true) => (None, Some(62)),
+            },
+        };
+        let mut left_path: Bitboard = if castling_squares.0.is_none() {
+            0
+        } else {
+            Self::generate_range(
+                initial_pos,
+                castling_squares.0.unwrap(),
+                &crate::enums::InclusiveRange::None,
+            )
+        };
+        let mut right_path: Bitboard = if castling_squares.0.is_none() {
+            0
+        } else {
+            Self::generate_range(
+                initial_pos,
+                castling_squares.1.unwrap(),
+                &crate::enums::InclusiveRange::None,
+            )
+        };
+        if left_path & self.total_occupancy == 0 {
+            while left_path != 0 {
+                if self.is_square_attacked(left_path.trailing_zeros() as u8, &!color.clone()) {
+                    break;
+                }
+                left_path &= left_path - 1;
+            }
+            if left_path == 0 {
+                moves.push(PieceMove {
+                    from: initial_pos,
+                    to: castling_squares.0.unwrap(),
+                })
+            }
+        }
+        if right_path & self.total_occupancy == 0 {
+            while right_path != 0 {
+                if self.is_square_attacked(right_path.trailing_zeros() as u8, &!color.clone()) {
+                    break;
+                }
+                right_path &= right_path - 1;
+            }
+            if right_path == 0 {
+                moves.push(PieceMove {
+                    from: initial_pos,
+                    to: castling_squares.1.unwrap(),
+                })
+            }
         }
 
         return moves;
