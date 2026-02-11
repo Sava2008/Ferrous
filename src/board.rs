@@ -1,7 +1,7 @@
 use crate::{
     board_geometry_templates::*,
     enums::{InclusiveRange, PieceColor, PieceType},
-    gamestate::PieceMove,
+    gamestate::{GameState, PieceMove},
 };
 use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
@@ -172,8 +172,9 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
-    pub fn perform_move(&mut self, from_to: &PieceMove) -> () {
+    pub fn perform_move(&mut self, from_to: &PieceMove, state: &mut GameState) -> () {
         self.total_occupancy();
+        println!("from_to: {from_to:?}");
         if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
             let (white_king, black_king): (u8, u8) = (
                 self.white_king.trailing_zeros() as u8,
@@ -196,6 +197,12 @@ impl Board {
                         rook_from_to.0,
                         rook_from_to.1,
                     );
+                    (
+                        state.castling_rights.white_three_zeros,
+                        state.castling_rights.white_two_zeros,
+                    ) = (false, false);
+                    state.en_passant_target = None;
+                    return;
                 }
                 sq if sq == black_king => {
                     let rook_from_to: (u8, u8) = match from_to.to {
@@ -213,6 +220,12 @@ impl Board {
                         rook_from_to.0,
                         rook_from_to.1,
                     );
+                    (
+                        state.castling_rights.black_three_zeros,
+                        state.castling_rights.black_two_zeros,
+                    ) = (false, false);
+                    state.en_passant_target = None;
+                    return;
                 }
                 _ => (),
             };
@@ -234,18 +247,86 @@ impl Board {
             };
             *bitboard_for_capture &= !(1 << from_to.to);
         }
-        /*if self.bitboard_contains(from_to.from).is_none() {
-            panic!(
-                "No piece on 'from' square! Move: {:?}, board: {:?}, state: {state:?}, maximizing: {maximizing}, legal moves: {legal_moves:?}",
-                from_to, self
-            );
-        }*/
-        self.reset_bit(
-            self.bitboard_contains(from_to.from).unwrap(),
-            from_to.from,
-            from_to.to,
-        );
-        self.total_occupancy();
+
+        if let Some(piece) = self.bitboard_contains(from_to.from) {
+            match piece.0 {
+                PieceColor::White => match piece.1 {
+                    PieceType::King => {
+                        (
+                            state.castling_rights.white_three_zeros,
+                            state.castling_rights.white_two_zeros,
+                        ) = (false, false);
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Rook => {
+                        if from_to.from == 0 {
+                            state.castling_rights.white_three_zeros = false;
+                        } else if from_to.from == 7 {
+                            state.castling_rights.white_two_zeros = false;
+                        }
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Pawn => {
+                        match from_to {
+                            &PieceMove { from, to }
+                                if (8..=15).contains(&from) && (24..=31).contains(&to) =>
+                            {
+                                state.en_passant_target = Some(from_to.to - 8); // en passant square behind the pawn
+                            }
+                            _ => {}
+                        };
+                        if let Some(e_p) = state.en_passant_target {
+                            println!("e_p: {e_p}");
+                            if from_to.to == e_p {
+                                println!("capturing en passant");
+                                let black_pawns: &mut Bitboard = &mut self.black_pawns;
+                                *black_pawns &= !(1 << (e_p - 8));
+                                state.en_passant_target = None;
+                            }
+                        }
+                    }
+                    _ => state.en_passant_target = None,
+                },
+                PieceColor::Black => match piece.1 {
+                    PieceType::King => {
+                        (
+                            state.castling_rights.black_three_zeros,
+                            state.castling_rights.black_two_zeros,
+                        ) = (false, false);
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Rook => {
+                        if from_to.from == 56 {
+                            state.castling_rights.black_three_zeros = false;
+                        } else if from_to.from == 63 {
+                            state.castling_rights.black_two_zeros = false;
+                        }
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Pawn => {
+                        match from_to {
+                            &PieceMove { from, to }
+                                if (48..=55).contains(&from) && (32..=39).contains(&to) =>
+                            {
+                                state.en_passant_target = Some(from_to.to + 8); // en passant square behind the pawn
+                            }
+                            _ => {}
+                        };
+                        if let Some(e_p) = state.en_passant_target {
+                            println!("e_p: {e_p}");
+                            if from_to.to == e_p {
+                                println!("capturing en passant");
+                                let white_pawns: &mut Bitboard = &mut self.white_pawns;
+                                *white_pawns &= !(1 << (e_p + 8));
+                                state.en_passant_target = None
+                            }
+                        }
+                    }
+                    _ => state.en_passant_target = None,
+                },
+            };
+            self.reset_bit(piece, from_to.from, from_to.to);
+        }
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {

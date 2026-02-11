@@ -246,9 +246,11 @@ pub struct PinnedPiece {
 
 #[derive(Debug, Clone)]
 pub struct PreviousMove {
+    // normal move changes 1 bitboard, castling or capture changes 2 and promotion with capture changes 3
+    pub changed_bitboards: [(Option<(PieceColor, PieceType)>, Option<Bitboard>); 3],
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: CastlingRights,
-    pub previous_fifty_moves_rule_counter: u8,
+    // pub previous_fifty_moves_rule_counter: u8,
     pub previous_check_info: CheckInfo,
     pub previous_pin_info: PinInfo,
     pub captured_piece_type: Option<PieceType>,

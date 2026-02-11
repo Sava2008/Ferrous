@@ -60,7 +60,7 @@ impl Engine {
             for m in &legal_moves {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = previous_state.clone();
-                copied_board.perform_move(&m);
+                copied_board.perform_move(&m, &mut copied_state);
 
                 copied_board.total_occupancy();
                 copied_state
@@ -110,7 +110,7 @@ impl Engine {
             for m in &legal_moves {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = previous_state.clone();
-                copied_board.perform_move(&m);
+                copied_board.perform_move(&m, &mut copied_state);
 
                 copied_board.total_occupancy();
                 copied_state
@@ -160,7 +160,7 @@ impl Engine {
             let mut copied_board: Board = board.clone();
             let mut copied_state: GameState = previous_state.clone();
 
-            copied_board.perform_move(&m);
+            copied_board.perform_move(&m, &mut copied_state);
             copied_board.total_occupancy();
             copied_state
                 .check_info

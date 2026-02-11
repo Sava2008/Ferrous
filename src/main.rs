@@ -23,49 +23,18 @@ fn main() {
     board.total_occupancy();
     let mut state: GameState = GameState::new();
     let mut engine: Engine = Engine {
-        side: PieceColor::Black,
-        depth: 6,
+        side: PieceColor::White,
+        depth: 4,
         evaluation: 0,
     };
-    board.perform_move(&PieceMove { from: 12, to: 28 });
-    board.perform_move(&PieceMove { from: 49, to: 41 });
-    board.perform_move(&PieceMove { from: 1, to: 18 });
-    //board.perform_move(&PieceMove { from: 52, to: 36 });
+
+    state.check_info.update(&board, &PieceColor::Black);
+    state.check_info.update(&board, &PieceColor::White);
+    state.pin_info.update(&board, &PieceColor::Black);
+    state.pin_info.update(&board, &PieceColor::White);
+    state.update_check_constraints(&board);
     //board.perform_move(&PieceMove { from: 6, to: 21 });
-    state.check_info.update(&board, &PieceColor::Black);
-    state.check_info.update(&board, &PieceColor::White);
-    state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board);
-    /*board.perform_move(&PieceMove { from: 3, to: 62 });
-    state.check_info.update(&board, &PieceColor::Black);
-    state.check_info.update(&board, &PieceColor::White);
-    state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board);*/
-    println!("best move: {:?}", engine.find_best_move(&board, &mut state));
-
-    /*board.perform_move(&PieceMove { from: 8, to: 16 }, &state, true, &Vec::new());
-    state.whose_turn = PieceColor::Black;
-    state.check_info.update(&board, &PieceColor::Black);
-    state.check_info.update(&board, &PieceColor::White);
-    state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
-    state.whose_turn = PieceColor::White;
-    board.perform_move(&PieceMove { from: 51, to: 35 }, &state, true, &Vec::new());
-    state.check_info.update(&board, &PieceColor::Black);
-    state.check_info.update(&board, &PieceColor::White);
-    state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board);
-
-    println!("best move: {:?}", engine.find_best_move(&board, &mut state));*/
-
-    /*println!(
-        "board: {board:?},\npin_info: {:?}, black pawn moves: {:?}",
-        state.pin_info,
-        board.pawn_moves(&state, &PieceColor::Black)
-    );*/
+    //println!("best move: {:?}", engine.find_best_move(&board, &mut state));
 }
 
 // the main loop
@@ -128,10 +97,13 @@ fn game_control(
         println!("legal_moves = {legal_moves:?}, piece_move = {piece_move:?}");
 
         if legal_moves.iter().any(|mv| mv.to == piece_move[1]) {
-            board.perform_move(&PieceMove {
-                from: piece_move[0],
-                to: piece_move[1],
-            });
+            board.perform_move(
+                &PieceMove {
+                    from: piece_move[0],
+                    to: piece_move[1],
+                },
+                state,
+            );
         } else {
             println!("illegal move");
             continue;

@@ -427,45 +427,55 @@ impl Board {
         if Some(initial_pos) == state.check_info.checked_king {
             return moves;
         }
-        let castling_squares: (Option<u8>, Option<u8>) = match color {
+        let (castling_squares, mut right_path, mut left_path): (
+            (Option<u8>, Option<u8>),
+            Bitboard,
+            Bitboard,
+        ) = match color {
             &PieceColor::White => match (
                 &state.castling_rights.white_three_zeros,
                 &state.castling_rights.white_two_zeros,
             ) {
-                (true, true) => (Some(2), Some(6)),
+                (true, true) => (
+                    (Some(2), Some(6)),
+                    0b0000000000000000000000000000000000000000000000000000000000001100,
+                    0b0000000000000000000000000000000000000000000000000000000001100000,
+                ),
                 (false, false) => return moves,
-                (true, false) => (Some(2), None),
-                (false, true) => (None, Some(6)),
+                (true, false) => (
+                    (Some(2), None),
+                    0b0000000000000000000000000000000000000000000000000000000000001100,
+                    0,
+                ),
+                (false, true) => (
+                    (None, Some(6)),
+                    0,
+                    0b0000000000000000000000000000000000000000000000000000000001100000,
+                ),
             },
             &PieceColor::Black => match (
                 &state.castling_rights.black_three_zeros,
                 &state.castling_rights.black_two_zeros,
             ) {
-                (true, true) => (Some(58), Some(62)),
+                (true, true) => (
+                    (Some(58), Some(62)),
+                    0b0110000000000000000000000000000000000000000000000000000000000000,
+                    0b0000110000000000000000000000000000000000000000000000000000000000,
+                ),
                 (false, false) => return moves,
-                (true, false) => (Some(58), None),
-                (false, true) => (None, Some(62)),
+                (true, false) => (
+                    (Some(58), None),
+                    0b0110000000000000000000000000000000000000000000000000000000000000,
+                    0,
+                ),
+                (false, true) => (
+                    (None, Some(62)),
+                    0,
+                    0b0000110000000000000000000000000000000000000000000000000000000000,
+                ),
             },
         };
-        let mut left_path: Bitboard = if castling_squares.0.is_none() {
-            0
-        } else {
-            Self::generate_range(
-                initial_pos,
-                castling_squares.0.unwrap(),
-                &crate::enums::InclusiveRange::None,
-            )
-        };
-        let mut right_path: Bitboard = if castling_squares.0.is_none() {
-            0
-        } else {
-            Self::generate_range(
-                initial_pos,
-                castling_squares.1.unwrap(),
-                &crate::enums::InclusiveRange::None,
-            )
-        };
-        if left_path & self.total_occupancy == 0 {
+        if left_path != 0 && left_path & self.total_occupancy == 0 {
             while left_path != 0 {
                 if self.is_square_attacked(left_path.trailing_zeros() as u8, &!color.clone()) {
                     break;
@@ -479,7 +489,7 @@ impl Board {
                 })
             }
         }
-        if right_path & self.total_occupancy == 0 {
+        if right_path != 0 && right_path & self.total_occupancy == 0 {
             while right_path != 0 {
                 if self.is_square_attacked(right_path.trailing_zeros() as u8, &!color.clone()) {
                     break;
