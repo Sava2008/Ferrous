@@ -174,7 +174,6 @@ impl Board {
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: &PieceMove, state: &mut GameState) -> () {
         self.total_occupancy();
-        println!("from_to: {from_to:?}");
         if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
             let (white_king, black_king): (u8, u8) = (
                 self.white_king.trailing_zeros() as u8,
@@ -276,9 +275,7 @@ impl Board {
                             _ => {}
                         };
                         if let Some(e_p) = state.en_passant_target {
-                            println!("e_p: {e_p}");
                             if from_to.to == e_p {
-                                println!("capturing en passant");
                                 let black_pawns: &mut Bitboard = &mut self.black_pawns;
                                 *black_pawns &= !(1 << (e_p - 8));
                                 state.en_passant_target = None;
@@ -313,9 +310,7 @@ impl Board {
                             _ => {}
                         };
                         if let Some(e_p) = state.en_passant_target {
-                            println!("e_p: {e_p}");
                             if from_to.to == e_p {
-                                println!("capturing en passant");
                                 let white_pawns: &mut Bitboard = &mut self.white_pawns;
                                 *white_pawns &= !(1 << (e_p + 8));
                                 state.en_passant_target = None

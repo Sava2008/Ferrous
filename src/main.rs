@@ -1,7 +1,7 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    constants::attacks::{INDICES_TO_COORDS, initialize_sliding_attack_tables},
+    constants::attacks::{COORDS_TO_INDICES, INDICES_TO_COORDS, initialize_sliding_attack_tables},
     enums::{GameResult, PieceColor, PieceType},
     gamestate::{GameState, PieceMove},
 };
@@ -27,14 +27,7 @@ fn main() {
         depth: 4,
         evaluation: 0,
     };
-
-    state.check_info.update(&board, &PieceColor::Black);
-    state.check_info.update(&board, &PieceColor::White);
-    state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
-    state.update_check_constraints(&board);
-    //board.perform_move(&PieceMove { from: 6, to: 21 });
-    //println!("best move: {:?}", engine.find_best_move(&board, &mut state));
+    game_control(&mut state, &mut board, &mut engine).unwrap();
 }
 
 // the main loop
@@ -50,6 +43,19 @@ fn game_control(
         state.update_check_constraints(&board);
 
         // white's move
+        let engine_move: Option<PieceMove> = engine.find_best_move(&board, state);
+        if let Some(m) = engine_move {
+            board.perform_move(&m, state);
+            println!(
+                "Ferrous's move: {:?} {:?}",
+                INDICES_TO_COORDS.get(&m.from).unwrap(),
+                INDICES_TO_COORDS.get(&m.to).unwrap(),
+            );
+        } else {
+            println!("game ended");
+            break;
+        }
+        println!("board: {board:?}");
 
         board.total_occupancy();
         state.check_info.update(&board, &PieceColor::Black);
@@ -68,9 +74,10 @@ fn game_control(
         }
         let piece_move: Vec<u8> = user_move
             .split_whitespace()
-            .filter_map(|pos| INDICES_TO_COORDS.get(pos).cloned())
+            .filter_map(|pos: &str| COORDS_TO_INDICES.get(pos).cloned())
             .collect::<Vec<u8>>();
-        let piece = if let Some(m) = board.bitboard_contains(piece_move[0]) {
+        let piece: (PieceColor, PieceType) = if let Some(m) = board.bitboard_contains(piece_move[0])
+        {
             m
         } else {
             println!("no piece stands on the starting square");
@@ -96,7 +103,10 @@ fn game_control(
 
         println!("legal_moves = {legal_moves:?}, piece_move = {piece_move:?}");
 
-        if legal_moves.iter().any(|mv| mv.to == piece_move[1]) {
+        if legal_moves
+            .iter()
+            .any(|mv: &PieceMove| mv.to == piece_move[1])
+        {
             board.perform_move(
                 &PieceMove {
                     from: piece_move[0],

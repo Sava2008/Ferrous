@@ -155,7 +155,7 @@ impl Engine {
         previous_state.whose_turn = self.side.clone();
         legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
         for m in &legal_moves {
-            println!("{:?}", m);
+            // println!("{:?}", m);
 
             let mut copied_board: Board = board.clone();
             let mut copied_state: GameState = previous_state.clone();
@@ -169,7 +169,7 @@ impl Engine {
                 .pin_info
                 .update(&copied_board, &!copied_state.whose_turn.clone());
             copied_state.update_check_constraints(&copied_board);
-            println!("pruning...");
+            // println!("pruning...");
             let score: i32 = self.alpha_beta_pruning(
                 &copied_board,
                 self.depth,
@@ -178,7 +178,7 @@ impl Engine {
                 maximizing,
                 &mut copied_state,
             );
-            println!("passed the move");
+            // println!("passed the move");
 
             if match self.side {
                 PieceColor::White => score > best_score,

@@ -77,28 +77,12 @@ impl CheckInfo {
         self.checked_king = None;
         self.first_checker = None;
         self.second_checker = None;
-        let (king_square, enemy_pieces) = match whose_turn {
-            PieceColor::White => (
-                board.white_king.trailing_zeros() as usize,
-                [
-                    &board.black_queens,
-                    &board.black_rooks,
-                    &board.black_bishops,
-                    &board.black_knights,
-                    &board.black_pawns,
-                ],
-            ),
-            PieceColor::Black => (
-                board.black_king.trailing_zeros() as usize,
-                [
-                    &board.white_queens,
-                    &board.white_rooks,
-                    &board.white_bishops,
-                    &board.white_knights,
-                    &board.white_pawns,
-                ],
-            ),
-        };
+        let king_square: usize = match whose_turn {
+            &PieceColor::White => board.white_king,
+            &PieceColor::Black => board.black_king,
+        }
+        .trailing_zeros() as usize;
+
         let occupancy: Bitboard = board.total_occupancy;
         let (diagonals, lines, knight_deltas, pawn_deltas) = (
             bishop_attacks(king_square, occupancy),
@@ -109,6 +93,22 @@ impl CheckInfo {
                 PieceColor::White => BLACK_PAWN_ATTACKS[king_square],
             },
         );
+        let enemy_pieces: [&u64; 5] = match whose_turn {
+            PieceColor::White => [
+                &(&board.black_queens & (&lines | &diagonals)),
+                &(&board.black_rooks & &lines),
+                &(&board.black_bishops & &diagonals),
+                &board.black_knights,
+                &board.black_pawns,
+            ],
+            PieceColor::Black => [
+                &(&board.white_queens & (&lines | &diagonals)),
+                &(&board.white_rooks & &lines),
+                &(&board.white_bishops & &diagonals),
+                &board.white_knights,
+                &board.white_pawns,
+            ],
+        };
         for (i, enemy_bitboard) in enemy_pieces.iter().enumerate() {
             if **enemy_bitboard == 0 {
                 continue;
@@ -280,7 +280,6 @@ impl GameState {
     }
 
     pub fn update_check_constraints(&mut self, board: &Board) -> () {
-        //println!("updating check constraints");
         if self.check_info.checked_king.is_none() || self.check_info.second_checker.is_some() {
             self.check_contraints = 0;
             return;

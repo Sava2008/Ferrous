@@ -482,10 +482,12 @@ impl Board {
                 }
                 left_path &= left_path - 1;
             }
-            if left_path == 0 {
+            if left_path == 0
+                && let Some(sq) = castling_squares.0
+            {
                 moves.push(PieceMove {
                     from: initial_pos,
-                    to: castling_squares.0.unwrap(),
+                    to: sq,
                 })
             }
         }
@@ -496,10 +498,12 @@ impl Board {
                 }
                 right_path &= right_path - 1;
             }
-            if right_path == 0 {
+            if right_path == 0
+                && let Some(sq) = castling_squares.1
+            {
                 moves.push(PieceMove {
                     from: initial_pos,
-                    to: castling_squares.1.unwrap(),
+                    to: sq,
                 })
             }
         }
