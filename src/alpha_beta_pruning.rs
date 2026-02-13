@@ -1,5 +1,6 @@
 use crate::{
     board::Board,
+    constants::attacks::INDICES_TO_COORDS,
     enums::PieceColor,
     gamestate::{GameState, PieceMove},
 };
@@ -49,7 +50,7 @@ impl Engine {
                 Self::generate_legal_moves(&previous_state.whose_turn, &board, &previous_state);
 
             if legal_moves.len() == 0 {
-                return if state.check_info.checked_king.is_some() {
+                return if previous_state.check_info.checked_king.is_some() {
                     i32::MIN
                 } else {
                     0
@@ -61,15 +62,6 @@ impl Engine {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = previous_state.clone();
                 copied_board.perform_move(&m, &mut copied_state);
-
-                copied_board.total_occupancy();
-                copied_state
-                    .check_info
-                    .update(&copied_board, &!copied_state.whose_turn.clone());
-                copied_state
-                    .pin_info
-                    .update(&copied_board, &!copied_state.whose_turn.clone());
-                copied_state.update_check_constraints(&copied_board);
 
                 best_score = max(
                     self.alpha_beta_pruning(
@@ -99,7 +91,7 @@ impl Engine {
                 Self::generate_legal_moves(&previous_state.whose_turn, &board, &previous_state);
 
             if legal_moves.len() == 0 {
-                return if state.check_info.checked_king.is_some() {
+                return if previous_state.check_info.checked_king.is_some() {
                     i32::MAX
                 } else {
                     0
@@ -111,15 +103,6 @@ impl Engine {
                 let mut copied_board: Board = board.clone();
                 let mut copied_state: GameState = previous_state.clone();
                 copied_board.perform_move(&m, &mut copied_state);
-
-                copied_board.total_occupancy();
-                copied_state
-                    .check_info
-                    .update(&copied_board, &!copied_state.whose_turn.clone());
-                copied_state
-                    .pin_info
-                    .update(&copied_board, &!copied_state.whose_turn.clone());
-                copied_state.update_check_constraints(&copied_board);
 
                 best_score = min(
                     self.alpha_beta_pruning(
@@ -155,21 +138,11 @@ impl Engine {
         previous_state.whose_turn = self.side.clone();
         legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
         for m in &legal_moves {
-            // println!("{:?}", m);
-
             let mut copied_board: Board = board.clone();
             let mut copied_state: GameState = previous_state.clone();
 
             copied_board.perform_move(&m, &mut copied_state);
-            copied_board.total_occupancy();
-            copied_state
-                .check_info
-                .update(&copied_board, &!copied_state.whose_turn.clone());
-            copied_state
-                .pin_info
-                .update(&copied_board, &!copied_state.whose_turn.clone());
-            copied_state.update_check_constraints(&copied_board);
-            // println!("pruning...");
+
             let score: i32 = self.alpha_beta_pruning(
                 &copied_board,
                 self.depth,
@@ -178,7 +151,12 @@ impl Engine {
                 maximizing,
                 &mut copied_state,
             );
-            // println!("passed the move");
+            println!(
+                "move: {} {}, score: {}",
+                INDICES_TO_COORDS.get(&m.from).unwrap(),
+                INDICES_TO_COORDS.get(&m.to).unwrap(),
+                score
+            );
 
             if match self.side {
                 PieceColor::White => score > best_score,

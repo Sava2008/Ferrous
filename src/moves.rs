@@ -438,13 +438,13 @@ impl Board {
             ) {
                 (true, true) => (
                     (Some(2), Some(6)),
-                    0b0000000000000000000000000000000000000000000000000000000000001100,
+                    0b0000000000000000000000000000000000000000000000000000000000001110,
                     0b0000000000000000000000000000000000000000000000000000000001100000,
                 ),
                 (false, false) => return moves,
                 (true, false) => (
                     (Some(2), None),
-                    0b0000000000000000000000000000000000000000000000000000000000001100,
+                    0b0000000000000000000000000000000000000000000000000000000000001110,
                     0,
                 ),
                 (false, true) => (
@@ -458,24 +458,24 @@ impl Board {
                 &state.castling_rights.black_two_zeros,
             ) {
                 (true, true) => (
-                    (Some(58), Some(62)),
+                    (Some(62), Some(58)),
                     0b0110000000000000000000000000000000000000000000000000000000000000,
-                    0b0000110000000000000000000000000000000000000000000000000000000000,
+                    0b0000111000000000000000000000000000000000000000000000000000000000,
                 ),
                 (false, false) => return moves,
                 (true, false) => (
-                    (Some(58), None),
+                    (Some(62), None),
                     0b0110000000000000000000000000000000000000000000000000000000000000,
                     0,
                 ),
                 (false, true) => (
-                    (None, Some(62)),
+                    (None, Some(58)),
                     0,
-                    0b0000110000000000000000000000000000000000000000000000000000000000,
+                    0b0000111000000000000000000000000000000000000000000000000000000000,
                 ),
             },
         };
-        if left_path != 0 && left_path & self.total_occupancy == 0 {
+        if left_path != 0 && (left_path & self.total_occupancy == 0) {
             while left_path != 0 {
                 if self.is_square_attacked(left_path.trailing_zeros() as u8, &!color.clone()) {
                     break;
@@ -491,7 +491,7 @@ impl Board {
                 })
             }
         }
-        if right_path != 0 && right_path & self.total_occupancy == 0 {
+        if right_path != 0 && (right_path & self.total_occupancy == 0) {
             while right_path != 0 {
                 if self.is_square_attacked(right_path.trailing_zeros() as u8, &!color.clone()) {
                     break;

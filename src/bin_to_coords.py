@@ -41,3 +41,13 @@ def bin_to_indices(num: str) -> list[int]:
 
 def indices_to_bin(indices: list[int]) -> str:
     return assemble_bin_from_coords([idx_to_coords[i] for i in indices])
+
+
+print(f"white queen: {assemble_bin_from_coords(['d6'])}")
+print(f"white rook: {assemble_bin_from_coords(['f1', 'g7'])}")
+print(f"black rook: {assemble_bin_from_coords(['a8', 'd8'])}")
+print(f"black queen: {assemble_bin_from_coords(['c2'])}")
+print(f"black bishop: {assemble_bin_from_coords(['h3'])}")
+print(f"black knight: {assemble_bin_from_coords(['d5'])}")
+print(f"black pawn: {assemble_bin_from_coords(['a7', 'b6', 'c6'])}")
+print(f"black king: {assemble_bin_from_coords(['c8'])}")

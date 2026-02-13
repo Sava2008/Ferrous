@@ -1,7 +1,7 @@
 use crate::{
     board_geometry_templates::*,
     enums::{InclusiveRange, PieceColor, PieceType},
-    gamestate::{GameState, PieceMove},
+    gamestate::{CheckInfo, GameState, PieceMove, PinInfo, PreviousMove},
 };
 use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
@@ -174,13 +174,43 @@ impl Board {
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: &PieceMove, state: &mut GameState) -> () {
         self.total_occupancy();
+        let mut previous_move: PreviousMove = PreviousMove {
+            changed_bitboards: [(None, None); 3],
+            previous_en_passant: None,
+            previous_castling_rights: None,
+            previous_check_info: CheckInfo {
+                checked_king: None,
+                first_checker: None,
+                second_checker: None,
+            },
+            previous_pin_info: PinInfo {
+                white_king: 64,
+                black_king: 64,
+                white_pinned_pieces: Vec::new(),
+                black_pinned_pieces: Vec::new(),
+            },
+            captured_piece_type: None,
+        };
+        previous_move.previous_en_passant = state.en_passant_target.clone();
+
         if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
+            state.en_passant_target = None;
             let (white_king, black_king): (u8, u8) = (
                 self.white_king.trailing_zeros() as u8,
                 self.black_king.trailing_zeros() as u8,
             );
             match from_to.from {
                 sq if sq == white_king => {
+                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                    previous_move.changed_bitboards[0] = (
+                        Some((PieceColor::White, PieceType::King)),
+                        Some(self.white_king),
+                    );
+                    previous_move.changed_bitboards[1] = (
+                        Some((PieceColor::White, PieceType::Rook)),
+                        Some(self.white_rooks),
+                    );
+
                     let rook_from_to: (u8, u8) = match from_to.to {
                         2 => (0, 3),
                         6 => (7, 5),
@@ -200,10 +230,19 @@ impl Board {
                         state.castling_rights.white_three_zeros,
                         state.castling_rights.white_two_zeros,
                     ) = (false, false);
-                    state.en_passant_target = None;
                     return;
                 }
                 sq if sq == black_king => {
+                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                    previous_move.changed_bitboards[0] = (
+                        Some((PieceColor::Black, PieceType::King)),
+                        Some(self.black_king),
+                    );
+                    previous_move.changed_bitboards[1] = (
+                        Some((PieceColor::Black, PieceType::Rook)),
+                        Some(self.black_rooks),
+                    );
+
                     let rook_from_to: (u8, u8) = match from_to.to {
                         58 => (56, 59),
                         62 => (63, 61),
@@ -223,7 +262,6 @@ impl Board {
                         state.castling_rights.black_three_zeros,
                         state.castling_rights.black_two_zeros,
                     ) = (false, false);
-                    state.en_passant_target = None;
                     return;
                 }
                 _ => (),
@@ -244,6 +282,9 @@ impl Board {
                 (PieceColor::Black, PieceType::Rook) => &mut self.black_rooks,
                 (PieceColor::Black, PieceType::King) => &mut self.black_king,
             };
+
+            previous_move.changed_bitboards[1] = (Some(enemy), Some(bitboard_for_capture.clone()));
+
             *bitboard_for_capture &= !(1 << from_to.to);
         }
 
@@ -251,6 +292,10 @@ impl Board {
             match piece.0 {
                 PieceColor::White => match piece.1 {
                     PieceType::King => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_king));
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+
                         (
                             state.castling_rights.white_three_zeros,
                             state.castling_rights.white_two_zeros,
@@ -258,6 +303,10 @@ impl Board {
                         state.en_passant_target = None;
                     }
                     PieceType::Rook => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_rooks));
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+
                         if from_to.from == 0 {
                             state.castling_rights.white_three_zeros = false;
                         } else if from_to.from == 7 {
@@ -266,13 +315,14 @@ impl Board {
                         state.en_passant_target = None;
                     }
                     PieceType::Pawn => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_pawns));
                         match from_to {
                             &PieceMove { from, to }
                                 if (8..=15).contains(&from) && (24..=31).contains(&to) =>
                             {
                                 state.en_passant_target = Some(from_to.to - 8); // en passant square behind the pawn
                             }
-                            _ => {}
+                            _ => state.en_passant_target = None,
                         };
                         if let Some(e_p) = state.en_passant_target {
                             if from_to.to == e_p {
@@ -282,10 +332,27 @@ impl Board {
                             }
                         }
                     }
-                    _ => state.en_passant_target = None,
+                    PieceType::Bishop => {
+                        previous_move.changed_bitboards[0] =
+                            (Some(piece), Some(self.white_bishops));
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Knight => {
+                        previous_move.changed_bitboards[0] =
+                            (Some(piece), Some(self.white_knights));
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Queen => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_queens));
+                        state.en_passant_target = None;
+                    }
                 },
                 PieceColor::Black => match piece.1 {
                     PieceType::King => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_king));
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+
                         (
                             state.castling_rights.black_three_zeros,
                             state.castling_rights.black_two_zeros,
@@ -293,6 +360,10 @@ impl Board {
                         state.en_passant_target = None;
                     }
                     PieceType::Rook => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_rooks));
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+
                         if from_to.from == 56 {
                             state.castling_rights.black_three_zeros = false;
                         } else if from_to.from == 63 {
@@ -301,13 +372,15 @@ impl Board {
                         state.en_passant_target = None;
                     }
                     PieceType::Pawn => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_pawns));
+
                         match from_to {
                             &PieceMove { from, to }
                                 if (48..=55).contains(&from) && (32..=39).contains(&to) =>
                             {
                                 state.en_passant_target = Some(from_to.to + 8); // en passant square behind the pawn
                             }
-                            _ => {}
+                            _ => state.en_passant_target = None,
                         };
                         if let Some(e_p) = state.en_passant_target {
                             if from_to.to == e_p {
@@ -317,11 +390,33 @@ impl Board {
                             }
                         }
                     }
-                    _ => state.en_passant_target = None,
+                    PieceType::Bishop => {
+                        previous_move.changed_bitboards[0] =
+                            (Some(piece), Some(self.black_bishops));
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Knight => {
+                        previous_move.changed_bitboards[0] =
+                            (Some(piece), Some(self.black_knights));
+                        state.en_passant_target = None;
+                    }
+                    PieceType::Queen => {
+                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_queens));
+                        state.en_passant_target = None;
+                    }
                 },
             };
             self.reset_bit(piece, from_to.from, from_to.to);
         }
+        state.moves_history.push(previous_move);
+        self.total_occupancy();
+        state.check_info.update(&self, &!state.whose_turn);
+        state.pin_info.update(&self, &!state.whose_turn);
+        state.update_check_constraints(&self);
+    }
+
+    pub fn cancel_move(&mut self, state: &mut GameState) -> () {
+        if let Some(previous_move) = state.moves_history.pop() {}
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {

@@ -56,32 +56,32 @@ impl Engine {
         }
         p = board.black_bishops;
         while p != 0 {
-            self.evaluation -= BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.black_knights;
         while p != 0 {
-            self.evaluation -= BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.black_rooks;
         while p != 0 {
-            self.evaluation -= BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.black_pawns;
         while p != 0 {
-            self.evaluation -= BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.black_queens;
         while p != 0 {
-            self.evaluation -= BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.black_king;
         while p != 0 {
-            self.evaluation -= BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         self.evaluation += Self::count_material(&board);
