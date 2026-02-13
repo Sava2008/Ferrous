@@ -6,6 +6,7 @@ use crate::{
     },
     enums::{GameResult, InclusiveRange, PieceColor, PieceType},
 };
+use smallvec::SmallVec;
 
 /* order of updating the fields:
 1. whose_turn
@@ -15,7 +16,7 @@ use crate::{
 5. check_info, pin_info
 6. check_contraints  */
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares
     pub castling_rights: CastlingRights,
@@ -29,7 +30,7 @@ pub struct GameState {
     pub check_contraints: Bitboard, // all the allowed squares for friendly pieces except the king during a check
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CastlingRights {
     pub white_three_zeros: bool,
     pub white_two_zeros: bool,
@@ -56,7 +57,7 @@ impl CastlingRights {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CheckInfo {
     pub checked_king: Option<u8>,
     pub first_checker: Option<u8>,
@@ -73,7 +74,6 @@ impl CheckInfo {
     }
 
     pub fn update(&mut self, board: &Board, whose_turn: &PieceColor) -> () {
-        //println!("updating check_info for {whose_turn:?}");
         self.checked_king = None;
         self.first_checker = None;
         self.second_checker = None;
@@ -152,12 +152,11 @@ impl CheckInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PinInfo {
     pub white_king: u8,
     pub black_king: u8,
-    pub white_pinned_pieces: Vec<PinnedPiece>,
-    pub black_pinned_pieces: Vec<PinnedPiece>,
+    pub pinned_pieces: SmallVec<[PinnedPiece; 8]>,
 }
 impl PinInfo {
     #[inline]
@@ -165,13 +164,11 @@ impl PinInfo {
         return Self {
             white_king: 4,  // e1
             black_king: 60, // e8
-            white_pinned_pieces: Vec::new(),
-            black_pinned_pieces: Vec::new(),
+            pinned_pieces: SmallVec::new(),
         };
     }
 
     pub fn update(&mut self, board: &Board, color: &PieceColor) -> () {
-        //println!("updating pin_info for {color:?}");
         self.white_king = board.white_king.trailing_zeros() as u8;
         self.black_king = board.black_king.trailing_zeros() as u8;
 
@@ -185,24 +182,26 @@ impl PinInfo {
                 bishop_attacks(self.black_king as usize, board.white_occupancy),
             ),
         };
-        let (mut linear_attackers, mut diagonal_attackers, pinned_pieces, king, friendly_occupancy): (Bitboard, Bitboard, &mut Vec<PinnedPiece>, &u8, &Bitboard) =
-            match color {
-                PieceColor::White => (
-                    lines & (&board.black_queens | &board.black_rooks),
-                    diagonals & (&board.black_queens | &board.black_bishops),
-                    &mut self.white_pinned_pieces,
-                    &self.white_king,
-                    &board.white_occupancy,
-                ),
-                PieceColor::Black => (
-                    lines & (&board.white_queens | &board.white_rooks),
-                    diagonals & (&board.white_queens | &board.white_bishops),
-                    &mut self.black_pinned_pieces,
-                    &self.black_king,
-                    &board.black_occupancy,
-                ),
-            };
-        pinned_pieces.clear();
+        let (mut linear_attackers, mut diagonal_attackers, king, friendly_occupancy): (
+            Bitboard,
+            Bitboard,
+            &u8,
+            &Bitboard,
+        ) = match color {
+            PieceColor::White => (
+                lines & (&board.black_queens | &board.black_rooks),
+                diagonals & (&board.black_queens | &board.black_bishops),
+                &self.white_king,
+                &board.white_occupancy,
+            ),
+            PieceColor::Black => (
+                lines & (&board.white_queens | &board.white_rooks),
+                diagonals & (&board.white_queens | &board.white_bishops),
+                &self.black_king,
+                &board.black_occupancy,
+            ),
+        };
+        self.pinned_pieces.clear();
         while linear_attackers != 0 {
             let pin_ray: Bitboard = Board::generate_range(
                 *king,
@@ -214,7 +213,7 @@ impl PinInfo {
             if teammates_in_between.count_ones() != 1 {
                 continue;
             }
-            pinned_pieces.push(PinnedPiece {
+            self.pinned_pieces.push(PinnedPiece {
                 square: teammates_in_between.trailing_zeros() as u8,
                 pin_ray,
             });
@@ -230,7 +229,7 @@ impl PinInfo {
             if teammates_in_between.count_ones() != 1 {
                 continue;
             }
-            pinned_pieces.push(PinnedPiece {
+            self.pinned_pieces.push(PinnedPiece {
                 square: teammates_in_between.trailing_zeros() as u8,
                 pin_ray,
             });
@@ -244,7 +243,7 @@ pub struct PinnedPiece {
     pub pin_ray: Bitboard, // all available squares for the pinned piece
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PreviousMove {
     // normal move changes 1 bitboard, castling or capture changes 2 and promotion with capture changes 3
     pub changed_bitboards: [(Option<(PieceColor, PieceType)>, Option<Bitboard>); 3],
@@ -253,7 +252,7 @@ pub struct PreviousMove {
     // pub previous_fifty_moves_rule_counter: u8,
     pub previous_check_info: CheckInfo,
     pub previous_pin_info: PinInfo,
-    pub captured_piece_type: Option<PieceType>,
+    pub previous_check_constraints: Bitboard,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

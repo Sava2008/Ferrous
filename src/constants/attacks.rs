@@ -551,7 +551,12 @@ pub fn rook_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
     return unsafe { ROOK_ATTACKS[offset + idx] };
 }
 
+#[track_caller]
 pub fn bishop_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
+    if initial_pos > 63 {
+        let caller = std::panic::Location::caller();
+        println!("caller: {:?}, {:?}", caller.file(), caller.line());
+    }
     let masked_blockers: Bitboard = occupancy & BISHOP_MASKS[initial_pos];
     let idx: usize = ((masked_blockers.wrapping_mul(BISHOP_MAGICS[initial_pos]))
         >> BISHOP_SHIFTS[initial_pos]) as usize;

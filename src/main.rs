@@ -5,7 +5,7 @@ use crate::{
     enums::{GameResult, PieceColor, PieceType},
     gamestate::{GameState, PieceMove},
 };
-use std::io;
+use std::{io, time::Instant};
 pub mod alpha_beta_pruning;
 pub mod board;
 pub mod board_geometry_templates;
@@ -43,7 +43,9 @@ fn game_control(
         state.update_check_constraints(&board);
 
         // white's move
+        let start: Instant = Instant::now();
         let engine_move: Option<PieceMove> = engine.find_best_move(&board, state);
+        println!("{:.3?}", start.elapsed());
         if let Some(m) = engine_move {
             board.perform_move(&m, state);
             println!(

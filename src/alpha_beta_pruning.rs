@@ -28,7 +28,7 @@ impl Engine {
 
     pub fn alpha_beta_pruning(
         &mut self,
-        board: &Board,
+        board: &mut Board,
         depth: u8,
         alpha: i32,
         beta: i32,
@@ -43,14 +43,13 @@ impl Engine {
             // white's branch
             let mut best_score: i32 = i32::MIN;
             let mut current_alpha: i32 = alpha;
-            let mut previous_state: GameState = state.clone();
-            previous_state.whose_turn = PieceColor::White;
+            state.whose_turn = PieceColor::White;
 
             let mut legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&previous_state.whose_turn, &board, &previous_state);
+                Self::generate_legal_moves(&state.whose_turn, &board, &state);
 
             if legal_moves.len() == 0 {
-                return if previous_state.check_info.checked_king.is_some() {
+                return if state.check_info.checked_king.is_some() {
                     i32::MIN
                 } else {
                     0
@@ -59,21 +58,13 @@ impl Engine {
             legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
 
             for m in &legal_moves {
-                let mut copied_board: Board = board.clone();
-                let mut copied_state: GameState = previous_state.clone();
-                copied_board.perform_move(&m, &mut copied_state);
+                board.perform_move(&m, state);
 
                 best_score = max(
-                    self.alpha_beta_pruning(
-                        &copied_board,
-                        depth - 1,
-                        current_alpha,
-                        beta,
-                        false,
-                        &mut copied_state,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
                     best_score,
                 );
+                board.cancel_move(state);
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
                     break;
@@ -84,14 +75,13 @@ impl Engine {
             // black's branch
             let mut best_score: i32 = i32::MAX;
             let mut current_beta: i32 = beta;
-            let mut previous_state: GameState = state.clone();
-            previous_state.whose_turn = PieceColor::Black;
+            state.whose_turn = PieceColor::Black;
 
             let mut legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&previous_state.whose_turn, &board, &previous_state);
+                Self::generate_legal_moves(&state.whose_turn, &board, &state);
 
             if legal_moves.len() == 0 {
-                return if previous_state.check_info.checked_king.is_some() {
+                return if state.check_info.checked_king.is_some() {
                     i32::MAX
                 } else {
                     0
@@ -100,21 +90,12 @@ impl Engine {
             legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
 
             for m in &legal_moves {
-                let mut copied_board: Board = board.clone();
-                let mut copied_state: GameState = previous_state.clone();
-                copied_board.perform_move(&m, &mut copied_state);
-
+                board.perform_move(&m, state);
                 best_score = min(
-                    self.alpha_beta_pruning(
-                        &copied_board,
-                        depth - 1,
-                        alpha,
-                        current_beta,
-                        true,
-                        &mut copied_state,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
                     best_score,
                 );
+                board.cancel_move(state);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
                     break;
@@ -130,21 +111,19 @@ impl Engine {
             PieceColor::Black => (i32::MAX, true),
         };
         let mut best_move: Option<PieceMove> = None;
-        let mut previous_state: GameState = state.clone();
+        let mut copied_board: Board = board.clone();
+        let mut copied_state: GameState = state.clone();
+        copied_state.whose_turn = self.side.clone();
 
         let mut legal_moves: Vec<PieceMove> =
-            Self::generate_legal_moves(&self.side, board, &previous_state);
+            Self::generate_legal_moves(&self.side, board, &copied_state);
 
-        previous_state.whose_turn = self.side.clone();
         legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
         for m in &legal_moves {
-            let mut copied_board: Board = board.clone();
-            let mut copied_state: GameState = previous_state.clone();
-
             copied_board.perform_move(&m, &mut copied_state);
 
             let score: i32 = self.alpha_beta_pruning(
-                &copied_board,
+                &mut copied_board,
                 self.depth,
                 i32::MIN,
                 i32::MAX,
@@ -157,6 +136,7 @@ impl Engine {
                 INDICES_TO_COORDS.get(&m.to).unwrap(),
                 score
             );
+            copied_board.cancel_move(&mut copied_state);
 
             if match self.side {
                 PieceColor::White => score > best_score,

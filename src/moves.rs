@@ -213,15 +213,17 @@ impl Board {
             };
         }
 
-        let (mut knights_bitboard, pinned_pieces): (Bitboard, &Vec<PinnedPiece>) = match color {
-            PieceColor::Black => (self.black_knights, &state.pin_info.black_pinned_pieces),
-            PieceColor::White => (self.white_knights, &state.pin_info.white_pinned_pieces),
+        let mut knights_bitboard: Bitboard = match color {
+            PieceColor::Black => self.black_knights,
+            PieceColor::White => self.white_knights,
         };
 
         while knights_bitboard != 0 {
             let initial_pos: u8 = knights_bitboard.trailing_zeros() as u8;
 
-            if pinned_pieces
+            if state
+                .pin_info
+                .pinned_pieces
                 .iter()
                 .any(|p_p: &PinnedPiece| p_p.square == initial_pos)
             {
@@ -267,25 +269,19 @@ impl Board {
             };
         }
 
-        let (enemy_king, pinned_pieces, mut pawns_bitboard, mut enemy_occupancy): (
-            u8,
-            &Vec<PinnedPiece>,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &PieceColor::White => (
-                state.pin_info.black_king,
-                &state.pin_info.white_pinned_pieces,
-                self.white_pawns,
-                self.black_occupancy,
-            ),
-            &PieceColor::Black => (
-                state.pin_info.white_king,
-                &state.pin_info.black_pinned_pieces,
-                self.black_pawns,
-                self.white_occupancy,
-            ),
-        };
+        let (enemy_king, mut pawns_bitboard, mut enemy_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &PieceColor::White => (
+                    state.pin_info.black_king,
+                    self.white_pawns,
+                    self.black_occupancy,
+                ),
+                &PieceColor::Black => (
+                    state.pin_info.white_king,
+                    self.black_pawns,
+                    self.white_occupancy,
+                ),
+            };
 
         if let Some(e_p) = state.en_passant_target {
             enemy_occupancy |= 1 << e_p
@@ -302,7 +298,9 @@ impl Board {
                 PieceColor::Black => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
             let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
-            let pin_ray: Option<u64> = pinned_pieces
+            let pin_ray: Option<u64> = state
+                .pin_info
+                .pinned_pieces
                 .iter()
                 .find(|p: &&PinnedPiece| p.square == initial_pos)
                 .map(|p: &PinnedPiece| p.pin_ray);
@@ -475,6 +473,7 @@ impl Board {
                 ),
             },
         };
+
         if left_path != 0 && (left_path & self.total_occupancy == 0) {
             while left_path != 0 {
                 if self.is_square_attacked(left_path.trailing_zeros() as u8, &!color.clone()) {
@@ -483,7 +482,7 @@ impl Board {
                 left_path &= left_path - 1;
             }
             if left_path == 0
-                && let Some(sq) = castling_squares.0
+                && let Some(sq) = castling_squares.1
             {
                 moves.push(PieceMove {
                     from: initial_pos,
@@ -499,7 +498,7 @@ impl Board {
                 right_path &= right_path - 1;
             }
             if right_path == 0
-                && let Some(sq) = castling_squares.1
+                && let Some(sq) = castling_squares.0
             {
                 moves.push(PieceMove {
                     from: initial_pos,
@@ -524,25 +523,19 @@ impl Board {
             };
         }
 
-        let (enemy_king, pinned_pieces, mut rooks_bitboard, friendly_occupancy): (
-            u8,
-            &Vec<PinnedPiece>,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &PieceColor::White => (
-                state.pin_info.black_king,
-                &state.pin_info.white_pinned_pieces,
-                self.white_rooks,
-                self.white_occupancy,
-            ),
-            &PieceColor::Black => (
-                state.pin_info.white_king,
-                &state.pin_info.black_pinned_pieces,
-                self.black_rooks,
-                self.black_occupancy,
-            ),
-        };
+        let (enemy_king, mut rooks_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &PieceColor::White => (
+                    state.pin_info.black_king,
+                    self.white_rooks,
+                    self.white_occupancy,
+                ),
+                &PieceColor::Black => (
+                    state.pin_info.white_king,
+                    self.black_rooks,
+                    self.black_occupancy,
+                ),
+            };
 
         let occupancy: Bitboard = self.total_occupancy;
 
@@ -553,7 +546,9 @@ impl Board {
             if state.check_contraints != 0 {
                 dest_bitboard &= &state.check_contraints;
             }
-            let pin_ray: Option<u64> = pinned_pieces
+            let pin_ray: Option<u64> = state
+                .pin_info
+                .pinned_pieces
                 .iter()
                 .find(|p: &&PinnedPiece| p.square as usize == initial_pos)
                 .map(|p: &PinnedPiece| p.pin_ray);
@@ -592,25 +587,19 @@ impl Board {
             };
         }
 
-        let (enemy_king, pinned_pieces, mut bishops_bitboard, friendly_occupancy): (
-            u8,
-            &Vec<PinnedPiece>,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &PieceColor::White => (
-                state.pin_info.black_king,
-                &state.pin_info.white_pinned_pieces,
-                self.white_bishops,
-                self.white_occupancy,
-            ),
-            &PieceColor::Black => (
-                state.pin_info.white_king,
-                &state.pin_info.black_pinned_pieces,
-                self.black_bishops,
-                self.black_occupancy,
-            ),
-        };
+        let (enemy_king, mut bishops_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &PieceColor::White => (
+                    state.pin_info.black_king,
+                    self.white_bishops,
+                    self.white_occupancy,
+                ),
+                &PieceColor::Black => (
+                    state.pin_info.white_king,
+                    self.black_bishops,
+                    self.black_occupancy,
+                ),
+            };
         let occupancy: Bitboard = self.total_occupancy;
 
         while bishops_bitboard != 0 {
@@ -620,7 +609,9 @@ impl Board {
             if state.check_contraints != 0 {
                 dest_bitboard &= &state.check_contraints;
             }
-            let pin_ray: Option<u64> = pinned_pieces
+            let pin_ray: Option<u64> = state
+                .pin_info
+                .pinned_pieces
                 .iter()
                 .find(|p: &&PinnedPiece| p.square as usize == initial_pos)
                 .map(|p: &PinnedPiece| p.pin_ray);
@@ -658,25 +649,19 @@ impl Board {
             };
         }
 
-        let (enemy_king, pinned_pieces, mut queens_bitboard, friendly_occupancy): (
-            u8,
-            &Vec<PinnedPiece>,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &PieceColor::White => (
-                state.pin_info.black_king,
-                &state.pin_info.white_pinned_pieces,
-                self.white_queens,
-                self.white_occupancy,
-            ),
-            &PieceColor::Black => (
-                state.pin_info.white_king,
-                &state.pin_info.black_pinned_pieces,
-                self.black_queens,
-                self.black_occupancy,
-            ),
-        };
+        let (enemy_king, mut queens_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &PieceColor::White => (
+                    state.pin_info.black_king,
+                    self.white_queens,
+                    self.white_occupancy,
+                ),
+                &PieceColor::Black => (
+                    state.pin_info.white_king,
+                    self.black_queens,
+                    self.black_occupancy,
+                ),
+            };
 
         let occupancy: Bitboard = self.total_occupancy;
 
@@ -689,7 +674,9 @@ impl Board {
             if state.check_contraints != 0 {
                 dest_bitboard &= &state.check_contraints;
             }
-            let pin_ray: Option<u64> = pinned_pieces
+            let pin_ray: Option<u64> = state
+                .pin_info
+                .pinned_pieces
                 .iter()
                 .find(|p: &&PinnedPiece| p.square as usize == initial_pos)
                 .map(|p: &PinnedPiece| p.pin_ray);

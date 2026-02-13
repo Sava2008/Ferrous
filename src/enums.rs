@@ -35,7 +35,7 @@ pub enum InclusiveRange {
     LastOnly,  // 1 exclusive, 10 inclusive
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum GameResult {
     Going,
     WhiteWins,

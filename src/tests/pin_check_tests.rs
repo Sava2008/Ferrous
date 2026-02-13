@@ -5,6 +5,8 @@ use crate::{
     gamestate::{CastlingRights, CheckInfo, GameState, PieceMove, PinInfo, PinnedPiece},
     initialize_sliding_attack_tables,
 };
+#[allow(unused_imports)]
+use smallvec::SmallVec;
 
 #[test]
 pub fn pin_test1() -> () {
@@ -43,15 +45,15 @@ pub fn pin_test1() -> () {
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
-        state.pin_info.black_pinned_pieces,
-        vec![PinnedPiece {
+        state.pin_info.pinned_pieces,
+        SmallVec::from([PinnedPiece {
             square: 35,
             pin_ray: 0b0000000000000000000000000000000000001000000000000000000000000000,
-        }]
+        }])
     );
     assert_eq!(
-        state.pin_info.white_pinned_pieces,
-        vec![
+        state.pin_info.pinned_pieces,
+        SmallVec::from([
             PinnedPiece {
                 square: 10,
                 pin_ray: 0b0000000000000000000000000000000000000000000000000000000000000100,
@@ -60,7 +62,7 @@ pub fn pin_test1() -> () {
                 square: 27,
                 pin_ray: 0b0000000000000000000000000001000000000000000000000000000000000000,
             },
-        ]
+        ])
     );
 }
 
@@ -101,8 +103,8 @@ pub fn pin_test2() -> () {
     state.pin_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
-        state.pin_info.black_pinned_pieces,
-        vec![
+        state.pin_info.pinned_pieces,
+        SmallVec::from([
             PinnedPiece {
                 square: 55,
                 pin_ray: 0b0000000000000000100000001000000010000000100000001000000000000000
@@ -115,14 +117,14 @@ pub fn pin_test2() -> () {
                 square: 54,
                 pin_ray: 0b0000000000000000001000000001000000001000000001000000001000000000,
             }
-        ]
+        ])
     );
     assert_eq!(
-        state.pin_info.white_pinned_pieces,
-        vec![PinnedPiece {
+        state.pin_info.pinned_pieces,
+        SmallVec::from([PinnedPiece {
             square: 43,
             pin_ray: 0b0000000000000000000000000000100000001000000010000000100000001000,
-        }]
+        }])
     );
 }
 
