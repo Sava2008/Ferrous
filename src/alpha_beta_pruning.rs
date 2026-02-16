@@ -11,7 +11,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    fn generate_legal_moves(
+    pub fn generate_legal_moves(
         color: &PieceColor,
         board: &Board,
         state: &GameState,

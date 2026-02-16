@@ -253,10 +253,30 @@ pub struct PieceMove {
 
 impl GameState {
     #[inline]
-    pub fn new() -> Self {
+    pub fn new(board: &Board) -> Self {
         return Self {
             en_passant_target: None,
-            castling_rights: CastlingRights::new(),
+            castling_rights: match (board.white_king, board.black_king) {
+                (4, 60) => CastlingRights::new(),
+                (4, _) => CastlingRights {
+                    white_three_zeros: true,
+                    white_two_zeros: true,
+                    black_three_zeros: false,
+                    black_two_zeros: false,
+                },
+                (_, 60) => CastlingRights {
+                    white_three_zeros: false,
+                    white_two_zeros: false,
+                    black_three_zeros: true,
+                    black_two_zeros: true,
+                },
+                (_, _) => CastlingRights {
+                    white_three_zeros: false,
+                    white_two_zeros: false,
+                    black_three_zeros: false,
+                    black_two_zeros: false,
+                },
+            },
             fifty_moves_rule_counter: 0,
             check_info: CheckInfo::new(),
             pin_info: PinInfo::new(),

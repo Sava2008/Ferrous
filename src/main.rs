@@ -2,6 +2,7 @@ use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
     constants::attacks::{INDICES_TO_COORDS, initialize_sliding_attack_tables},
+    converters::fen_converter::board_to_fen,
     enums::{GameResult, PieceColor},
     gamestate::{GameState, PieceMove},
 };
@@ -21,7 +22,7 @@ fn main() {
     initialize_sliding_attack_tables();
     let mut board: Board = Board::set();
     board.total_occupancy();
-    let mut state: GameState = GameState::new();
+    let mut state: GameState = GameState::new(&board);
     let mut white_engine: Engine = Engine {
         side: PieceColor::White,
         depth: 6,
@@ -49,8 +50,11 @@ fn game_control(
         state.pin_info.update(&board, &PieceColor::White);
         state.update_check_constraints(&board);
         println!(
-            "check info for white: {:?}, pin_info for white: {:?}, check constraints {:b}\nboard: {board:?}",
-            state.check_info, state.pin_info, state.check_contraints
+            "check info for white: {:?}, pin_info for white: {:?}, check constraints {:b}\nboard: {:?}",
+            state.check_info,
+            state.pin_info,
+            state.check_contraints,
+            board_to_fen(&board, &state),
         );
 
         // white's move
@@ -79,8 +83,11 @@ fn game_control(
         state.pin_info.update(&board, &PieceColor::Black);
         state.update_check_constraints(&board);
         println!(
-            "check info for black: {:?}, pin_info for black: {:?}, check constraints {:b}\nboard: {board:?}",
-            state.check_info, state.pin_info, state.check_contraints
+            "check info for black: {:?}, pin_info for black: {:?}, check constraints {:b}\nboard: {:?}",
+            state.check_info,
+            state.pin_info,
+            state.check_contraints,
+            board_to_fen(&board, &state)
         );
 
         // black's move

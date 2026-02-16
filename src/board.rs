@@ -272,8 +272,12 @@ impl Board {
                 (PieceColor::White, PieceType::Queen) => &mut self.white_queens,
                 (PieceColor::White, PieceType::Rook) => {
                     if from_to.to == 7 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                         state.castling_rights.white_two_zeros = false;
                     } else if from_to.to == 0 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                         state.castling_rights.white_three_zeros = false;
                     }
                     &mut self.white_rooks
@@ -287,8 +291,12 @@ impl Board {
                 (PieceColor::Black, PieceType::Queen) => &mut self.black_queens,
                 (PieceColor::Black, PieceType::Rook) => {
                     if from_to.to == 63 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                         state.castling_rights.black_two_zeros = false;
                     } else if from_to.to == 56 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                         state.castling_rights.black_three_zeros = false;
                     }
                     &mut self.black_rooks
@@ -337,15 +345,20 @@ impl Board {
                             {
                                 state.en_passant_target = Some(from_to.to - 8); // en passant square behind the pawn
                             }
-                            _ => state.en_passant_target = None,
-                        };
-                        if let Some(e_p) = state.en_passant_target {
-                            if from_to.to == e_p {
-                                let black_pawns: &mut Bitboard = &mut self.black_pawns;
-                                *black_pawns &= !(1 << (e_p - 8));
+                            _ => {
+                                if let Some(e_p) = state.en_passant_target {
+                                    if from_to.to == e_p {
+                                        previous_move.changed_bitboards[1] = (
+                                            Some((PieceColor::Black, PieceType::Pawn)),
+                                            Some(self.black_pawns),
+                                        );
+                                        let black_pawns: &mut Bitboard = &mut self.black_pawns;
+                                        *black_pawns &= !(1 << (e_p - 8));
+                                    }
+                                }
                                 state.en_passant_target = None;
                             }
-                        }
+                        };
                     }
                     PieceType::Bishop => {
                         previous_move.changed_bitboards[0] =
@@ -395,15 +408,20 @@ impl Board {
                             {
                                 state.en_passant_target = Some(from_to.to + 8); // en passant square behind the pawn
                             }
-                            _ => state.en_passant_target = None,
-                        };
-                        if let Some(e_p) = state.en_passant_target {
-                            if from_to.to == e_p {
-                                let white_pawns: &mut Bitboard = &mut self.white_pawns;
-                                *white_pawns &= !(1 << (e_p + 8));
-                                state.en_passant_target = None
+                            _ => {
+                                if let Some(e_p) = state.en_passant_target {
+                                    if from_to.to == e_p {
+                                        previous_move.changed_bitboards[1] = (
+                                            Some((PieceColor::White, PieceType::Pawn)),
+                                            Some(self.white_pawns),
+                                        );
+                                        let white_pawns: &mut Bitboard = &mut self.white_pawns;
+                                        *white_pawns &= !(1 << (e_p + 8));
+                                    }
+                                }
+                                state.en_passant_target = None;
                             }
-                        }
+                        };
                     }
                     PieceType::Bishop => {
                         previous_move.changed_bitboards[0] =

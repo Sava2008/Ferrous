@@ -134,3 +134,38 @@ fn king_moves_test3() -> () {
         vec![PieceMove { from: 0, to: 9 }]
     );
 }
+
+#[test]
+fn king_moves_test4() -> () {
+    initialize_sliding_attack_tables();
+    let mut board: Board = Board {
+        white_pawns: 0,
+        white_knights: 0,
+        white_bishops: 0,
+        white_queens: 0b10000,
+        white_rooks: 0,
+        white_king: 0b0000000000000000000000001000000000000000000000000000000000000000,
+        black_pawns: 0,
+        black_knights: 0,
+        black_bishops: 0,
+        black_queens: 0,
+        black_rooks: 0,
+        black_king: 0b0000000000000000000000000000000000000000000000000000000000000010,
+        white_occupancy: 0,
+        black_occupancy: 0,
+        total_occupancy: 0,
+    };
+    board.total_occupancy();
+    let mut state: GameState = GameState::new(&board);
+    state.check_info.update(&board, &PieceColor::Black);
+    state.pin_info.update(&board, &PieceColor::Black);
+    state.update_check_constraints(&board);
+    assert_eq!(
+        board.king_moves(&state, &PieceColor::Black),
+        vec![
+            PieceMove { from: 1, to: 8 },
+            PieceMove { from: 1, to: 9 },
+            PieceMove { from: 1, to: 10 }
+        ]
+    );
+}
