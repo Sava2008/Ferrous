@@ -1,6 +1,5 @@
 use crate::{
     board::Board,
-    constants::attacks::INDICES_TO_COORDS,
     enums::PieceColor,
     gamestate::{GameState, PieceMove},
 };
@@ -55,10 +54,23 @@ impl Engine {
                     0
                 };
             }
-            legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
+            legal_moves.sort_by_key(|m: &PieceMove| {
+                if board.is_capture(m) {
+                    0
+                } else if board.does_improve_piece(m) {
+                    1
+                } else {
+                    2
+                }
+            });
 
             for m in &legal_moves {
                 board.perform_move(&m, state);
+
+                board.total_occupancy();
+                state.check_info.update(&board, &!state.whose_turn.clone());
+                state.pin_info.update(&board, &!state.whose_turn.clone());
+                state.update_check_constraints(&board);
 
                 best_score = max(
                     self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
@@ -87,10 +99,24 @@ impl Engine {
                     0
                 };
             }
-            legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
+            legal_moves.sort_by_key(|m: &PieceMove| {
+                if board.is_capture(m) {
+                    0
+                } else if board.does_improve_piece(m) {
+                    1
+                } else {
+                    2
+                }
+            });
 
             for m in &legal_moves {
                 board.perform_move(&m, state);
+
+                board.total_occupancy();
+                state.check_info.update(&board, &!state.whose_turn.clone());
+                state.pin_info.update(&board, &!state.whose_turn.clone());
+                state.update_check_constraints(&board);
+
                 best_score = min(
                     self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
                     best_score,
@@ -112,15 +138,32 @@ impl Engine {
         };
         let mut best_move: Option<PieceMove> = None;
         let mut copied_board: Board = board.clone();
+        copied_board.total_occupancy();
         let mut copied_state: GameState = state.clone();
         copied_state.whose_turn = self.side.clone();
 
         let mut legal_moves: Vec<PieceMove> =
             Self::generate_legal_moves(&self.side, board, &copied_state);
 
-        legal_moves.sort_by_key(|m: &PieceMove| if board.is_capture(m) { 0 } else { 1 });
+        legal_moves.sort_by_key(|m: &PieceMove| {
+            if board.is_capture(m) {
+                0
+            } else if board.does_improve_piece(m) {
+                1
+            } else {
+                2
+            }
+        });
         for m in &legal_moves {
             copied_board.perform_move(&m, &mut copied_state);
+            copied_board.total_occupancy();
+            copied_state
+                .check_info
+                .update(&copied_board, &!copied_state.whose_turn.clone());
+            copied_state
+                .pin_info
+                .update(&copied_board, &!copied_state.whose_turn.clone());
+            copied_state.update_check_constraints(&copied_board);
 
             let score: i32 = self.alpha_beta_pruning(
                 &mut copied_board,
@@ -130,12 +173,12 @@ impl Engine {
                 maximizing,
                 &mut copied_state,
             );
-            println!(
+            /*println!(
                 "move: {} {}, score: {}",
                 INDICES_TO_COORDS.get(&m.from).unwrap(),
                 INDICES_TO_COORDS.get(&m.to).unwrap(),
                 score
-            );
+            );*/
             copied_board.cancel_move(&mut copied_state);
 
             if match self.side {

@@ -365,8 +365,9 @@ impl Board {
         {
             return true;
         }
+        let occupancy: Bitboard = self.total_occupancy & !(self.white_king | self.black_king);
 
-        if bishop_attacks(square as usize, self.total_occupancy)
+        if bishop_attacks(square as usize, occupancy)
             & match by {
                 PieceColor::White => self.white_bishops | self.white_queens,
                 PieceColor::Black => self.black_bishops | self.black_queens,
@@ -376,7 +377,7 @@ impl Board {
             return true;
         }
 
-        if rook_attacks(square as usize, self.total_occupancy)
+        if rook_attacks(square as usize, occupancy)
             & match by {
                 PieceColor::White => self.white_rooks | self.white_queens,
                 PieceColor::Black => self.black_rooks | self.black_queens,
@@ -476,7 +477,9 @@ impl Board {
 
         if left_path != 0 && (left_path & self.total_occupancy == 0) {
             while left_path != 0 {
-                if self.is_square_attacked(left_path.trailing_zeros() as u8, &!color.clone()) {
+                let square: u8 = left_path.trailing_zeros() as u8;
+                if self.is_square_attacked(square, &!color.clone()) && ((1 << square) & FILE_B == 0)
+                {
                     break;
                 }
                 left_path &= left_path - 1;

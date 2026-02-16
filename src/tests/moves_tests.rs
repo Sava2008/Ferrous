@@ -29,7 +29,12 @@ fn king_moves_test1() -> () {
     board.total_occupancy();
     let state: GameState = GameState {
         en_passant_target: None,
-        castling_rights: CastlingRights::new(),
+        castling_rights: CastlingRights {
+            white_three_zeros: false,
+            white_two_zeros: false,
+            black_three_zeros: false,
+            black_two_zeros: false,
+        },
         fifty_moves_rule_counter: 7,
         check_info: CheckInfo::new(),
         pin_info: PinInfo::new(),
@@ -65,7 +70,12 @@ fn king_moves_test2() -> () {
     board.total_occupancy();
     let state: GameState = GameState {
         en_passant_target: None,
-        castling_rights: CastlingRights::new(),
+        castling_rights: CastlingRights {
+            white_three_zeros: false,
+            white_two_zeros: false,
+            black_three_zeros: false,
+            black_two_zeros: false,
+        },
         fifty_moves_rule_counter: 7,
         check_info: CheckInfo::new(),
         pin_info: PinInfo::new(),
@@ -104,7 +114,12 @@ fn king_moves_test3() -> () {
     board.total_occupancy();
     let state: GameState = GameState {
         en_passant_target: None,
-        castling_rights: CastlingRights::new(),
+        castling_rights: CastlingRights {
+            white_three_zeros: false,
+            white_two_zeros: false,
+            black_three_zeros: false,
+            black_two_zeros: false,
+        },
         fifty_moves_rule_counter: 7,
         check_info: CheckInfo::new(),
         pin_info: PinInfo::new(),

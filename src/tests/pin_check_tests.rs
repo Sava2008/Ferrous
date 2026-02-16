@@ -43,24 +43,24 @@ pub fn pin_test1() -> () {
         check_contraints: 0,
     };
     state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
         state.pin_info.pinned_pieces,
         SmallVec::from([PinnedPiece {
             square: 35,
-            pin_ray: 0b0000000000000000000000000000000000001000000000000000000000000000,
+            pin_ray: 34493956096,
         }])
     );
+    state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
         state.pin_info.pinned_pieces,
         SmallVec::from([
             PinnedPiece {
                 square: 10,
-                pin_ray: 0b0000000000000000000000000000000000000000000000000000000000000100,
+                pin_ray: 1028,
             },
             PinnedPiece {
                 square: 27,
-                pin_ray: 0b0000000000000000000000000001000000000000000000000000000000000000,
+                pin_ray: 68853694464,
             },
         ])
     );
@@ -101,29 +101,29 @@ pub fn pin_test2() -> () {
         check_contraints: 0,
     };
     state.pin_info.update(&board, &PieceColor::Black);
-    state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
         state.pin_info.pinned_pieces,
         SmallVec::from([
             PinnedPiece {
                 square: 55,
-                pin_ray: 0b0000000000000000100000001000000010000000100000001000000000000000
+                pin_ray: 36170086419038208,
             },
             PinnedPiece {
                 square: 62,
-                pin_ray: 0b0011110000000000000000000000000000000000000000000000000000000000
+                pin_ray: 8935141660703064064,
             },
             PinnedPiece {
                 square: 54,
-                pin_ray: 0b0000000000000000001000000001000000001000000001000000001000000000,
+                pin_ray: 18049651735527936,
             }
         ])
     );
+    state.pin_info.update(&board, &PieceColor::White);
     assert_eq!(
         state.pin_info.pinned_pieces,
         SmallVec::from([PinnedPiece {
             square: 43,
-            pin_ray: 0b0000000000000000000000000000100000001000000010000000100000001000,
+            pin_ray: 8830587504648,
         }])
     );
 }

@@ -1,8 +1,8 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    constants::attacks::{COORDS_TO_INDICES, INDICES_TO_COORDS, initialize_sliding_attack_tables},
-    enums::{GameResult, PieceColor, PieceType},
+    constants::attacks::{INDICES_TO_COORDS, initialize_sliding_attack_tables},
+    enums::{GameResult, PieceColor},
     gamestate::{GameState, PieceMove},
 };
 use std::{io, time::Instant};
@@ -22,31 +22,42 @@ fn main() {
     let mut board: Board = Board::set();
     board.total_occupancy();
     let mut state: GameState = GameState::new();
-    let mut engine: Engine = Engine {
+    let mut white_engine: Engine = Engine {
         side: PieceColor::White,
         depth: 6,
         evaluation: 0,
     };
-    game_control(&mut state, &mut board, &mut engine).unwrap();
+    let mut black_engine: Engine = Engine {
+        side: PieceColor::Black,
+        depth: 5,
+        evaluation: 0,
+    };
+    game_control(&mut state, &mut board, &mut white_engine, &mut black_engine).unwrap();
+    let _ = io::stdin();
 }
 
 // the main loop
 fn game_control(
     state: &mut GameState,
     board: &mut Board,
-    engine: &mut Engine,
+    engine1: &mut Engine,
+    engine2: &mut Engine,
 ) -> Result<(), io::Error> {
     'outer: loop {
         board.total_occupancy();
         state.check_info.update(&board, &PieceColor::White);
         state.pin_info.update(&board, &PieceColor::White);
         state.update_check_constraints(&board);
+        println!(
+            "check info for white: {:?}, pin_info for white: {:?}, check constraints {:b}\nboard: {board:?}",
+            state.check_info, state.pin_info, state.check_contraints
+        );
 
         // white's move
         let start: Instant = Instant::now();
-        let engine_move: Option<PieceMove> = engine.find_best_move(&board, state);
+        let white_engine_move: Option<PieceMove> = engine1.find_best_move(&board, state);
         println!("{:.3?}", start.elapsed());
-        if let Some(m) = engine_move {
+        if let Some(m) = white_engine_move {
             board.perform_move(&m, state);
             println!(
                 "Ferrous's move: {:?} {:?}",
@@ -63,13 +74,37 @@ fn game_control(
             }
             break;
         }
-
         board.total_occupancy();
         state.check_info.update(&board, &PieceColor::Black);
         state.pin_info.update(&board, &PieceColor::Black);
         state.update_check_constraints(&board);
+        println!(
+            "check info for black: {:?}, pin_info for black: {:?}, check constraints {:b}\nboard: {board:?}",
+            state.check_info, state.pin_info, state.check_contraints
+        );
 
         // black's move
+        let start: Instant = Instant::now();
+        let black_engine_move: Option<PieceMove> = engine2.find_best_move(&board, state);
+        println!("{:.3?}", start.elapsed());
+        if let Some(m) = black_engine_move {
+            board.perform_move(&m, state);
+            println!(
+                "Ferrous's move: {:?} {:?}",
+                INDICES_TO_COORDS.get(&m.from).unwrap(),
+                INDICES_TO_COORDS.get(&m.to).unwrap(),
+            );
+        } else {
+            if state.check_info.checked_king.is_some() {
+                state.result = GameResult::BlackWins;
+                println!("you won by checkmate");
+            } else {
+                state.result = GameResult::Draw;
+                println!("stalemate");
+            }
+            break;
+        }
+        /*
         loop {
             println!("input a move, for example:\ne2 e4");
             let mut user_move: String = String::with_capacity(7);
@@ -135,7 +170,7 @@ fn game_control(
         match state.result {
             GameResult::Going => continue,
             _ => break,
-        };
+        };*/
     }
     return Ok(());
 }

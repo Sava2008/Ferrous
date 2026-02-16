@@ -83,14 +83,13 @@ impl CheckInfo {
         }
         .trailing_zeros() as usize;
 
-        let occupancy: Bitboard = board.total_occupancy;
         let (diagonals, lines, knight_deltas, pawn_deltas) = (
-            bishop_attacks(king_square, occupancy),
-            rook_attacks(king_square, occupancy),
+            bishop_attacks(king_square, board.total_occupancy),
+            rook_attacks(king_square, board.total_occupancy),
             KNIGHT_ATTACKS[king_square],
             match whose_turn {
-                PieceColor::Black => WHITE_PAWN_ATTACKS[king_square],
-                PieceColor::White => BLACK_PAWN_ATTACKS[king_square],
+                &PieceColor::Black => BLACK_PAWN_ATTACKS[king_square],
+                &PieceColor::White => WHITE_PAWN_ATTACKS[king_square],
             },
         );
         let enemy_pieces: [&u64; 5] = match whose_turn {
@@ -98,31 +97,22 @@ impl CheckInfo {
                 &(&board.black_queens & (&lines | &diagonals)),
                 &(&board.black_rooks & &lines),
                 &(&board.black_bishops & &diagonals),
-                &board.black_knights,
-                &board.black_pawns,
+                &(&board.black_knights & &knight_deltas),
+                &(&board.black_pawns & &pawn_deltas),
             ],
             PieceColor::Black => [
                 &(&board.white_queens & (&lines | &diagonals)),
                 &(&board.white_rooks & &lines),
                 &(&board.white_bishops & &diagonals),
-                &board.white_knights,
-                &board.white_pawns,
+                &(&board.white_knights & &knight_deltas),
+                &(&board.white_pawns & &pawn_deltas),
             ],
         };
-        for (i, enemy_bitboard) in enemy_pieces.iter().enumerate() {
-            if **enemy_bitboard == 0 {
+        for enemy_bitboard in enemy_pieces {
+            if *enemy_bitboard == 0 {
                 continue;
             }
-            let checker: u8 = (**enemy_bitboard
-                & match i {
-                    0 => diagonals | lines,
-                    1 => lines,
-                    2 => diagonals,
-                    3 => knight_deltas,
-                    4 => pawn_deltas,
-                    _ => unreachable!(),
-                })
-            .trailing_zeros() as u8;
+            let checker: u8 = enemy_bitboard.trailing_zeros() as u8;
             if checker == 64 {
                 continue;
             }
@@ -138,7 +128,7 @@ impl CheckInfo {
             if
             /*  i == 0  &&*/
             enemy_bitboard.count_ones() > 1 {
-                let mut bb: Bitboard = **enemy_bitboard;
+                let mut bb: Bitboard = *enemy_bitboard;
                 bb &= bb - 1;
                 let checker: u8 = (bb & (diagonals | lines)).trailing_zeros() as u8;
 

@@ -1,5 +1,6 @@
 use crate::{
     board_geometry_templates::*,
+    constants::heuristics::*,
     enums::{InclusiveRange, PieceColor, PieceType},
     gamestate::{GameState, PieceMove, PreviousMove},
 };
@@ -176,11 +177,15 @@ impl Board {
         self.total_occupancy();
         let mut previous_move: PreviousMove = PreviousMove {
             changed_bitboards: [(None, None); 3],
-            previous_en_passant: None,
+            previous_en_passant: state.en_passant_target,
             previous_castling_rights: None,
             previous_check_info: state.check_info.clone(),
             previous_pin_info: state.pin_info.clone(),
-            previous_check_constraints: 0,
+            previous_check_constraints: if state.check_info.checked_king.is_some() {
+                state.check_contraints
+            } else {
+                0
+            },
         };
 
         if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
@@ -265,7 +270,14 @@ impl Board {
                 (PieceColor::White, PieceType::Knight) => &mut self.white_knights,
                 (PieceColor::White, PieceType::Pawn) => &mut self.white_pawns,
                 (PieceColor::White, PieceType::Queen) => &mut self.white_queens,
-                (PieceColor::White, PieceType::Rook) => &mut self.white_rooks,
+                (PieceColor::White, PieceType::Rook) => {
+                    if from_to.to == 7 {
+                        state.castling_rights.white_two_zeros = false;
+                    } else if from_to.to == 0 {
+                        state.castling_rights.white_three_zeros = false;
+                    }
+                    &mut self.white_rooks
+                }
                 (PieceColor::White, PieceType::King) => {
                     panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
                 }
@@ -273,7 +285,14 @@ impl Board {
                 (PieceColor::Black, PieceType::Knight) => &mut self.black_knights,
                 (PieceColor::Black, PieceType::Pawn) => &mut self.black_pawns,
                 (PieceColor::Black, PieceType::Queen) => &mut self.black_queens,
-                (PieceColor::Black, PieceType::Rook) => &mut self.black_rooks,
+                (PieceColor::Black, PieceType::Rook) => {
+                    if from_to.to == 63 {
+                        state.castling_rights.black_two_zeros = false;
+                    } else if from_to.to == 56 {
+                        state.castling_rights.black_three_zeros = false;
+                    }
+                    &mut self.black_rooks
+                }
                 (PieceColor::Black, PieceType::King) => {
                     panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
                 }
@@ -404,14 +423,7 @@ impl Board {
             };
             self.reset_bit(piece, from_to.from, from_to.to);
         }
-        previous_move.previous_en_passant = state.en_passant_target.clone();
-        previous_move.previous_check_constraints = state.check_contraints;
         state.moves_history.push(previous_move);
-
-        self.total_occupancy();
-        state.check_info.update(&self, &!state.whose_turn.clone());
-        state.pin_info.update(&self, &!state.whose_turn.clone());
-        state.update_check_constraints(&self);
     }
 
     pub fn cancel_move(&mut self, state: &mut GameState) -> () {
@@ -451,8 +463,8 @@ impl Board {
             if let Some(castling_rights) = previous_move.previous_castling_rights {
                 state.castling_rights = castling_rights;
             }
-            state.en_passant_target = previous_move.previous_en_passant;
             self.total_occupancy();
+            state.en_passant_target = previous_move.previous_en_passant;
             state.check_info = previous_move.previous_check_info;
             state.pin_info = previous_move.previous_pin_info;
             state.check_contraints = previous_move.previous_check_constraints;
@@ -485,6 +497,97 @@ impl Board {
 
     pub fn is_capture(&self, m: &PieceMove) -> bool {
         return self.bitboard_contains(m.to).is_some();
+    }
+
+    pub fn does_improve_piece(&self, m: &PieceMove) -> bool {
+        let piece: (PieceColor, PieceType) = self.bitboard_contains(m.from).unwrap();
+        match piece.1 {
+            PieceType::Bishop => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_BISHOP_HEURISTICS[m.from as usize]
+                            > BLACK_BISHOP_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_BISHOP_HEURISTICS[m.from as usize]
+                            < WHITE_BISHOP_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+            PieceType::Pawn => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_PAWN_HEURISTICS[m.from as usize]
+                            > BLACK_PAWN_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_PAWN_HEURISTICS[m.from as usize]
+                            < WHITE_PAWN_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+            PieceType::Knight => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_KNIGHT_HEURISTICS[m.from as usize]
+                            > BLACK_KNIGHT_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_KNIGHT_HEURISTICS[m.from as usize]
+                            < WHITE_KNIGHT_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+            PieceType::Queen => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_QUEEN_HEURISTICS[m.from as usize]
+                            > BLACK_QUEEN_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_QUEEN_HEURISTICS[m.from as usize]
+                            < WHITE_QUEEN_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+            PieceType::Rook => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_ROOK_HEURISTICS[m.from as usize]
+                            > BLACK_ROOK_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_ROOK_HEURISTICS[m.from as usize]
+                            < WHITE_ROOK_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+            PieceType::King => {
+                if match piece.0 {
+                    PieceColor::Black => {
+                        BLACK_KING_HEURISTICS[m.from as usize]
+                            > BLACK_KING_HEURISTICS[m.to as usize]
+                    }
+                    PieceColor::White => {
+                        WHITE_KING_HEURISTICS[m.from as usize]
+                            < WHITE_KING_HEURISTICS[m.to as usize]
+                    }
+                } {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     pub fn is_king_attacked(&self, color: &PieceColor) -> bool {
