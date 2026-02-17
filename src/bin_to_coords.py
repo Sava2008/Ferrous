@@ -43,35 +43,6 @@ def indices_to_bin(indices: list[int]) -> str:
     return assemble_bin_from_coords([idx_to_coords[i] for i in indices])
 
 
-print("white pawns: ")
-print("white bishops: ")
-print(
-    f"white knights: {bin_to_chess_coords('0000000000000000000000000000000000000000000000000000010000000000')}"
-)
-print(
-    f"white queens: {bin_to_chess_coords('0000000000000000000000000000000000001000000000000000000000000000')}"
-)
-print(
-    f"white king: {bin_to_chess_coords('0000000000000000000000000000000000000000000001000000000000000000')}"
-)
-print("white rooks: ")
-
-print("black pawns: ")
-print(
-    f"black bishops: {bin_to_chess_coords('0000000000000000000000000001000000000000000000000000000000000000')}"
-)
-print("black knights: ")
-print("black queens: ")
-print(
-    f"black rooks: {bin_to_chess_coords('0000000000000000000000000000100000000000000000000000000000000100')}"
-)
-print(
-    f"black king: {bin_to_chess_coords('0000000000000000000010000000000000000000000000000000000000000000')}"
-)
-
-print(
-    f"w k: {bin_to_chess_coords('0000000000000000000000001000000000000000000000000000000000000000')}"
-)
-print(
-    f"w r: {bin_to_chess_coords('0000000000000000000000000000000000000000000000000000010000000000')}"
-)
+print(f"white queens: {bin_to_chess_coords(bin(140737488355328)[2:])}")
+print(f"white bishops: {bin_to_chess_coords(bin(70368744177664)[2:])}")
+print(f"white pawns: {bin_to_chess_coords(bin(1360640)[2:])}")

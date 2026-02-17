@@ -49,18 +49,20 @@ impl Engine {
 
             if legal_moves.len() == 0 {
                 return if state.check_info.checked_king.is_some() {
-                    i32::MIN
+                    i32::MIN + (self.depth - depth) as i32
                 } else {
                     0
                 };
             }
             legal_moves.sort_by_key(|m: &PieceMove| {
-                if board.is_capture(m) {
+                if board.is_check(m, &!state.whose_turn) {
                     0
-                } else if board.does_improve_piece(m) {
+                } else if board.is_capture(m) {
                     1
-                } else {
+                } else if board.does_improve_piece(m) {
                     2
+                } else {
+                    3
                 }
             });
 
@@ -94,18 +96,20 @@ impl Engine {
 
             if legal_moves.len() == 0 {
                 return if state.check_info.checked_king.is_some() {
-                    i32::MAX
+                    i32::MAX - (self.depth - depth) as i32
                 } else {
                     0
                 };
             }
             legal_moves.sort_by_key(|m: &PieceMove| {
-                if board.is_capture(m) {
+                if board.is_check(m, &!state.whose_turn) {
                     0
-                } else if board.does_improve_piece(m) {
+                } else if board.is_capture(m) {
                     1
-                } else {
+                } else if board.does_improve_piece(m) {
                     2
+                } else {
+                    3
                 }
             });
 
@@ -146,12 +150,14 @@ impl Engine {
             Self::generate_legal_moves(&self.side, board, &copied_state);
 
         legal_moves.sort_by_key(|m: &PieceMove| {
-            if board.is_capture(m) {
+            if board.is_check(m, &!self.side) {
                 0
-            } else if board.does_improve_piece(m) {
+            } else if board.is_capture(m) {
                 1
-            } else {
+            } else if board.does_improve_piece(m) {
                 2
+            } else {
+                3
             }
         });
         for m in &legal_moves {
@@ -173,6 +179,7 @@ impl Engine {
                 maximizing,
                 &mut copied_state,
             );
+            println!("Move: {:?}, Score: {}", m, score);
             /*println!(
                 "move: {} {}, score: {}",
                 INDICES_TO_COORDS.get(&m.from).unwrap(),

@@ -1,6 +1,11 @@
 use crate::{
     board_geometry_templates::*,
-    constants::heuristics::*,
+    constants::{
+        attacks::{
+            BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
+        },
+        heuristics::*,
+    },
     enums::{InclusiveRange, PieceColor, PieceType},
     gamestate::{GameState, PieceMove, PreviousMove},
 };
@@ -187,83 +192,6 @@ impl Board {
                 0
             },
         };
-
-        if [2, 6, 58, 62].iter().any(|sq: &u8| *sq == from_to.to) {
-            state.en_passant_target = None;
-            let (white_king, black_king): (u8, u8) = (
-                self.white_king.trailing_zeros() as u8,
-                self.black_king.trailing_zeros() as u8,
-            );
-            match from_to.from {
-                sq if sq == white_king => {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                    previous_move.changed_bitboards[0] = (
-                        Some((PieceColor::White, PieceType::King)),
-                        Some(self.white_king),
-                    );
-                    previous_move.changed_bitboards[1] = (
-                        Some((PieceColor::White, PieceType::Rook)),
-                        Some(self.white_rooks),
-                    );
-
-                    let rook_from_to: (u8, u8) = match from_to.to {
-                        2 => (0, 3),
-                        6 => (7, 5),
-                        _ => unreachable!(),
-                    };
-                    self.reset_bit(
-                        (PieceColor::White, PieceType::King),
-                        from_to.from,
-                        from_to.to,
-                    );
-                    self.reset_bit(
-                        (PieceColor::White, PieceType::Rook),
-                        rook_from_to.0,
-                        rook_from_to.1,
-                    );
-                    (
-                        state.castling_rights.white_three_zeros,
-                        state.castling_rights.white_two_zeros,
-                    ) = (false, false);
-                    state.moves_history.push(previous_move);
-                    return;
-                }
-                sq if sq == black_king => {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                    previous_move.changed_bitboards[0] = (
-                        Some((PieceColor::Black, PieceType::King)),
-                        Some(self.black_king),
-                    );
-                    previous_move.changed_bitboards[1] = (
-                        Some((PieceColor::Black, PieceType::Rook)),
-                        Some(self.black_rooks),
-                    );
-
-                    let rook_from_to: (u8, u8) = match from_to.to {
-                        58 => (56, 59),
-                        62 => (63, 61),
-                        _ => unreachable!(),
-                    };
-                    self.reset_bit(
-                        (PieceColor::Black, PieceType::King),
-                        from_to.from,
-                        from_to.to,
-                    );
-                    self.reset_bit(
-                        (PieceColor::Black, PieceType::Rook),
-                        rook_from_to.0,
-                        rook_from_to.1,
-                    );
-                    (
-                        state.castling_rights.black_three_zeros,
-                        state.castling_rights.black_two_zeros,
-                    ) = (false, false);
-                    state.moves_history.push(previous_move);
-                    return;
-                }
-                _ => (),
-            };
-        }
         if let Some(enemy) = self.bitboard_contains(from_to.to) {
             let bitboard_for_capture: &mut Bitboard = match enemy {
                 (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,
@@ -318,6 +246,23 @@ impl Board {
                         previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_king));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
+                        match (from_to.from, from_to.to) {
+                            (4, 2) => {
+                                previous_move.changed_bitboards[1] = (
+                                    Some((PieceColor::White, PieceType::Rook)),
+                                    Some(self.white_rooks),
+                                );
+                                self.reset_bit((PieceColor::White, PieceType::Rook), 0, 3);
+                            }
+                            (4, 6) => {
+                                previous_move.changed_bitboards[1] = (
+                                    Some((PieceColor::White, PieceType::Rook)),
+                                    Some(self.white_rooks),
+                                );
+                                self.reset_bit((PieceColor::White, PieceType::Rook), 7, 5);
+                            }
+                            _ => (),
+                        };
 
                         (
                             state.castling_rights.white_three_zeros,
@@ -380,6 +325,23 @@ impl Board {
                         previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_king));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
+                        match (from_to.from, from_to.to) {
+                            (60, 58) => {
+                                previous_move.changed_bitboards[1] = (
+                                    Some((PieceColor::Black, PieceType::Rook)),
+                                    Some(self.black_rooks),
+                                );
+                                self.reset_bit((PieceColor::Black, PieceType::Rook), 56, 59);
+                            }
+                            (60, 62) => {
+                                previous_move.changed_bitboards[1] = (
+                                    Some((PieceColor::Black, PieceType::Rook)),
+                                    Some(self.black_rooks),
+                                );
+                                self.reset_bit((PieceColor::Black, PieceType::Rook), 63, 61);
+                            }
+                            _ => (),
+                        };
 
                         (
                             state.castling_rights.black_three_zeros,
@@ -606,6 +568,66 @@ impl Board {
             }
         }
         return false;
+    }
+
+    pub fn is_check(&self, m: &PieceMove, color: &PieceColor) -> bool {
+        // color represents whose king is suspected to be in check
+        let attacker: (PieceColor, PieceType) = self.bitboard_contains(m.from).unwrap();
+        if attacker.0 == *color {
+            return false;
+        }
+        let king = match color {
+            &PieceColor::White => self.white_king,
+            &PieceColor::Black => self.black_king,
+        }
+        .trailing_zeros() as usize;
+        let (lines, diagonals, knight_deltas, pawn_deltas) = (
+            rook_attacks(king, self.total_occupancy),
+            bishop_attacks(king, self.total_occupancy),
+            KNIGHT_ATTACKS[king],
+            match color {
+                &PieceColor::White => WHITE_PAWN_ATTACKS[king],
+                &PieceColor::Black => BLACK_PAWN_ATTACKS[king],
+            },
+        );
+        return match attacker.1 {
+            PieceType::Bishop => {
+                if diagonals & (1 << m.to) == 0 {
+                    false
+                } else {
+                    true
+                }
+            }
+            PieceType::Knight => {
+                if knight_deltas & (1 << m.to) == 0 {
+                    false
+                } else {
+                    true
+                }
+            }
+            PieceType::Rook => {
+                if lines & (1 << m.to) == 0 {
+                    false
+                } else {
+                    true
+                }
+            }
+            PieceType::Pawn => {
+                if pawn_deltas & (1 << m.to) == 0 {
+                    false
+                } else {
+                    true
+                }
+            }
+            PieceType::Queen => {
+                if (diagonals | lines) & (1 << m.to) == 0 {
+                    false
+                } else {
+                    true
+                }
+            }
+            PieceType::King => return false,
+        };
     }
 
     pub fn is_king_attacked(&self, color: &PieceColor) -> bool {

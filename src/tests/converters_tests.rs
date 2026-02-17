@@ -1,30 +1,14 @@
 #[allow(unused_imports)]
 use crate::{
     board::Board,
-    converters::fen_converter::board_to_fen,
+    converters::fen_converter::{board_to_fen, fen_to_board},
     enums::PieceColor,
     gamestate::{CastlingRights, CheckInfo, GameState, PinInfo},
 };
 
 #[test]
 fn board_to_fen_test1() -> () {
-    let mut test_board: Board = Board {
-        white_pawns: 0b0000000000000000000000000000000000000000000000001111111100000000,
-        white_knights: 0b0000000000000000000000000000000000000000000000000000000001000010,
-        white_bishops: 0b0000000000000000000000000000000000000000000000000000000000100100,
-        white_queens: 0b0000000000000000000000000000000000000000000000000000000000001000,
-        white_rooks: 0b0000000000000000000000000000000000000000000000000000000010000001,
-        white_king: 0b0000000000000000000000000000000000000000000000000000000000010000,
-        black_pawns: 0b0000000011111111000000000000000000000000000000000000000000000000,
-        black_knights: 0b0100001000000000000000000000000000000000000000000000000000000000,
-        black_bishops: 0b0010010000000000000000000000000000000000000000000000000000000000,
-        black_queens: 0b0000100000000000000000000000000000000000000000000000000000000000,
-        black_rooks: 0b1000000100000000000000000000000000000000000000000000000000000000,
-        black_king: 0b0001000000000000000000000000000000000000000000000000000000000000,
-        white_occupancy: 0,
-        black_occupancy: 0,
-        total_occupancy: 0,
-    };
+    let mut test_board: Board = Board::set();
     test_board.total_occupancy();
 
     let test_state: GameState = GameState {
@@ -42,6 +26,14 @@ fn board_to_fen_test1() -> () {
 
     assert_eq!(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        board_to_fen(&test_board, &test_state)
+        board_to_fen(&test_board, &test_state, &PieceColor::White)
+    );
+}
+
+#[test]
+fn fen_to_board_test1() -> () {
+    println!(
+        "{:?}",
+        fen_to_board("rnbqkbnr/pp1p1ppp/8/2pPp3/8/8/PPP1PPPP/RNBQKBNR w KQkq c6 0 3")
     );
 }

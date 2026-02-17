@@ -44,7 +44,8 @@ fn game_control(
     engine1: &mut Engine,
     engine2: &mut Engine,
 ) -> Result<(), io::Error> {
-    'outer: loop {
+    /*'outer: */
+    loop {
         board.total_occupancy();
         state.check_info.update(&board, &PieceColor::White);
         state.pin_info.update(&board, &PieceColor::White);
@@ -54,7 +55,7 @@ fn game_control(
             state.check_info,
             state.pin_info,
             state.check_contraints,
-            board_to_fen(&board, &state),
+            board_to_fen(&board, &state, &PieceColor::White),
         );
 
         // white's move
@@ -87,7 +88,7 @@ fn game_control(
             state.check_info,
             state.pin_info,
             state.check_contraints,
-            board_to_fen(&board, &state)
+            board_to_fen(&board, &state, &PieceColor::Black)
         );
 
         // black's move
