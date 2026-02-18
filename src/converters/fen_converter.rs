@@ -63,7 +63,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &PieceColor) -
                     empty_counter = 0;
                 }
 
-                let piece: (PieceColor, PieceType) = board.bitboard_contains(square).unwrap();
+                let piece: (PieceColor, PieceType) = board.piece_at(square).unwrap();
                 let piece_char: char = match piece {
                     (PieceColor::White, PieceType::King) => 'K',
                     (PieceColor::White, PieceType::Queen) => 'Q',
@@ -149,6 +149,8 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
+        material: 0,
     };
     let mut state: GameState = GameState {
         en_passant_target: None,
@@ -243,6 +245,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         (fifty_moves.parse().unwrap(), total_moves.parse().unwrap());
 
     board.total_occupancy();
+    board.update_full_cache();
 
     return (board, state);
 }

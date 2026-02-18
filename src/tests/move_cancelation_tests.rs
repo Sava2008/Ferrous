@@ -22,6 +22,8 @@ fn create_empty_board() -> Board {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
+        material: 0,
     }
 }
 
@@ -29,6 +31,7 @@ fn create_empty_board() -> Board {
 fn cancelation_test_enpassant_update() -> () {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     let (copied_board, copied_state): (Board, GameState) = (board.clone(), state.clone());
     board.perform_move(&PieceMove { from: 12, to: 28 }, &mut state); // en passant update move
@@ -56,8 +59,11 @@ fn cancelation_test_check() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     let (copied_board, copied_state): (Board, GameState) = (board.clone(), state.clone());
 
@@ -91,8 +97,11 @@ fn cancelation_test_castling() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     let (copied_board, copied_state): (Board, GameState) = (board.clone(), state.clone());
 
@@ -141,6 +150,7 @@ fn cancelation_test_castling() -> () {
 fn cancelation_test_enpassant() -> () {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     board.perform_move(&PieceMove { from: 12, to: 28 }, &mut state);
     board.perform_move(&PieceMove { from: 62, to: 47 }, &mut state);
@@ -167,6 +177,7 @@ fn cancelation_test_enpassant() -> () {
 fn cancelation_test_pin1() -> () {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     board.perform_move(&PieceMove { from: 12, to: 28 }, &mut state);
     board.perform_move(&PieceMove { from: 51, to: 35 }, &mut state);
@@ -195,6 +206,7 @@ fn cancelation_test_pin1() -> () {
 fn cancelation_test_pin2() -> () {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     board.perform_move(&PieceMove { from: 12, to: 28 }, &mut state);
     board.perform_move(&PieceMove { from: 51, to: 35 }, &mut state);
@@ -229,6 +241,7 @@ fn double_cancelation_test() -> () {
     let mut state: GameState = GameState::new(&board);
 
     board.total_occupancy();
+    board.update_full_cache();
     state.check_info.update(&board, &PieceColor::White);
     state.pin_info.update(&board, &PieceColor::White);
     state.update_check_constraints(&board);
@@ -261,25 +274,34 @@ fn double_cancelation_test() -> () {
 fn all_legal_moves_cancelation_test1() -> () {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut board2: Board = Board::set();
     board2.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     let legal_moves: Vec<PieceMove> =
         Engine::generate_legal_moves(&PieceColor::White, &board, &state);
     for m in legal_moves {
         board.perform_move(&m, &mut state);
+        board.total_occupancy();
+        board.update_full_cache();
+        state.check_info.update(&board, &PieceColor::Black);
+        state.pin_info.update(&board, &PieceColor::Black);
+        state.update_check_constraints(&board);
         board.cancel_move(&mut state);
         assert_eq!(board, board2);
     }
     board.perform_move(&PieceMove { from: 12, to: 28 }, &mut state);
 
     board.total_occupancy();
+    board.update_full_cache();
     state.check_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::Black);
     state.update_check_constraints(&board);
     board2.perform_move(&PieceMove { from: 12, to: 28 }, &mut state);
 
     board2.total_occupancy();
+    board.update_full_cache();
     state.check_info.update(&board2, &PieceColor::Black);
     state.pin_info.update(&board2, &PieceColor::Black);
     state.update_check_constraints(&board2);
@@ -288,6 +310,11 @@ fn all_legal_moves_cancelation_test1() -> () {
         Engine::generate_legal_moves(&PieceColor::Black, &board, &state);
     for m in legal_moves {
         board.perform_move(&m, &mut state);
+        board.total_occupancy();
+        board.update_full_cache();
+        state.check_info.update(&board, &PieceColor::White);
+        state.pin_info.update(&board, &PieceColor::White);
+        state.update_check_constraints(&board);
         board.cancel_move(&mut state);
         assert_eq!(board, board2);
     }
@@ -321,6 +348,7 @@ fn verify_cancel_restores(
 fn test_simple_pawn_move_and_cancel() {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
 
     let (original_board, original_state) = capture_state(&board, &state);
@@ -349,6 +377,7 @@ fn test_simple_pawn_move_and_cancel() {
 fn test_simple_knight_move_and_cancel() {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
 
     let (original_board, original_state) = capture_state(&board, &state);
@@ -374,6 +403,7 @@ fn test_simple_capture_and_cancel() {
     board.white_knights = 1 << 28;
     board.black_pawns = 1 << 35;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     let (original_board, original_state) = capture_state(&board, &state);
@@ -402,6 +432,7 @@ fn test_capture_updates_castling_rights() {
 
     board.white_king = 1 << 4;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights = CastlingRights {
@@ -437,6 +468,7 @@ fn test_white_kingside_castle_and_cancel() {
     board.white_king = 1 << 4;
     board.white_rooks = 1 << 7;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights.white_two_zeros = true;
@@ -475,9 +507,8 @@ fn test_white_queenside_castle_and_cancel() {
 
     board.white_king = 1 << 4;
     board.white_rooks = 1 << 0;
-    board.white_occupancy();
-    board.black_occupancy();
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights.white_three_zeros = true;
@@ -507,6 +538,7 @@ fn test_black_kingside_castle_and_cancel() {
     board.black_king = 1 << 60;
     board.black_rooks = 1 << 63;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights.black_two_zeros = true;
@@ -536,9 +568,8 @@ fn test_black_queenside_castle_and_cancel() {
 
     board.black_king = 1 << 60;
     board.black_rooks = 1 << 56;
-    board.white_occupancy();
-    board.black_occupancy();
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights.black_three_zeros = true;
@@ -570,6 +601,7 @@ fn test_white_en_passant_capture_and_cancel() {
     board.black_pawns = 1 << 33;
 
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.en_passant_target = Some(41);
@@ -611,6 +643,7 @@ fn test_black_en_passant_capture_and_cancel() {
     board.white_pawns = 1 << 25; // b4
 
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state = GameState::new(&board);
     state.en_passant_target = Some(17); // a3 is en passant target
@@ -651,6 +684,7 @@ fn test_double_pawn_push_sets_en_passant() {
     // White pawn on a2 (8)
     board.white_pawns = 1 << 8;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
@@ -678,31 +712,26 @@ fn test_double_pawn_push_sets_en_passant() {
 
 #[test]
 fn test_pinned_piece_move_and_cancel() {
-    let mut board = create_empty_board();
+    let mut board: Board = create_empty_board();
 
-    // Set up a pinned white bishop on d4 (27)
     board.white_bishops = 1 << 27;
-    board.white_king = 1 << 4; // e1 (4)
-    board.black_queens = 1 << 50; // e6 (50) - pinning through diagonal
-    board.white_occupancy();
-    board.black_occupancy();
+    board.white_king = 1 << 4;
+    board.black_queens = 1 << 50;
     board.total_occupancy();
+    board.update_full_cache();
 
-    let mut state = GameState::new(&board);
+    let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
     state.pin_info.update(&board, &PieceColor::White);
 
     let (original_board, original_state) = capture_state(&board, &state);
 
-    // Move pinned bishop along the pin ray (should be allowed)
-    let move_piece = PieceMove { from: 27, to: 18 }; // d4 to c3 (along diagonal toward king)
+    let move_piece: PieceMove = PieceMove { from: 27, to: 18 };
     board.perform_move(&move_piece, &mut state);
 
-    // Verify move was made
     assert_eq!(board.white_bishops & (1 << 27), 0, "Bishop still at d4");
     assert_ne!(board.white_bishops & (1 << 18), 0, "Bishop not at c3");
 
-    // Cancel and verify restoration
     verify_cancel_restores(
         &original_board,
         &original_state,
@@ -720,6 +749,7 @@ fn test_capture_of_pinning_piece_and_cancel() {
     board.white_king = 1 << 4;
     board.black_queens = 1 << 49;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
@@ -751,6 +781,7 @@ fn test_move_out_of_check_and_cancel() {
     board.black_rooks = 1 << 28;
     board.white_knights = 1 << 18;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
@@ -781,6 +812,7 @@ fn test_king_move_out_of_check_and_cancel() {
     board.white_king = 1 << 4;
     board.black_knights = 1 << 21;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
@@ -812,6 +844,7 @@ fn test_double_check_only_king_moves() {
     board.black_bishops = 1 << 11;
     board.white_rooks = 1 << 0;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.whose_turn = PieceColor::White;
@@ -839,6 +872,7 @@ fn test_castling_with_attacked_squares_and_cancel() {
     board.white_rooks = (1 << 0) | (1 << 7);
     board.black_queens = 1 << 13;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
     state.castling_rights.white_two_zeros = true;
@@ -866,6 +900,7 @@ fn test_capture_that_removes_last_pawn_and_cancel() {
     board.white_knights = 1 << 28;
     board.black_pawns = 1 << 35;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState::new(&board);
 
@@ -889,6 +924,7 @@ fn test_capture_that_removes_last_pawn_and_cancel() {
 fn test_sequence_of_moves_with_cancel() {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
 
     let (original_board, original_state) = capture_state(&board, &state);
@@ -954,6 +990,7 @@ fn test_cancel_on_empty_history() {
 fn test_cancel_after_illegal_move() {
     let mut board: Board = Board::set();
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
 
     let (original_board, original_state) = capture_state(&board, &state);
@@ -976,6 +1013,7 @@ fn test_cancel_after_promotion_without_promotion_handling() {
 
     board.white_pawns = 1 << 48;
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state = GameState::new(&board);
 

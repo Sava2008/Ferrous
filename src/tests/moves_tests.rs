@@ -25,8 +25,10 @@ fn king_moves_test1() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
     let state: GameState = GameState {
         en_passant_target: None,
         castling_rights: CastlingRights {
@@ -66,8 +68,10 @@ fn king_moves_test2() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
     let state: GameState = GameState {
         en_passant_target: None,
         castling_rights: CastlingRights {
@@ -110,8 +114,10 @@ fn king_moves_test3() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
     let state: GameState = GameState {
         en_passant_target: None,
         castling_rights: CastlingRights {
@@ -154,8 +160,10 @@ fn king_moves_test4() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
     let mut state: GameState = GameState::new(&board);
     state.check_info.update(&board, &PieceColor::Black);
     state.pin_info.update(&board, &PieceColor::Black);

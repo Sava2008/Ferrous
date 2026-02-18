@@ -1,5 +1,7 @@
 use crate::{
     board::Board,
+    board_geometry_templates::Bitboard,
+    constants::heuristics::*,
     enums::PieceColor,
     gamestate::{GameState, PieceMove},
 };
@@ -11,6 +13,70 @@ pub struct Engine {
 }
 
 impl Engine {
+    pub fn evaluate(&mut self, board: &Board) -> () {
+        self.evaluation = 0;
+        let mut p: Bitboard = board.white_bishops;
+        while p != 0 {
+            self.evaluation += WHITE_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.white_knights;
+        while p != 0 {
+            self.evaluation += WHITE_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.white_rooks;
+        while p != 0 {
+            self.evaluation += WHITE_ROOK_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.white_pawns;
+        while p != 0 {
+            self.evaluation += WHITE_PAWN_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.white_queens;
+        while p != 0 {
+            self.evaluation += WHITE_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.white_king;
+        while p != 0 {
+            self.evaluation += WHITE_KING_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_bishops;
+        while p != 0 {
+            self.evaluation += BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_knights;
+        while p != 0 {
+            self.evaluation += BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_rooks;
+        while p != 0 {
+            self.evaluation += BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_pawns;
+        while p != 0 {
+            self.evaluation += BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_queens;
+        while p != 0 {
+            self.evaluation += BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        p = board.black_king;
+        while p != 0 {
+            self.evaluation += BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
+            p &= p - 1;
+        }
+        self.evaluation += board.material;
+    }
     pub fn generate_legal_moves(
         color: &PieceColor,
         board: &Board,
@@ -22,6 +88,7 @@ impl Engine {
         legal_moves.extend(board.queen_moves(&state, &color));
         legal_moves.extend(board.rook_moves(&state, &color));
         legal_moves.extend(board.king_moves(&state, &color));
+        legal_moves.sort_by_key(|m: &PieceMove| -(board.move_priority(m) as i16));
         return legal_moves;
     }
 
@@ -33,9 +100,25 @@ impl Engine {
         beta: i32,
         maximizing: bool,
         state: &mut GameState,
+        nodes: &mut u64,
     ) -> i32 {
+        *nodes += 1;
         if depth == 0 {
-            self.evaluate(&board);
+            /*let moves_at_depth0: Vec<PieceMove> =
+                Self::generate_legal_moves(&state.whose_turn, board, state);
+
+            if moves_at_depth0.len() == 0 {
+                return if state.check_info.checked_king.is_some() {
+                    if state.whose_turn == PieceColor::White {
+                        i32::MIN
+                    } else {
+                        i32::MAX
+                    }
+                } else {
+                    0
+                };
+            }*/
+            self.evaluate(board);
             return self.evaluation;
         }
         if maximizing {
@@ -44,7 +127,7 @@ impl Engine {
             let mut current_alpha: i32 = alpha;
             state.whose_turn = PieceColor::White;
 
-            let mut legal_moves: Vec<PieceMove> =
+            let legal_moves: Vec<PieceMove> =
                 Self::generate_legal_moves(&state.whose_turn, &board, &state);
 
             if legal_moves.len() == 0 {
@@ -54,28 +137,24 @@ impl Engine {
                     0
                 };
             }
-            legal_moves.sort_by_key(|m: &PieceMove| {
-                if board.is_check(m, &!state.whose_turn) {
-                    0
-                } else if board.is_capture(m) {
-                    1
-                } else if board.does_improve_piece(m) {
-                    2
-                } else {
-                    3
-                }
-            });
 
             for m in &legal_moves {
                 board.perform_move(&m, state);
 
-                board.total_occupancy();
                 state.check_info.update(&board, &!state.whose_turn.clone());
                 state.pin_info.update(&board, &!state.whose_turn.clone());
                 state.update_check_constraints(&board);
 
                 best_score = max(
-                    self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
+                    self.alpha_beta_pruning(
+                        board,
+                        depth - 1,
+                        current_alpha,
+                        beta,
+                        false,
+                        state,
+                        nodes,
+                    ),
                     best_score,
                 );
                 board.cancel_move(state);
@@ -91,7 +170,7 @@ impl Engine {
             let mut current_beta: i32 = beta;
             state.whose_turn = PieceColor::Black;
 
-            let mut legal_moves: Vec<PieceMove> =
+            let legal_moves: Vec<PieceMove> =
                 Self::generate_legal_moves(&state.whose_turn, &board, &state);
 
             if legal_moves.len() == 0 {
@@ -101,28 +180,23 @@ impl Engine {
                     0
                 };
             }
-            legal_moves.sort_by_key(|m: &PieceMove| {
-                if board.is_check(m, &!state.whose_turn) {
-                    0
-                } else if board.is_capture(m) {
-                    1
-                } else if board.does_improve_piece(m) {
-                    2
-                } else {
-                    3
-                }
-            });
-
             for m in &legal_moves {
                 board.perform_move(&m, state);
 
-                board.total_occupancy();
                 state.check_info.update(&board, &!state.whose_turn.clone());
                 state.pin_info.update(&board, &!state.whose_turn.clone());
                 state.update_check_constraints(&board);
 
                 best_score = min(
-                    self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
+                    self.alpha_beta_pruning(
+                        board,
+                        depth - 1,
+                        alpha,
+                        current_beta,
+                        true,
+                        state,
+                        nodes,
+                    ),
                     best_score,
                 );
                 board.cancel_move(state);
@@ -142,27 +216,14 @@ impl Engine {
         };
         let mut best_move: Option<PieceMove> = None;
         let mut copied_board: Board = board.clone();
-        copied_board.total_occupancy();
         let mut copied_state: GameState = state.clone();
         copied_state.whose_turn = self.side.clone();
+        let mut nodes: u64 = 0;
 
-        let mut legal_moves: Vec<PieceMove> =
+        let legal_moves: Vec<PieceMove> =
             Self::generate_legal_moves(&self.side, board, &copied_state);
-
-        legal_moves.sort_by_key(|m: &PieceMove| {
-            if board.is_check(m, &!self.side) {
-                0
-            } else if board.is_capture(m) {
-                1
-            } else if board.does_improve_piece(m) {
-                2
-            } else {
-                3
-            }
-        });
         for m in &legal_moves {
             copied_board.perform_move(&m, &mut copied_state);
-            copied_board.total_occupancy();
             copied_state
                 .check_info
                 .update(&copied_board, &!copied_state.whose_turn.clone());
@@ -178,14 +239,9 @@ impl Engine {
                 i32::MAX,
                 maximizing,
                 &mut copied_state,
+                &mut nodes,
             );
-            println!("Move: {:?}, Score: {}", m, score);
-            /*println!(
-                "move: {} {}, score: {}",
-                INDICES_TO_COORDS.get(&m.from).unwrap(),
-                INDICES_TO_COORDS.get(&m.to).unwrap(),
-                score
-            );*/
+            //println!("Move: {:?}, Score: {}", m, score);
             copied_board.cancel_move(&mut copied_state);
 
             if match self.side {
@@ -196,6 +252,7 @@ impl Engine {
                 best_move = Some(m.clone());
             }
         }
+        println!("nodes: {nodes}");
         return best_move;
     }
 }

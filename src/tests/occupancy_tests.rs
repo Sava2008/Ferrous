@@ -38,6 +38,7 @@ fn occupancy_test2() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
 
     test_board.total_occupancy();

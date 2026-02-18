@@ -31,6 +31,7 @@ mod tests {
             white_occupancy: 0,
             black_occupancy: 0,
             total_occupancy: 0,
+            cached_pieces: [None; 64],
         }
     }
 
@@ -596,6 +597,7 @@ mod tests {
             board.black_queens = 1 << 28;
             board.white_knights = 1 << 18;
             board.total_occupancy();
+            board.update_full_cache();
 
             let mut state: GameState = GameState::new(&board);
             state.whose_turn = PieceColor::White;

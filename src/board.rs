@@ -1,15 +1,13 @@
 use crate::{
     board_geometry_templates::*,
     constants::{
-        attacks::{
-            BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
-        },
+        attacks::RAYS_BETWEEN,
         heuristics::*,
+        piece_values::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE},
     },
     enums::{InclusiveRange, PieceColor, PieceType},
     gamestate::{GameState, PieceMove, PreviousMove},
 };
-use std::cmp::{max, min};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
@@ -30,6 +28,10 @@ pub struct Board {
     pub white_occupancy: Bitboard,
     pub black_occupancy: Bitboard,
     pub total_occupancy: Bitboard,
+
+    pub cached_pieces: [Option<(PieceColor, PieceType)>; 64],
+
+    pub material: i32,
 }
 
 impl Board {
@@ -51,7 +53,44 @@ impl Board {
             white_occupancy: 0,
             black_occupancy: 0,
             total_occupancy: 0,
+            cached_pieces: [None; 64],
+            material: 0, // equal material
         };
+    }
+    pub fn update_full_cache(&mut self) {
+        for square in 0..64 {
+            let mask: Bitboard = 1 << square;
+            if self.white_pawns & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::Pawn));
+            } else if self.white_knights & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::Knight));
+            } else if self.white_bishops & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::Bishop));
+            } else if self.white_rooks & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::Rook));
+            } else if self.white_queens & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::Queen));
+            } else if self.white_king & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::White, PieceType::King));
+            } else if self.black_pawns & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::Pawn));
+            } else if self.black_knights & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::Knight));
+            } else if self.black_bishops & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::Bishop));
+            } else if self.black_rooks & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::Rook));
+            } else if self.black_queens & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::Queen));
+            } else if self.black_king & mask != 0 {
+                self.cached_pieces[square] = Some((PieceColor::Black, PieceType::King));
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn piece_at(&self, square: u8) -> Option<(PieceColor, PieceType)> {
+        return unsafe { *self.cached_pieces.get_unchecked(square as usize) }; // square always in range 0-63
     }
 
     pub fn white_occupancy(&mut self) -> () {
@@ -129,59 +168,12 @@ impl Board {
         *bitboard_to_mutate |= to_mask;
     }
 
-    #[inline]
-    pub fn bitboard_contains(&self, index: u8) -> Option<(PieceColor, PieceType)> {
-        let mask: Bitboard = 1 << index;
-        if &self.total_occupancy & mask == 0 {
-            return None;
-        }
-
-        if &self.white_pawns & mask != 0 {
-            return Some((PieceColor::White, PieceType::Pawn));
-        }
-        if &self.white_knights & mask != 0 {
-            return Some((PieceColor::White, PieceType::Knight));
-        }
-        if &self.white_bishops & mask != 0 {
-            return Some((PieceColor::White, PieceType::Bishop));
-        }
-        if &self.white_rooks & mask != 0 {
-            return Some((PieceColor::White, PieceType::Rook));
-        }
-        if &self.white_queens & mask != 0 {
-            return Some((PieceColor::White, PieceType::Queen));
-        }
-        if &self.white_king & mask != 0 {
-            return Some((PieceColor::White, PieceType::King));
-        }
-
-        if &self.black_pawns & mask != 0 {
-            return Some((PieceColor::Black, PieceType::Pawn));
-        }
-        if &self.black_knights & mask != 0 {
-            return Some((PieceColor::Black, PieceType::Knight));
-        }
-        if &self.black_bishops & mask != 0 {
-            return Some((PieceColor::Black, PieceType::Bishop));
-        }
-        if &self.black_rooks & mask != 0 {
-            return Some((PieceColor::Black, PieceType::Rook));
-        }
-        if &self.black_queens & mask != 0 {
-            return Some((PieceColor::Black, PieceType::Queen));
-        }
-        if &self.black_king & mask != 0 {
-            return Some((PieceColor::Black, PieceType::King));
-        }
-
-        return None;
-    }
-
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(&mut self, from_to: &PieceMove, state: &mut GameState) -> () {
-        self.total_occupancy();
+        let moving_piece: (PieceColor, PieceType) = self.piece_at(from_to.from).unwrap();
+        let captured_piece: Option<(PieceColor, PieceType)> = self.piece_at(from_to.to);
         let mut previous_move: PreviousMove = PreviousMove {
-            changed_bitboards: [(None, None); 3],
+            changed_cache_indices: [(None, None); 3],
             previous_en_passant: state.en_passant_target,
             previous_castling_rights: None,
             previous_check_info: state.check_info.clone(),
@@ -191,14 +183,33 @@ impl Board {
             } else {
                 0
             },
+            material_difference: self.material,
         };
-        if let Some(enemy) = self.bitboard_contains(from_to.to) {
-            let bitboard_for_capture: &mut Bitboard = match enemy {
-                (PieceColor::White, PieceType::Bishop) => &mut self.white_bishops,
-                (PieceColor::White, PieceType::Knight) => &mut self.white_knights,
-                (PieceColor::White, PieceType::Pawn) => &mut self.white_pawns,
-                (PieceColor::White, PieceType::Queen) => &mut self.white_queens,
+        if let Some(enemy) = captured_piece {
+            let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = match enemy {
+                (PieceColor::White, PieceType::Bishop) => {
+                    previous_move.material_difference += BISHOP_VALUE;
+                    self.material -= BISHOP_VALUE;
+                    (&mut self.white_bishops, &mut self.white_occupancy)
+                }
+                (PieceColor::White, PieceType::Knight) => {
+                    previous_move.material_difference += KNIGHT_VALUE;
+                    self.material -= KNIGHT_VALUE;
+                    (&mut self.white_knights, &mut self.white_occupancy)
+                }
+                (PieceColor::White, PieceType::Pawn) => {
+                    previous_move.material_difference += PAWN_VALUE;
+                    self.material -= PAWN_VALUE;
+                    (&mut self.white_pawns, &mut self.white_occupancy)
+                }
+                (PieceColor::White, PieceType::Queen) => {
+                    previous_move.material_difference += QUEEN_VALUE;
+                    self.material -= QUEEN_VALUE;
+                    (&mut self.white_queens, &mut self.white_occupancy)
+                }
                 (PieceColor::White, PieceType::Rook) => {
+                    previous_move.material_difference += ROOK_VALUE;
+                    self.material -= ROOK_VALUE;
                     if from_to.to == 7 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
@@ -208,16 +219,34 @@ impl Board {
                             Some(state.castling_rights.clone());
                         state.castling_rights.white_three_zeros = false;
                     }
-                    &mut self.white_rooks
+                    (&mut self.white_rooks, &mut self.white_occupancy)
                 }
                 (PieceColor::White, PieceType::King) => {
                     panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
                 }
-                (PieceColor::Black, PieceType::Bishop) => &mut self.black_bishops,
-                (PieceColor::Black, PieceType::Knight) => &mut self.black_knights,
-                (PieceColor::Black, PieceType::Pawn) => &mut self.black_pawns,
-                (PieceColor::Black, PieceType::Queen) => &mut self.black_queens,
+                (PieceColor::Black, PieceType::Bishop) => {
+                    previous_move.material_difference -= BISHOP_VALUE;
+                    self.material += BISHOP_VALUE;
+                    (&mut self.black_bishops, &mut self.black_occupancy)
+                }
+                (PieceColor::Black, PieceType::Knight) => {
+                    previous_move.material_difference -= KNIGHT_VALUE;
+                    self.material += KNIGHT_VALUE;
+                    (&mut self.black_knights, &mut self.black_occupancy)
+                }
+                (PieceColor::Black, PieceType::Pawn) => {
+                    previous_move.material_difference -= PAWN_VALUE;
+                    self.material += PAWN_VALUE;
+                    (&mut self.black_pawns, &mut self.black_occupancy)
+                }
+                (PieceColor::Black, PieceType::Queen) => {
+                    previous_move.material_difference -= QUEEN_VALUE;
+                    self.material += QUEEN_VALUE;
+                    (&mut self.black_queens, &mut self.black_occupancy)
+                }
                 (PieceColor::Black, PieceType::Rook) => {
+                    previous_move.material_difference -= ROOK_VALUE;
+                    self.material += ROOK_VALUE;
                     if from_to.to == 63 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
@@ -227,39 +256,52 @@ impl Board {
                             Some(state.castling_rights.clone());
                         state.castling_rights.black_three_zeros = false;
                     }
-                    &mut self.black_rooks
+                    (&mut self.black_rooks, &mut self.black_occupancy)
                 }
                 (PieceColor::Black, PieceType::King) => {
                     panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
                 }
             };
-
-            previous_move.changed_bitboards[1] = (Some(enemy), Some(bitboard_for_capture.clone()));
-
-            *bitboard_for_capture &= !(1 << from_to.to);
+            previous_move.changed_cache_indices[1] = (Some((from_to.to, from_to.to)), Some(enemy));
+            let capture: Bitboard = !(1 << from_to.to);
+            *occupancy &= capture;
+            *bitboard_for_capture &= capture;
         }
 
-        if let Some(piece) = self.bitboard_contains(from_to.from) {
-            match piece.0 {
+        if let Some(piece) = self.piece_at(from_to.from) {
+            let occupancy: &mut u64 = match piece.0 {
                 PieceColor::White => match piece.1 {
                     PieceType::King => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_king));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
                         match (from_to.from, from_to.to) {
                             (4, 2) => {
-                                previous_move.changed_bitboards[1] = (
-                                    Some((PieceColor::White, PieceType::Rook)),
-                                    Some(self.white_rooks),
-                                );
+                                previous_move.changed_cache_indices[1] =
+                                    (Some((0, 3)), Some((PieceColor::White, PieceType::Rook)));
+                                self.cached_pieces[0] = None;
+                                self.cached_pieces[3] = Some((PieceColor::White, PieceType::Rook));
                                 self.reset_bit((PieceColor::White, PieceType::Rook), 0, 3);
+                                let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
+                                let (start, end): (Bitboard, Bitboard) = (!(1 << 0), 1 << 3);
+                                *total_occupancy &= start;
+                                *total_occupancy |= end;
+                                let occupancy: &mut Bitboard = &mut self.white_occupancy;
+                                *occupancy &= start;
+                                *occupancy |= end;
                             }
                             (4, 6) => {
-                                previous_move.changed_bitboards[1] = (
-                                    Some((PieceColor::White, PieceType::Rook)),
-                                    Some(self.white_rooks),
-                                );
+                                previous_move.changed_cache_indices[1] =
+                                    (Some((7, 5)), Some((PieceColor::White, PieceType::Rook)));
+                                self.cached_pieces[7] = None;
+                                self.cached_pieces[5] = Some((PieceColor::White, PieceType::Rook));
                                 self.reset_bit((PieceColor::White, PieceType::Rook), 7, 5);
+                                let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
+                                let (start, end): (Bitboard, Bitboard) = (!(1 << 7), 1 << 5);
+                                *total_occupancy &= start;
+                                *total_occupancy |= end;
+                                let occupancy: &mut Bitboard = &mut self.white_occupancy;
+                                *occupancy &= start;
+                                *occupancy |= end;
                             }
                             _ => (),
                         };
@@ -269,9 +311,9 @@ impl Board {
                             state.castling_rights.white_two_zeros,
                         ) = (false, false);
                         state.en_passant_target = None;
+                        &mut self.white_occupancy
                     }
                     PieceType::Rook => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_rooks));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
 
@@ -281,9 +323,9 @@ impl Board {
                             state.castling_rights.white_two_zeros = false;
                         }
                         state.en_passant_target = None;
+                        &mut self.white_occupancy
                     }
                     PieceType::Pawn => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_pawns));
                         match from_to {
                             &PieceMove { from, to }
                                 if (8..=15).contains(&from) && (24..=31).contains(&to) =>
@@ -293,52 +335,63 @@ impl Board {
                             _ => {
                                 if let Some(e_p) = state.en_passant_target {
                                     if from_to.to == e_p {
-                                        previous_move.changed_bitboards[1] = (
-                                            Some((PieceColor::Black, PieceType::Pawn)),
-                                            Some(self.black_pawns),
-                                        );
                                         let black_pawns: &mut Bitboard = &mut self.black_pawns;
-                                        *black_pawns &= !(1 << (e_p - 8));
+                                        let captured_pawn_square: u8 = e_p - 8;
+                                        previous_move.changed_cache_indices[1] = (
+                                            Some((captured_pawn_square, captured_pawn_square)),
+                                            Some((PieceColor::Black, PieceType::Pawn)),
+                                        );
+                                        self.cached_pieces[captured_pawn_square as usize] = None;
+                                        let capture: Bitboard = !(1 << captured_pawn_square);
+                                        *black_pawns &= capture;
+                                        *&mut self.total_occupancy &= capture;
+                                        *&mut self.black_occupancy &= capture;
+                                        previous_move.material_difference += PAWN_VALUE;
+                                        self.material += PAWN_VALUE;
                                     }
                                 }
                                 state.en_passant_target = None;
                             }
                         };
+                        &mut self.white_occupancy
                     }
-                    PieceType::Bishop => {
-                        previous_move.changed_bitboards[0] =
-                            (Some(piece), Some(self.white_bishops));
+                    _ => {
                         state.en_passant_target = None;
-                    }
-                    PieceType::Knight => {
-                        previous_move.changed_bitboards[0] =
-                            (Some(piece), Some(self.white_knights));
-                        state.en_passant_target = None;
-                    }
-                    PieceType::Queen => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.white_queens));
-                        state.en_passant_target = None;
+                        &mut self.white_occupancy
                     }
                 },
                 PieceColor::Black => match piece.1 {
                     PieceType::King => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_king));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
                         match (from_to.from, from_to.to) {
                             (60, 58) => {
-                                previous_move.changed_bitboards[1] = (
-                                    Some((PieceColor::Black, PieceType::Rook)),
-                                    Some(self.black_rooks),
-                                );
+                                previous_move.changed_cache_indices[1] =
+                                    (Some((56, 59)), Some((PieceColor::Black, PieceType::Rook)));
+                                self.cached_pieces[56] = None;
+                                self.cached_pieces[59] = Some((PieceColor::Black, PieceType::Rook));
                                 self.reset_bit((PieceColor::Black, PieceType::Rook), 56, 59);
+                                let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
+                                let (start, end): (Bitboard, Bitboard) = (!(1 << 56), 1 << 59);
+                                *total_occupancy &= start;
+                                *total_occupancy |= end;
+                                let occupancy: &mut Bitboard = &mut self.black_occupancy;
+                                *occupancy &= start;
+                                *occupancy |= end;
                             }
                             (60, 62) => {
-                                previous_move.changed_bitboards[1] = (
-                                    Some((PieceColor::Black, PieceType::Rook)),
-                                    Some(self.black_rooks),
-                                );
+                                previous_move.changed_cache_indices[1] =
+                                    (Some((63, 61)), Some((PieceColor::Black, PieceType::Rook)));
+                                self.cached_pieces[63] = None;
+                                self.cached_pieces[61] = Some((PieceColor::Black, PieceType::Rook));
                                 self.reset_bit((PieceColor::Black, PieceType::Rook), 63, 61);
+                                let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
+                                let (start, end): (Bitboard, Bitboard) = (!(1 << 63), 1 << 61);
+                                *total_occupancy &= start;
+                                *total_occupancy |= end;
+                                let occupancy: &mut Bitboard = &mut self.black_occupancy;
+                                *occupancy &= start;
+                                *occupancy |= end;
                             }
                             _ => (),
                         };
@@ -348,22 +401,20 @@ impl Board {
                             state.castling_rights.black_two_zeros,
                         ) = (false, false);
                         state.en_passant_target = None;
+                        &mut self.black_occupancy
                     }
                     PieceType::Rook => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_rooks));
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
-
                         if from_to.from == 56 {
                             state.castling_rights.black_three_zeros = false;
                         } else if from_to.from == 63 {
                             state.castling_rights.black_two_zeros = false;
                         }
                         state.en_passant_target = None;
+                        &mut self.black_occupancy
                     }
                     PieceType::Pawn => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_pawns));
-
                         match from_to {
                             &PieceMove { from, to }
                                 if (48..=55).contains(&from) && (32..=39).contains(&to) =>
@@ -373,34 +424,41 @@ impl Board {
                             _ => {
                                 if let Some(e_p) = state.en_passant_target {
                                     if from_to.to == e_p {
-                                        previous_move.changed_bitboards[1] = (
-                                            Some((PieceColor::White, PieceType::Pawn)),
-                                            Some(self.white_pawns),
-                                        );
                                         let white_pawns: &mut Bitboard = &mut self.white_pawns;
-                                        *white_pawns &= !(1 << (e_p + 8));
+                                        let captured_pawn_square: u8 = e_p + 8;
+                                        previous_move.changed_cache_indices[1] = (
+                                            Some((captured_pawn_square, captured_pawn_square)),
+                                            Some((PieceColor::White, PieceType::Pawn)),
+                                        );
+                                        self.cached_pieces[captured_pawn_square as usize] = None;
+                                        let capture: Bitboard = !(1 << captured_pawn_square);
+                                        *white_pawns &= capture;
+                                        *&mut self.total_occupancy &= capture;
+                                        *&mut self.white_occupancy &= capture;
+                                        previous_move.material_difference = -PAWN_VALUE;
+                                        self.material -= PAWN_VALUE;
                                     }
                                 }
                                 state.en_passant_target = None;
                             }
                         };
+                        &mut self.black_occupancy
                     }
-                    PieceType::Bishop => {
-                        previous_move.changed_bitboards[0] =
-                            (Some(piece), Some(self.black_bishops));
+                    _ => {
                         state.en_passant_target = None;
-                    }
-                    PieceType::Knight => {
-                        previous_move.changed_bitboards[0] =
-                            (Some(piece), Some(self.black_knights));
-                        state.en_passant_target = None;
-                    }
-                    PieceType::Queen => {
-                        previous_move.changed_bitboards[0] = (Some(piece), Some(self.black_queens));
-                        state.en_passant_target = None;
+                        &mut self.black_occupancy
                     }
                 },
             };
+            previous_move.changed_cache_indices[0] =
+                (Some((from_to.from, from_to.to)), Some(piece));
+            self.cached_pieces[from_to.to as usize] = Some(moving_piece);
+            self.cached_pieces[from_to.from as usize] = None;
+            let (start, end): (Bitboard, Bitboard) = (!(1 << from_to.from), 1 << from_to.to);
+            *&mut self.total_occupancy &= start;
+            *&mut self.total_occupancy |= end;
+            *occupancy &= start;
+            *occupancy |= end;
             self.reset_bit(piece, from_to.from, from_to.to);
         }
         state.moves_history.push(previous_move);
@@ -408,34 +466,61 @@ impl Board {
 
     pub fn cancel_move(&mut self, state: &mut GameState) -> () {
         if let Some(previous_move) = state.moves_history.pop() {
-            for (piece, bb) in previous_move.changed_bitboards {
+            self.material -= previous_move.material_difference;
+            for (cached_index, piece) in previous_move.changed_cache_indices {
                 if let Some(p) = piece {
-                    match p.1 {
+                    let c_i: (u8, u8) = cached_index.unwrap();
+                    let (bitboard_to_restore, occupancy): (&mut u64, &mut u64) = match p.1 {
                         PieceType::Bishop => match p.0 {
-                            PieceColor::White => self.white_bishops = bb.unwrap(),
-                            PieceColor::Black => self.black_bishops = bb.unwrap(),
+                            PieceColor::White => {
+                                (&mut self.white_bishops, &mut self.white_occupancy)
+                            }
+                            PieceColor::Black => {
+                                (&mut self.black_bishops, &mut self.black_occupancy)
+                            }
                         },
                         PieceType::Knight => match p.0 {
-                            PieceColor::White => self.white_knights = bb.unwrap(),
-                            PieceColor::Black => self.black_knights = bb.unwrap(),
+                            PieceColor::White => {
+                                (&mut self.white_knights, &mut self.white_occupancy)
+                            }
+                            PieceColor::Black => {
+                                (&mut self.black_knights, &mut self.black_occupancy)
+                            }
                         },
                         PieceType::Pawn => match p.0 {
-                            PieceColor::White => self.white_pawns = bb.unwrap(),
-                            PieceColor::Black => self.black_pawns = bb.unwrap(),
+                            PieceColor::White => (&mut self.white_pawns, &mut self.white_occupancy),
+                            PieceColor::Black => (&mut self.black_pawns, &mut self.black_occupancy),
                         },
                         PieceType::Queen => match p.0 {
-                            PieceColor::White => self.white_queens = bb.unwrap(),
-                            PieceColor::Black => self.black_queens = bb.unwrap(),
+                            PieceColor::White => {
+                                (&mut self.white_queens, &mut self.white_occupancy)
+                            }
+                            PieceColor::Black => {
+                                (&mut self.black_queens, &mut self.black_occupancy)
+                            }
                         },
                         PieceType::Rook => match p.0 {
-                            PieceColor::White => self.white_rooks = bb.unwrap(),
-                            PieceColor::Black => self.black_rooks = bb.unwrap(),
+                            PieceColor::White => (&mut self.white_rooks, &mut self.white_occupancy),
+                            PieceColor::Black => (&mut self.black_rooks, &mut self.black_occupancy),
                         },
                         PieceType::King => match p.0 {
-                            PieceColor::White => self.white_king = bb.unwrap(),
-                            PieceColor::Black => self.black_king = bb.unwrap(),
+                            PieceColor::White => (&mut self.white_king, &mut self.white_occupancy),
+                            PieceColor::Black => (&mut self.black_king, &mut self.black_occupancy),
                         },
                     };
+                    self.cached_pieces[c_i.0 as usize] = Some(p);
+                    let total: &mut Bitboard = &mut self.total_occupancy;
+                    let first_square: Bitboard = 1 << c_i.0;
+                    *bitboard_to_restore |= first_square;
+                    *total |= first_square;
+                    *occupancy |= first_square;
+                    if c_i.0 != c_i.1 {
+                        self.cached_pieces[c_i.1 as usize] = None;
+                        let last_square: Bitboard = !(1 << c_i.1);
+                        *total &= last_square;
+                        *bitboard_to_restore &= last_square;
+                        *occupancy &= last_square;
+                    }
                 } else {
                     break;
                 }
@@ -443,7 +528,6 @@ impl Board {
             if let Some(castling_rights) = previous_move.previous_castling_rights {
                 state.castling_rights = castling_rights;
             }
-            self.total_occupancy();
             state.en_passant_target = previous_move.previous_en_passant;
             state.check_info = previous_move.previous_check_info;
             state.pin_info = previous_move.previous_pin_info;
@@ -452,22 +536,10 @@ impl Board {
     }
 
     pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
-        let (mut lower_square, higher_square) = (min(square1, square2), max(square1, square2));
-        let mut rng: Bitboard = 0;
-        let sq1_sq2_range: u8 = higher_square - lower_square;
-        let increment: u8 = match sq1_sq2_range {
-            num if num % 9 == 0 => 9,
-            num if num % 7 == 0 && ((1 << num) & FILE_A) == 0 => 7,
-            num if num <= 7 => 1,
-            num if num % 8 == 0 => 8,
-            _ => panic!("no straight path between {square1} and {square2}"),
-        };
-        while lower_square < higher_square - increment {
-            lower_square += increment;
-            rng |= 1 << lower_square;
-        }
+        let mut rng: Bitboard = unsafe { RAYS_BETWEEN[square1 as usize][square2 as usize] };
+
         match inclusion {
-            &InclusiveRange::Both => rng |= 1 << square1 | 1 << square2,
+            &InclusiveRange::Both => rng |= (1 << square1) | (1 << square2),
             &InclusiveRange::FirstOnly => rng |= 1 << square1,
             &InclusiveRange::LastOnly => rng |= 1 << square2,
             &InclusiveRange::None => (),
@@ -475,12 +547,32 @@ impl Board {
         return rng;
     }
 
-    pub fn is_capture(&self, m: &PieceMove) -> bool {
-        return self.bitboard_contains(m.to).is_some();
+    pub fn move_priority(&self, m: &PieceMove) -> u16 {
+        let mut priority_key: u16 = 0;
+        let (initial_pos, final_pos): ((PieceColor, PieceType), Option<(PieceColor, PieceType)>) =
+            (self.piece_at(m.from).unwrap(), self.piece_at(m.to));
+        if let Some(dest) = final_pos {
+            let victim_value: u16 = self.get_piece_value(dest.1) as u16;
+            let attacker_value: u16 = self.get_piece_value(initial_pos.1) as u16;
+            priority_key += (victim_value * 6 + (5 - attacker_value)) as u16;
+        }
+        if self.does_improve_piece(&initial_pos, &m) {
+            priority_key += 1;
+        }
+        return priority_key;
+    }
+    fn get_piece_value(&self, piece_type: PieceType) -> u8 {
+        match piece_type {
+            PieceType::Pawn => 0,
+            PieceType::Knight => 1,
+            PieceType::Bishop => 2,
+            PieceType::Rook => 3,
+            PieceType::Queen => 4,
+            PieceType::King => 5,
+        }
     }
 
-    pub fn does_improve_piece(&self, m: &PieceMove) -> bool {
-        let piece: (PieceColor, PieceType) = self.bitboard_contains(m.from).unwrap();
+    fn does_improve_piece(&self, piece: &(PieceColor, PieceType), m: &PieceMove) -> bool {
         match piece.1 {
             PieceType::Bishop => {
                 if match piece.0 {
@@ -568,66 +660,6 @@ impl Board {
             }
         }
         return false;
-    }
-
-    pub fn is_check(&self, m: &PieceMove, color: &PieceColor) -> bool {
-        // color represents whose king is suspected to be in check
-        let attacker: (PieceColor, PieceType) = self.bitboard_contains(m.from).unwrap();
-        if attacker.0 == *color {
-            return false;
-        }
-        let king = match color {
-            &PieceColor::White => self.white_king,
-            &PieceColor::Black => self.black_king,
-        }
-        .trailing_zeros() as usize;
-        let (lines, diagonals, knight_deltas, pawn_deltas) = (
-            rook_attacks(king, self.total_occupancy),
-            bishop_attacks(king, self.total_occupancy),
-            KNIGHT_ATTACKS[king],
-            match color {
-                &PieceColor::White => WHITE_PAWN_ATTACKS[king],
-                &PieceColor::Black => BLACK_PAWN_ATTACKS[king],
-            },
-        );
-        return match attacker.1 {
-            PieceType::Bishop => {
-                if diagonals & (1 << m.to) == 0 {
-                    false
-                } else {
-                    true
-                }
-            }
-            PieceType::Knight => {
-                if knight_deltas & (1 << m.to) == 0 {
-                    false
-                } else {
-                    true
-                }
-            }
-            PieceType::Rook => {
-                if lines & (1 << m.to) == 0 {
-                    false
-                } else {
-                    true
-                }
-            }
-            PieceType::Pawn => {
-                if pawn_deltas & (1 << m.to) == 0 {
-                    false
-                } else {
-                    true
-                }
-            }
-            PieceType::Queen => {
-                if (diagonals | lines) & (1 << m.to) == 0 {
-                    false
-                } else {
-                    true
-                }
-            }
-            PieceType::King => return false,
-        };
     }
 
     pub fn is_king_attacked(&self, color: &PieceColor) -> bool {

@@ -1,16 +1,20 @@
 #[allow(unused_imports)]
 use crate::{
     board::Board,
+    constants::attacks::{compute_all_rays, compute_all_rays_from},
     enums::PieceColor,
     gamestate::{CastlingRights, CheckInfo, GameState, PieceMove, PinInfo, PinnedPiece},
     initialize_sliding_attack_tables,
 };
 #[allow(unused_imports)]
 use smallvec::SmallVec;
+use std::time::Instant;
 
 #[test]
 pub fn pin_test1() -> () {
     initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
     let mut board: Board = Board {
         white_pawns: 0,
         white_knights: 0b0000000000000000000000000000000000000000000000000000010000000000,
@@ -27,8 +31,10 @@ pub fn pin_test1() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState {
         en_passant_target: None,
@@ -42,7 +48,9 @@ pub fn pin_test1() -> () {
         result: crate::enums::GameResult::Going,
         check_contraints: 0,
     };
+    let time = Instant::now();
     state.pin_info.update(&board, &PieceColor::Black);
+    println!("pin_info calculation time {:?}", time.elapsed());
     assert_eq!(
         state.pin_info.pinned_pieces,
         SmallVec::from([PinnedPiece {
@@ -85,6 +93,7 @@ pub fn pin_test2() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
 
@@ -131,6 +140,8 @@ pub fn pin_test2() -> () {
 #[test]
 fn check_test1() -> () {
     initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
     let mut board: Board = Board {
         white_pawns: 0,
         white_knights: 0b0000000000000000000001000000000000000000000000000000000000000000,
@@ -147,6 +158,7 @@ fn check_test1() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
 
@@ -162,7 +174,9 @@ fn check_test1() -> () {
         result: crate::enums::GameResult::Going,
         check_contraints: 0,
     };
+    let time = Instant::now();
     state.check_info.update(&board, &PieceColor::Black);
+    println!("check_info calculation time: {:?}", time.elapsed());
     assert_eq!(
         (
             state.check_info.first_checker.unwrap(),
@@ -191,6 +205,7 @@ fn check_test2() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
 
@@ -235,8 +250,10 @@ fn block_test1() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState {
         en_passant_target: None,
@@ -281,8 +298,10 @@ fn block_test2() -> () {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
     };
     board.total_occupancy();
+    board.update_full_cache();
 
     let mut state: GameState = GameState {
         en_passant_target: None,

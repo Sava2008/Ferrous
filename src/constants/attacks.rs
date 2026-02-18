@@ -560,3 +560,118 @@ pub fn bishop_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
 
     return unsafe { BISHOP_ATTACKS[offset + idx] };
 }
+
+pub static mut RAYS_BETWEEN: [[u64; 64]; 64] = [[0; 64]; 64];
+pub static mut RAYS_FROM: [[u64; 64]; 64] = [[0; 64]; 64];
+
+pub fn compute_all_rays() -> () {
+    let mut rays: [[u64; 64]; 64] = [[0u64; 64]; 64];
+    for sq1 in 0..64 {
+        for sq2 in 0..64 {
+            rays[sq1][sq2] = compute_ray_between(sq1 as u8, sq2 as u8);
+        }
+    }
+    unsafe {
+        RAYS_BETWEEN = rays;
+    }
+}
+
+pub fn compute_all_rays_from() -> () {
+    let mut rays: [[u64; 64]; 64] = [[0u64; 64]; 64];
+    for sq1 in 0..64 {
+        for sq2 in 0..64 {
+            rays[sq1][sq2] = compute_ray_from(sq1 as u8, sq2 as u8);
+        }
+    }
+    unsafe {
+        RAYS_FROM = rays;
+    }
+}
+
+fn compute_ray_between(sq1: u8, sq2: u8) -> u64 {
+    if sq1 == sq2 {
+        return 0;
+    }
+
+    let (rank1, file1) = (sq1 / 8, sq1 % 8);
+    let (rank2, file2) = (sq2 / 8, sq2 % 8);
+
+    let rank_diff = (rank2 as i8 - rank1 as i8).abs();
+    let file_diff: i8 = (file2 as i8 - file1 as i8).abs();
+
+    if rank_diff != 0 && file_diff != 0 && rank_diff != file_diff {
+        return 0;
+    }
+
+    let rank_step: i8 = if rank2 > rank1 {
+        1
+    } else if rank2 < rank1 {
+        -1
+    } else {
+        0
+    };
+    let file_step: i8 = if file2 > file1 {
+        1
+    } else if file2 < file1 {
+        -1
+    } else {
+        0
+    };
+
+    let mut ray: u64 = 0;
+    let mut r: i8 = rank1 as i8 + rank_step;
+    let mut f: i8 = file1 as i8 + file_step;
+
+    while r != rank2 as i8 || f != file2 as i8 {
+        ray |= 1 << (r * 8 + f);
+        r += rank_step;
+        f += file_step;
+    }
+
+    ray
+}
+
+// Compute ray from sq1 through sq2 and beyond
+fn compute_ray_from(sq1: u8, sq2: u8) -> u64 {
+    if sq1 == sq2 {
+        return 0;
+    }
+
+    let (rank1, file1) = (sq1 / 8, sq1 % 8);
+    let (rank2, file2) = (sq2 / 8, sq2 % 8);
+
+    let rank_diff = (rank2 as i8 - rank1 as i8).abs();
+    let file_diff = (file2 as i8 - file1 as i8).abs();
+
+    // Check if aligned
+    if rank_diff != 0 && file_diff != 0 && rank_diff != file_diff {
+        return 0;
+    }
+
+    let rank_step = if rank2 > rank1 {
+        1
+    } else if rank2 < rank1 {
+        -1
+    } else {
+        0
+    };
+    let file_step = if file2 > file1 {
+        1
+    } else if file2 < file1 {
+        -1
+    } else {
+        0
+    };
+
+    let mut ray = 0;
+    let mut r = rank2 as i8 + rank_step;
+    let mut f = file2 as i8 + file_step;
+
+    while r >= 0 && r < 8 && f >= 0 && f < 8 {
+        ray |= 1 << (r * 8 + f);
+        r += rank_step;
+        f += file_step;
+    }
+
+    ray
+}

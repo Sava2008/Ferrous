@@ -10,6 +10,7 @@ use crate::{
 fn board_to_fen_test1() -> () {
     let mut test_board: Board = Board::set();
     test_board.total_occupancy();
+    test_board.update_full_cache();
 
     let test_state: GameState = GameState {
         en_passant_target: None,

@@ -236,13 +236,13 @@ pub struct PinnedPiece {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreviousMove {
     // normal move changes 1 bitboard, castling or capture changes 2 and promotion with capture changes 3
-    pub changed_bitboards: [(Option<(PieceColor, PieceType)>, Option<Bitboard>); 3],
+    pub changed_cache_indices: [(Option<(u8, u8)>, Option<(PieceColor, PieceType)>); 3], // start, finish
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: Option<CastlingRights>, // if None, not to be restored
-    // pub previous_fifty_moves_rule_counter: u8,
     pub previous_check_info: CheckInfo,
     pub previous_pin_info: PinInfo,
     pub previous_check_constraints: Bitboard,
+    pub material_difference: i32,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -294,9 +294,9 @@ impl GameState {
             return;
         }
         let checker_index: u8 = self.check_info.first_checker.unwrap();
-        let piece: (PieceColor, PieceType) = board.bitboard_contains(checker_index).unwrap();
+        let piece: (PieceColor, PieceType) = board.piece_at(checker_index).unwrap();
         let color: PieceColor = board
-            .bitboard_contains(self.check_info.checked_king.unwrap())
+            .piece_at(self.check_info.checked_king.unwrap())
             .unwrap()
             .0;
         if piece.0 == color {
@@ -306,7 +306,7 @@ impl GameState {
             );
             panic!("irrelevant color");
         }
-        self.check_contraints = match board.bitboard_contains(checker_index).unwrap().1 {
+        self.check_contraints = match piece.1 {
             PieceType::Bishop | PieceType::Queen | PieceType::Rook => Board::generate_range(
                 self.check_info.checked_king.unwrap(),
                 checker_index,
