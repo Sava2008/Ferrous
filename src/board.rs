@@ -57,6 +57,18 @@ impl Board {
             material: 0, // equal material
         };
     }
+    pub fn count_material(&mut self) -> () {
+        self.material = (self.white_pawns.count_ones() as i32) * PAWN_VALUE
+            + (self.white_knights.count_ones() as i32) * KNIGHT_VALUE
+            + (self.white_bishops.count_ones() as i32) * BISHOP_VALUE
+            + (self.white_rooks.count_ones() as i32) * ROOK_VALUE
+            + (self.white_queens.count_ones() as i32) * QUEEN_VALUE
+            - (self.black_pawns.count_ones() as i32) * PAWN_VALUE
+            - (self.black_knights.count_ones() as i32) * KNIGHT_VALUE
+            - (self.black_bishops.count_ones() as i32) * BISHOP_VALUE
+            - (self.black_rooks.count_ones() as i32) * ROOK_VALUE
+            - (self.black_queens.count_ones() as i32) * QUEEN_VALUE;
+    }
     pub fn update_full_cache(&mut self) {
         for square in 0..64 {
             let mask: Bitboard = 1 << square;
@@ -435,7 +447,7 @@ impl Board {
                                         *white_pawns &= capture;
                                         *&mut self.total_occupancy &= capture;
                                         *&mut self.white_occupancy &= capture;
-                                        previous_move.material_difference = -PAWN_VALUE;
+                                        previous_move.material_difference -= PAWN_VALUE;
                                         self.material -= PAWN_VALUE;
                                     }
                                 }

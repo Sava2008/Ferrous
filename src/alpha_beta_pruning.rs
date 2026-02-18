@@ -104,20 +104,6 @@ impl Engine {
     ) -> i32 {
         *nodes += 1;
         if depth == 0 {
-            /*let moves_at_depth0: Vec<PieceMove> =
-                Self::generate_legal_moves(&state.whose_turn, board, state);
-
-            if moves_at_depth0.len() == 0 {
-                return if state.check_info.checked_king.is_some() {
-                    if state.whose_turn == PieceColor::White {
-                        i32::MIN
-                    } else {
-                        i32::MAX
-                    }
-                } else {
-                    0
-                };
-            }*/
             self.evaluate(board);
             return self.evaluation;
         }

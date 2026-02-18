@@ -2,18 +2,27 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    constants::attacks::initialize_sliding_attack_tables,
+    constants::attacks::{
+        compute_all_lines, compute_all_rays, compute_all_rays_from,
+        initialize_sliding_attack_tables,
+    },
     converters::fen_converter::fen_to_board,
     enums::PieceColor,
     gamestate::{GameState, PieceMove},
 };
+#[allow(unused_imports)]
 use std::time::Instant;
 
 #[test]
 fn engine_test_checkmate_in_one() -> () {
     initialize_sliding_attack_tables();
+    compute_all_lines();
+    compute_all_rays();
+    compute_all_rays_from();
     let (mut board, mut state): (Board, GameState) =
         fen_to_board("8/B1k4p/2P1pp2/1P1p4/5r1n/6n1/P4P2/2RRK3 b - - 0 1");
+    board.count_material();
+    println!("board: {board:?}");
     let mut engine: Engine = Engine {
         side: PieceColor::Black,
         depth: 4,
@@ -49,8 +58,12 @@ fn engine_test_checkmate_in_one() -> () {
 #[test]
 fn engine_test_checkmate_in_two() -> () {
     initialize_sliding_attack_tables();
+    compute_all_lines();
+    compute_all_rays();
+    compute_all_rays_from();
     let (mut board, mut state): (Board, GameState) =
         fen_to_board("r3r1k1/2q2p2/p1b1ppBQ/1p1pn1N1/8/2P1P3/PP4PP/R5K1 w - - 0 1");
+    board.count_material();
     state.check_info.update(&board, &PieceColor::White);
     state.pin_info.update(&board, &PieceColor::White);
     state.update_check_constraints(&board);

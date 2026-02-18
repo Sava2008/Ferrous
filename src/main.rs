@@ -2,7 +2,7 @@ use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
     constants::attacks::{
-        INDICES_TO_COORDS, compute_all_rays, compute_all_rays_from,
+        INDICES_TO_COORDS, compute_all_lines, compute_all_rays, compute_all_rays_from,
         initialize_sliding_attack_tables,
     },
     enums::{GameResult, PieceColor},
@@ -20,12 +20,13 @@ pub mod moves;
 pub mod tests;
 
 fn main() {
-    /* initialize_sliding_attack_tables(), compute_all_rays()
+    /* initialize_sliding_attack_tables(), compute_all_rays(), compute_all_lines
     and compute_all_rays_from() have to be called
     in the beginning of program and tests */
     initialize_sliding_attack_tables();
     compute_all_rays();
     compute_all_rays_from();
+    compute_all_lines();
     let mut board: Board = Board::set();
     board.total_occupancy();
     board.update_full_cache();

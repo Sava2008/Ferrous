@@ -2,12 +2,14 @@
 - bitboard generation
 - occupancy generation
 - heuristics & piece values
-- attack tables
-- fen converter
+- attack, lines + diagonals and ray tables
+- fen-to-board and board-to-fen converters
 - magic bitboards
 - actual move generation (with checks and pin detection)
 - evaluation function
 - alpha beta pruning algorithm
+- basic moves tuning
+- moves make-unmake system
 
 ### Planned on being carried out
 - pgn converter
@@ -15,9 +17,16 @@
 - terminal-based UI
 - UCI protocol
 - syzygy database
+- zobrist hashing
+- transposition tables
+- aggressive move ordering for better pruning
+- micro optimizations
 
 ### History
-I ([Sava2008](https://github.com/Sava2008)) am a late intermediate chess player, and I have always admired how a machine can play better than any human being. I'd been considering the idea of making my own engine for a few months then, and had decided that I had had enough competence to fullfil the dream, so, I had embarked on building Ferrous, a functional chess engine that came up with a move in any position by simply evaluating the material, and piece positioning. This is the second version, which unlike the array-based first version, uses bitboards to look through thousands of positions per second and reach better depth
+I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I have always admired how a machine can play better than any human being. I'd been considering the idea of making my own engine for a few months then, and had decided that I had had enough competence to fullfil the dream, so, I had embarked on building Ferrous, a functional chess engine that came up with a move in any position by simply evaluating the material, and piece positioning. This is the second version, which unlike the array-based first version, uses bitboards to look through thousands of positions per second and reach better depth
+
+### Comments
+currently the performance is estimated to be around 700-800k nodes/sec, but Ferrous searches widely, not deeply due to bad move tuning
 
 ### Instruction on usage
 0. Rust 1.93.0 is required on your computer (should work with older versions, but I did not check that)

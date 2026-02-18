@@ -6,7 +6,6 @@ use crate::{
     },
     enums::{GameResult, InclusiveRange, PieceColor, PieceType},
 };
-use smallvec::SmallVec;
 
 /* order of updating the fields:
 1. whose_turn
@@ -113,30 +112,19 @@ impl CheckInfo {
                 continue;
             }
             let checker: u8 = enemy_bitboard.trailing_zeros() as u8;
-            if checker == 64 {
-                continue;
-            }
             self.checked_king = Some(king_square as u8);
             match (self.first_checker, self.second_checker) {
                 (Some(_), None) => {
                     self.second_checker = Some(checker);
-                    return ();
+                    return;
                 }
                 (None, None) => self.first_checker = Some(checker),
                 _ => unreachable!(),
             };
-            if
-            /*  i == 0  &&*/
-            enemy_bitboard.count_ones() > 1 {
-                let mut bb: Bitboard = *enemy_bitboard;
-                bb &= bb - 1;
-                let checker: u8 = (bb & (diagonals | lines)).trailing_zeros() as u8;
-
-                if checker == 64 {
-                    continue;
-                }
+            if enemy_bitboard.count_ones() > 1 {
+                let checker: u8 = (enemy_bitboard - 1).trailing_zeros() as u8;
                 self.second_checker = Some(checker);
-                return ();
+                return;
             }
         }
     }
@@ -146,7 +134,7 @@ impl CheckInfo {
 pub struct PinInfo {
     pub white_king: u8,
     pub black_king: u8,
-    pub pinned_pieces: SmallVec<[PinnedPiece; 8]>,
+    pub pinned_pieces: Bitboard,
 }
 impl PinInfo {
     #[inline]
@@ -154,7 +142,7 @@ impl PinInfo {
         return Self {
             white_king: 4,  // e1
             black_king: 60, // e8
-            pinned_pieces: SmallVec::new(),
+            pinned_pieces: 0,
         };
     }
 
@@ -191,7 +179,7 @@ impl PinInfo {
                 &board.black_occupancy,
             ),
         };
-        self.pinned_pieces.clear();
+        self.pinned_pieces = 0;
         while linear_attackers != 0 {
             let pin_ray: Bitboard = Board::generate_range(
                 *king,
@@ -203,10 +191,7 @@ impl PinInfo {
             if teammates_in_between.count_ones() != 1 {
                 continue;
             }
-            self.pinned_pieces.push(PinnedPiece {
-                square: teammates_in_between.trailing_zeros() as u8,
-                pin_ray,
-            });
+            self.pinned_pieces |= teammates_in_between;
         }
         while diagonal_attackers != 0 {
             let pin_ray: Bitboard = Board::generate_range(
@@ -219,18 +204,9 @@ impl PinInfo {
             if teammates_in_between.count_ones() != 1 {
                 continue;
             }
-            self.pinned_pieces.push(PinnedPiece {
-                square: teammates_in_between.trailing_zeros() as u8,
-                pin_ray,
-            });
+            self.pinned_pieces |= teammates_in_between;
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PinnedPiece {
-    pub square: u8,
-    pub pin_ray: Bitboard, // all available squares for the pinned piece
 }
 
 #[derive(Debug, Clone, PartialEq)]

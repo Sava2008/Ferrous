@@ -26,6 +26,7 @@ fn king_moves_test1() -> () {
         black_occupancy: 0,
         total_occupancy: 0,
         cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
     board.update_full_cache();
@@ -69,6 +70,7 @@ fn king_moves_test2() -> () {
         black_occupancy: 0,
         total_occupancy: 0,
         cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
     board.update_full_cache();
@@ -115,6 +117,7 @@ fn king_moves_test3() -> () {
         black_occupancy: 0,
         total_occupancy: 0,
         cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
     board.update_full_cache();
@@ -161,6 +164,7 @@ fn king_moves_test4() -> () {
         black_occupancy: 0,
         total_occupancy: 0,
         cached_pieces: [None; 64],
+        material: 0,
     };
     board.total_occupancy();
     board.update_full_cache();
