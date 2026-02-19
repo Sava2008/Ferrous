@@ -221,7 +221,7 @@ pub struct PreviousMove {
     pub material_difference: i32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct PieceMove {
     pub from: u8,
     pub to: u8,

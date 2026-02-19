@@ -2,7 +2,6 @@ use crate::{
     board_geometry_templates::*,
     constants::{
         attacks::RAYS_BETWEEN,
-        heuristics::*,
         piece_values::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE},
     },
     enums::{InclusiveRange, PieceColor, PieceType},
@@ -559,119 +558,8 @@ impl Board {
         return rng;
     }
 
-    pub fn move_priority(&self, m: &PieceMove) -> u16 {
-        let mut priority_key: u16 = 0;
-        let (initial_pos, final_pos): ((PieceColor, PieceType), Option<(PieceColor, PieceType)>) =
-            (self.piece_at(m.from).unwrap(), self.piece_at(m.to));
-        if let Some(dest) = final_pos {
-            let victim_value: u16 = self.get_piece_value(dest.1) as u16;
-            let attacker_value: u16 = self.get_piece_value(initial_pos.1) as u16;
-            priority_key += (victim_value * 6 + (5 - attacker_value)) as u16;
-        }
-        if self.does_improve_piece(&initial_pos, &m) {
-            priority_key += 1;
-        }
-        return priority_key;
-    }
-    fn get_piece_value(&self, piece_type: PieceType) -> u8 {
-        match piece_type {
-            PieceType::Pawn => 0,
-            PieceType::Knight => 1,
-            PieceType::Bishop => 2,
-            PieceType::Rook => 3,
-            PieceType::Queen => 4,
-            PieceType::King => 5,
-        }
-    }
-
-    fn does_improve_piece(&self, piece: &(PieceColor, PieceType), m: &PieceMove) -> bool {
-        match piece.1 {
-            PieceType::Bishop => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_BISHOP_HEURISTICS[m.from as usize]
-                            > BLACK_BISHOP_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_BISHOP_HEURISTICS[m.from as usize]
-                            < WHITE_BISHOP_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-            PieceType::Pawn => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_PAWN_HEURISTICS[m.from as usize]
-                            > BLACK_PAWN_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_PAWN_HEURISTICS[m.from as usize]
-                            < WHITE_PAWN_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-            PieceType::Knight => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_KNIGHT_HEURISTICS[m.from as usize]
-                            > BLACK_KNIGHT_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_KNIGHT_HEURISTICS[m.from as usize]
-                            < WHITE_KNIGHT_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-            PieceType::Queen => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_QUEEN_HEURISTICS[m.from as usize]
-                            > BLACK_QUEEN_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_QUEEN_HEURISTICS[m.from as usize]
-                            < WHITE_QUEEN_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-            PieceType::Rook => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_ROOK_HEURISTICS[m.from as usize]
-                            > BLACK_ROOK_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_ROOK_HEURISTICS[m.from as usize]
-                            < WHITE_ROOK_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-            PieceType::King => {
-                if match piece.0 {
-                    PieceColor::Black => {
-                        BLACK_KING_HEURISTICS[m.from as usize]
-                            > BLACK_KING_HEURISTICS[m.to as usize]
-                    }
-                    PieceColor::White => {
-                        WHITE_KING_HEURISTICS[m.from as usize]
-                            < WHITE_KING_HEURISTICS[m.to as usize]
-                    }
-                } {
-                    return true;
-                }
-            }
-        }
-        return false;
+    pub fn is_capture(&self, m: &PieceMove) -> bool {
+        return self.piece_at(m.to).is_some();
     }
 
     pub fn is_king_attacked(&self, color: &PieceColor) -> bool {

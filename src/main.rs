@@ -16,8 +16,10 @@ pub mod constants;
 pub mod converters;
 pub mod enums;
 pub mod gamestate;
+pub mod move_generation;
 pub mod moves;
 pub mod tests;
+pub mod tuning;
 
 fn main() {
     /* initialize_sliding_attack_tables(), compute_all_rays(), compute_all_lines
@@ -35,11 +37,13 @@ fn main() {
         side: PieceColor::White,
         depth: 6,
         evaluation: 0,
+        killer_moves: [[None; 2]; 16],
     };
     let mut black_engine: Engine = Engine {
         side: PieceColor::Black,
         depth: 5,
         evaluation: 0,
+        killer_moves: [[None; 2]; 16],
     };
     game_control(&mut state, &mut board, &mut white_engine, &mut black_engine).unwrap();
     let _ = io::stdin();
@@ -58,10 +62,10 @@ fn game_control(
         state.check_info.update(&board, &PieceColor::White);
         state.pin_info.update(&board, &PieceColor::White);
         state.update_check_constraints(&board);
-        println!(
+        /*println!(
             "check info for white: {:?}, pin_info for white: {:?}, check constraints {:b}\nboard: {:?}",
             state.check_info, state.pin_info, state.check_contraints, &board
-        );
+        );*/
 
         // white's move
         let start: Instant = Instant::now();
@@ -88,10 +92,10 @@ fn game_control(
         state.check_info.update(&board, &PieceColor::Black);
         state.pin_info.update(&board, &PieceColor::Black);
         state.update_check_constraints(&board);
-        println!(
+        /*println!(
             "check info for black: {:?}, pin_info for black: {:?}, check constraints {:b}\nboard: {:?}",
             state.check_info, state.pin_info, state.check_contraints, &board
-        );
+        );*/
 
         // black's move
         let start: Instant = Instant::now();

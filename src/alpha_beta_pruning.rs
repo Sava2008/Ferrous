@@ -10,6 +10,7 @@ pub struct Engine {
     pub side: PieceColor, // which color Ferrous plays
     pub depth: u8,
     pub evaluation: i32,
+    pub killer_moves: [[Option<PieceMove>; 2]; 16],
 }
 
 impl Engine {
@@ -78,9 +79,11 @@ impl Engine {
         self.evaluation += board.material;
     }
     pub fn generate_legal_moves(
+        &self,
         color: &PieceColor,
         board: &Board,
         state: &GameState,
+        depth: usize,
     ) -> Vec<PieceMove> {
         let mut legal_moves: Vec<PieceMove> = board.pawn_moves(&state, &color);
         legal_moves.extend(board.knight_moves(&state, &color));
@@ -88,8 +91,19 @@ impl Engine {
         legal_moves.extend(board.queen_moves(&state, &color));
         legal_moves.extend(board.rook_moves(&state, &color));
         legal_moves.extend(board.king_moves(&state, &color));
-        legal_moves.sort_by_key(|m: &PieceMove| -(board.move_priority(m) as i16));
+        legal_moves.sort_by_key(|m: &PieceMove| -(self.move_priority(board, m, depth) as i16));
         return legal_moves;
+    }
+
+    fn add_killer(&mut self, killer: PieceMove, depth: u8) {
+        let depth: usize = depth as usize;
+
+        if self.killer_moves[depth][0] == Some(killer) {
+            return;
+        }
+
+        self.killer_moves[depth][1] = self.killer_moves[depth][0];
+        self.killer_moves[depth][0] = Some(killer);
     }
 
     pub fn alpha_beta_pruning(
@@ -114,7 +128,7 @@ impl Engine {
             state.whose_turn = PieceColor::White;
 
             let legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&state.whose_turn, &board, &state);
+                self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
 
             if legal_moves.len() == 0 {
                 return if state.check_info.checked_king.is_some() {
@@ -146,6 +160,10 @@ impl Engine {
                 board.cancel_move(state);
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
+                    if self.side == PieceColor::Black && !board.is_capture(m) && depth < self.depth
+                    {
+                        self.add_killer(*m, depth);
+                    }
                     break;
                 }
             }
@@ -157,7 +175,7 @@ impl Engine {
             state.whose_turn = PieceColor::Black;
 
             let legal_moves: Vec<PieceMove> =
-                Self::generate_legal_moves(&state.whose_turn, &board, &state);
+                self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
 
             if legal_moves.len() == 0 {
                 return if state.check_info.checked_king.is_some() {
@@ -188,6 +206,10 @@ impl Engine {
                 board.cancel_move(state);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
+                    if self.side == PieceColor::White && !board.is_capture(m) && depth < self.depth
+                    {
+                        self.add_killer(*m, depth);
+                    }
                     break;
                 }
             }
@@ -196,6 +218,7 @@ impl Engine {
     }
 
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<PieceMove> {
+        self.killer_moves = [[None; 2]; 16];
         let (mut best_score, maximizing): (i32, bool) = match self.side {
             PieceColor::White => (i32::MIN, false),
             PieceColor::Black => (i32::MAX, true),
@@ -207,8 +230,9 @@ impl Engine {
         let mut nodes: u64 = 0;
 
         let legal_moves: Vec<PieceMove> =
-            Self::generate_legal_moves(&self.side, board, &copied_state);
+            self.generate_legal_moves(&self.side, board, &copied_state, self.depth as usize);
         for m in &legal_moves {
+            // println!("move: {m:?}");
             copied_board.perform_move(&m, &mut copied_state);
             copied_state
                 .check_info
