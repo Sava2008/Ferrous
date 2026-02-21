@@ -1,12 +1,13 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
+    board_geometry_templates::{FROM_MASK, TO_MASK, TO_SHIFT},
     constants::attacks::{
-        INDICES_TO_COORDS, compute_all_lines, compute_all_rays, compute_all_rays_from,
-        initialize_sliding_attack_tables,
+        INDICES_TO_COORDS, compute_all_lines, compute_all_piece_improvements, compute_all_rays,
+        compute_all_rays_from, initialize_sliding_attack_tables,
     },
     enums::{GameResult, PieceColor},
-    gamestate::{GameState, PieceMove},
+    gamestate::GameState,
 };
 use std::{io, time::Instant};
 pub mod alpha_beta_pruning;
@@ -22,20 +23,23 @@ pub mod tests;
 pub mod tuning;
 
 fn main() {
-    /* initialize_sliding_attack_tables(), compute_all_rays(), compute_all_lines
+    /* initialize_sliding_attack_tables(), compute_all_rays(),
+    compute_all_lines, compute_all_piece_improvements
     and compute_all_rays_from() have to be called
     in the beginning of program and tests */
     initialize_sliding_attack_tables();
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
+    compute_all_piece_improvements();
     let mut board: Board = Board::set();
     board.total_occupancy();
     board.update_full_cache();
+    board.count_material();
     let mut state: GameState = GameState::new(&board);
     let mut white_engine: Engine = Engine {
         side: PieceColor::White,
-        depth: 6,
+        depth: 4,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
     };
@@ -69,14 +73,16 @@ fn game_control(
 
         // white's move
         let start: Instant = Instant::now();
-        let white_engine_move: Option<PieceMove> = engine1.find_best_move(&board, state);
+        let white_engine_move: Option<u16> = engine1.find_best_move(&board, state);
         println!("{:.3?}", start.elapsed());
         if let Some(m) = white_engine_move {
             board.perform_move(&m, state);
             println!(
                 "Ferrous's move: {:?} {:?}",
-                INDICES_TO_COORDS.get(&m.from).unwrap(),
-                INDICES_TO_COORDS.get(&m.to).unwrap(),
+                INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
+                INDICES_TO_COORDS
+                    .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
+                    .unwrap(),
             );
         } else {
             if state.check_info.checked_king.is_some() {
@@ -99,14 +105,16 @@ fn game_control(
 
         // black's move
         let start: Instant = Instant::now();
-        let black_engine_move: Option<PieceMove> = engine2.find_best_move(&board, state);
+        let black_engine_move: Option<u16> = engine2.find_best_move(&board, state);
         println!("{:.3?}", start.elapsed());
         if let Some(m) = black_engine_move {
             board.perform_move(&m, state);
             println!(
                 "Ferrous's move: {:?} {:?}",
-                INDICES_TO_COORDS.get(&m.from).unwrap(),
-                INDICES_TO_COORDS.get(&m.to).unwrap(),
+                INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
+                INDICES_TO_COORDS
+                    .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
+                    .unwrap(),
             );
         } else {
             if state.check_info.checked_king.is_some() {

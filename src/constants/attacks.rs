@@ -1,4 +1,4 @@
-use crate::{board_geometry_templates::Bitboard, enums::PieceColor};
+use crate::{board_geometry_templates::Bitboard, constants::heuristics::*, enums::PieceColor};
 use once_cell::sync::Lazy;
 use std::{
     cmp::{max, min},
@@ -739,4 +739,172 @@ pub fn compute_all_lines() -> () {
     unsafe {
         TWO_SQUARES_LINE = lines;
     }
+}
+
+// zero for false, one for true
+pub static mut WHITE_PAWN_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_PAWN_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut WHITE_KNIGHT_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_KNIGHT_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut WHITE_BISHOP_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_BISHOP_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut WHITE_ROOK_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_ROOK_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut WHITE_QUEEN_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_QUEEN_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut WHITE_KING_IMPROVEMENTS: [u64; 64] = [0; 64];
+pub static mut BLACK_KING_IMPROVEMENTS: [u64; 64] = [0; 64];
+
+fn compute_pawn_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_PAWN_HEURISTICS[j] > WHITE_PAWN_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_PAWN_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_PAWN_HEURISTICS[j] > BLACK_PAWN_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_PAWN_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+fn compute_knight_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_KNIGHT_HEURISTICS[j] > WHITE_KNIGHT_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_KNIGHT_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_KNIGHT_HEURISTICS[j] > BLACK_KNIGHT_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_KNIGHT_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+fn compute_bishop_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_BISHOP_HEURISTICS[j] > WHITE_BISHOP_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_BISHOP_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_BISHOP_HEURISTICS[j] > BLACK_BISHOP_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_BISHOP_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+fn compute_queen_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_QUEEN_HEURISTICS[j] > WHITE_QUEEN_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_QUEEN_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_QUEEN_HEURISTICS[j] > BLACK_QUEEN_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_QUEEN_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+fn compute_king_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_KING_HEURISTICS[j] > WHITE_KING_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_KING_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_KING_HEURISTICS[j] > BLACK_KING_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_KING_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+fn compute_rook_improvements() -> () {
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if WHITE_ROOK_HEURISTICS[j] > WHITE_ROOK_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            WHITE_ROOK_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+    for i in 0..64 {
+        let mut improvement_bb: Bitboard = 0;
+        for j in 0..64 {
+            if BLACK_ROOK_HEURISTICS[j] > BLACK_ROOK_HEURISTICS[i] {
+                improvement_bb |= 1 << j;
+            }
+        }
+        unsafe {
+            BLACK_ROOK_IMPROVEMENTS[i] = improvement_bb;
+        }
+    }
+}
+
+pub fn compute_all_piece_improvements() -> () {
+    compute_bishop_improvements();
+    compute_knight_improvements();
+    compute_pawn_improvements();
+    compute_queen_improvements();
+    compute_rook_improvements();
+    compute_king_improvements();
 }

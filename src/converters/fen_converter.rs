@@ -63,7 +63,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &PieceColor) -
                     empty_counter = 0;
                 }
 
-                let piece: (PieceColor, PieceType) = board.piece_at(square).unwrap();
+                let piece: (PieceColor, PieceType) = board.piece_at(&(square as u16)).unwrap();
                 let piece_char: char = match piece {
                     (PieceColor::White, PieceType::King) => 'K',
                     (PieceColor::White, PieceType::Queen) => 'Q',

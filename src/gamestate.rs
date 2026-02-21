@@ -219,12 +219,7 @@ pub struct PreviousMove {
     pub previous_pin_info: PinInfo,
     pub previous_check_constraints: Bitboard,
     pub material_difference: i32,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct PieceMove {
-    pub from: u8,
-    pub to: u8,
+    pub promotion_happened: bool,
 }
 
 impl GameState {
@@ -270,9 +265,9 @@ impl GameState {
             return;
         }
         let checker_index: u8 = self.check_info.first_checker.unwrap();
-        let piece: (PieceColor, PieceType) = board.piece_at(checker_index).unwrap();
+        let piece: (PieceColor, PieceType) = board.piece_at(&(checker_index as u16)).unwrap();
         let color: PieceColor = board
-            .piece_at(self.check_info.checked_king.unwrap())
+            .piece_at(&(self.check_info.checked_king.unwrap() as u16))
             .unwrap()
             .0;
         if piece.0 == color {
