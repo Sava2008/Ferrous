@@ -1,10 +1,5 @@
 use crate::{
-    board::Board,
-    board_geometry_templates::{
-        Bitboard, FROM_MASK, PROMOTION_MASK, PROMOTION_SHIFT, TO_MASK, TO_SHIFT,
-    },
-    constants::heuristics::*,
-    enums::PieceColor,
+    board::Board, board_geometry_templates::Bitboard, constants::heuristics::*, enums::PieceColor,
     gamestate::GameState,
 };
 use std::cmp::{max, min};
@@ -232,7 +227,6 @@ impl Engine {
         let legal_moves: Vec<u16> =
             self.generate_legal_moves(&self.side, board, &copied_state, self.depth as usize);
         for m in &legal_moves {
-            // println!("move: {m:?}");
             copied_board.perform_move(&m, &mut copied_state);
             copied_state
                 .check_info
@@ -251,13 +245,6 @@ impl Engine {
                 &mut copied_state,
                 &mut nodes,
             );
-            /*println!(
-                "from: {}, to {}, promo: {}, Score: {}",
-                m & FROM_MASK,
-                (m & TO_MASK) >> TO_SHIFT,
-                (m & PROMOTION_MASK) >> PROMOTION_SHIFT,
-                score
-            );*/
             copied_board.cancel_move(&mut copied_state);
 
             if match self.side {

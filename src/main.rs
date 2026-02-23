@@ -68,11 +68,6 @@ fn game_control(
         state.check_info.update(&board, &PieceColor::White);
         state.pin_info.update(&board, &PieceColor::White);
         state.update_check_constraints(&board);
-        /*println!(
-            "check info for white: {:?}, pin_info for white: {:?}, check constraints {:b}\nboard: {:?}",
-            state.check_info, state.pin_info, state.check_contraints, &board
-        );*/
-
         // white's move
         let start: Instant = Instant::now();
         let white_engine_move: Option<u16> = engine1.find_best_move(&board, state);
@@ -102,10 +97,6 @@ fn game_control(
         state.check_info.update(&board, &PieceColor::Black);
         state.pin_info.update(&board, &PieceColor::Black);
         state.update_check_constraints(&board);
-        /*println!(
-            "check info for black: {:?}, pin_info for black: {:?}, check constraints {:b}\nboard: {:?}",
-            state.check_info, state.pin_info, state.check_contraints, &board
-        );*/
 
         // black's move
         let start: Instant = Instant::now();

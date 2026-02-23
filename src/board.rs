@@ -185,10 +185,8 @@ impl Board {
             (from_to & FROM_MASK) as u8,
             ((from_to & TO_MASK) >> TO_SHIFT) as u8,
         );
-        //println!("from: {from_sq}, to: {to_sq}");
 
         let moving_piece: (PieceColor, PieceType) = self.piece_at(&(from_sq as u16)).unwrap();
-        //println!("moving piece: {moving_piece:?}");
         let captured_piece: Option<(PieceColor, PieceType)> = self.piece_at(&(to_sq as u16));
         let mut promotion_choice: Option<(PieceColor, PieceType)> = None;
         let mut previous_move: PreviousMove = PreviousMove {
@@ -274,6 +272,7 @@ impl Board {
                     } else if to_sq == 56 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
+
                         state.castling_rights.black_three_zeros = false;
                     }
                     (&mut self.black_rooks, &mut self.black_occupancy)
@@ -284,10 +283,8 @@ impl Board {
             };
             previous_move.changed_cache_indices[1] = (Some((to_sq, to_sq)), Some(enemy));
             let capture: Bitboard = !(1 << to_sq);
-            //println!("CAPTURE: bitboard not captured: {bitboard_for_capture:b}");
             *occupancy &= capture;
             *bitboard_for_capture &= capture;
-            //println!("CAPTURE: bitboard captured: {bitboard_for_capture:b}");
         }
 
         let color_to_mutate: &mut u64 = match moving_piece.0 {
@@ -338,7 +335,13 @@ impl Board {
                     &mut self.white_occupancy
                 }
                 PieceType::Rook => {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                    if (to_sq != 56 && to_sq != 63)
+                        && self.piece_at(&(to_sq as u16))
+                            != Some((PieceColor::Black, PieceType::Rook))
+                    {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+                    }
 
                     if from_sq == 0 {
                         state.castling_rights.white_three_zeros = false;
@@ -390,7 +393,6 @@ impl Board {
                                     self.cached_pieces[captured_pawn_square as usize] = None;
                                     let capture: Bitboard = !(1 << captured_pawn_square);
                                     *black_pawns &= capture;
-                                    *&mut self.total_occupancy &= capture;
                                     *&mut self.black_occupancy &= capture;
                                     previous_move.material_difference += PAWN_VALUE;
                                     self.material += PAWN_VALUE;
@@ -449,7 +451,13 @@ impl Board {
                     &mut self.black_occupancy
                 }
                 PieceType::Rook => {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                    if (to_sq != 0 && to_sq != 7)
+                        && self.piece_at(&(to_sq as u16))
+                            != Some((PieceColor::White, PieceType::Rook))
+                    {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+                    }
                     if from_sq == 56 {
                         state.castling_rights.black_three_zeros = false;
                     } else if from_sq == 63 {
@@ -500,7 +508,6 @@ impl Board {
                                     self.cached_pieces[captured_pawn_square as usize] = None;
                                     let capture: Bitboard = !(1 << captured_pawn_square);
                                     *white_pawns &= capture;
-                                    *&mut self.total_occupancy &= capture;
                                     *&mut self.white_occupancy &= capture;
                                     previous_move.material_difference -= PAWN_VALUE;
                                     self.material -= PAWN_VALUE;
@@ -537,10 +544,6 @@ impl Board {
             Some(p) => {
                 previous_move.promotion_happened = true;
                 previous_move.changed_cache_indices[2] = (Some((from_sq, to_sq)), Some(p));
-                /*println!(
-                    "PROMOTION: previous_move.changed_cache_indices[2]: {:?}",
-                    previous_move.changed_cache_indices[2]
-                );*/
                 match p.0 {
                     PieceColor::White => {
                         *&mut self.white_pawns &= start;
@@ -721,5 +724,185 @@ impl Board {
             PieceColor::Black => self.black_king.trailing_zeros() as u8,
         };
         return self.is_square_attacked(king_square, &!color.clone());
+    }
+    pub fn validate(&self, state: &GameState, context: &str) {
+        // Check 1: No overlapping pieces of same color
+        let white_pieces = [
+            self.white_pawns,
+            self.white_knights,
+            self.white_bishops,
+            self.white_rooks,
+            self.white_queens,
+            self.white_king,
+        ];
+        for i in 0..white_pieces.len() {
+            for j in i + 1..white_pieces.len() {
+                assert_eq!(
+                    white_pieces[i] & white_pieces[j],
+                    0,
+                    "{}: White pieces overlap at {:b}",
+                    context,
+                    white_pieces[i] & white_pieces[j]
+                );
+            }
+        }
+
+        let black_pieces = [
+            self.black_pawns,
+            self.black_knights,
+            self.black_bishops,
+            self.black_rooks,
+            self.black_queens,
+            self.black_king,
+        ];
+        for i in 0..black_pieces.len() {
+            for j in i + 1..black_pieces.len() {
+                assert_eq!(
+                    black_pieces[i] & black_pieces[j],
+                    0,
+                    "{}: Black pieces overlap at {:b}",
+                    context,
+                    black_pieces[i] & black_pieces[j]
+                );
+            }
+        }
+
+        // Check 2: No white piece overlaps with black piece (should be impossible but check anyway)
+        let white_all = self.white_pawns
+            | self.white_knights
+            | self.white_bishops
+            | self.white_rooks
+            | self.white_queens
+            | self.white_king;
+        let black_all = self.black_pawns
+            | self.black_knights
+            | self.black_bishops
+            | self.black_rooks
+            | self.black_queens
+            | self.black_king;
+        assert_eq!(
+            white_all & black_all,
+            0,
+            "{}: White and black pieces overlap at {:b}",
+            context,
+            white_all & black_all
+        );
+
+        // Check 3: Occupancy bitboards match actual pieces
+        let white_occupancy_calc = white_all;
+        let black_occupancy_calc = black_all;
+        assert_eq!(
+            self.white_occupancy, white_occupancy_calc,
+            "{}: White occupancy mismatch\nCalculated: {:b}\nStored: {:b}",
+            context, white_occupancy_calc, self.white_occupancy
+        );
+        assert_eq!(
+            self.black_occupancy, black_occupancy_calc,
+            "{}: Black occupancy mismatch\nCalculated: {:b}\nStored: {:b}",
+            context, black_occupancy_calc, self.black_occupancy
+        );
+        assert_eq!(
+            self.total_occupancy,
+            white_all | black_all,
+            "{}: Total occupancy mismatch",
+            context
+        );
+
+        for sq in 0..64 {
+            let mask = 1 << sq;
+            let piece_from_bitboards = if white_pieces.iter().any(|&bb| bb & mask != 0) {
+                // Find which white piece
+                if self.white_pawns & mask != 0 {
+                    Some((PieceColor::White, PieceType::Pawn))
+                } else if self.white_knights & mask != 0 {
+                    Some((PieceColor::White, PieceType::Knight))
+                } else if self.white_bishops & mask != 0 {
+                    Some((PieceColor::White, PieceType::Bishop))
+                } else if self.white_rooks & mask != 0 {
+                    Some((PieceColor::White, PieceType::Rook))
+                } else if self.white_queens & mask != 0 {
+                    Some((PieceColor::White, PieceType::Queen))
+                } else if self.white_king & mask != 0 {
+                    Some((PieceColor::White, PieceType::King))
+                } else {
+                    None
+                }
+            } else if black_pieces.iter().any(|&bb| bb & mask != 0) {
+                // Find which black piece
+                if self.black_pawns & mask != 0 {
+                    Some((PieceColor::Black, PieceType::Pawn))
+                } else if self.black_knights & mask != 0 {
+                    Some((PieceColor::Black, PieceType::Knight))
+                } else if self.black_bishops & mask != 0 {
+                    Some((PieceColor::Black, PieceType::Bishop))
+                } else if self.black_rooks & mask != 0 {
+                    Some((PieceColor::Black, PieceType::Rook))
+                } else if self.black_queens & mask != 0 {
+                    Some((PieceColor::Black, PieceType::Queen))
+                } else if self.black_king & mask != 0 {
+                    Some((PieceColor::Black, PieceType::King))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            assert_eq!(
+                self.cached_pieces[sq], piece_from_bitboards,
+                "{}: Square {} cache mismatch. Cache: {:?}, Bitboards: {:?}",
+                context, sq, self.cached_pieces[sq], piece_from_bitboards
+            );
+        }
+
+        // Check 5: Kings exist and are unique
+        assert_eq!(
+            self.white_king.count_ones(),
+            1,
+            "{}: White king count is {}",
+            context,
+            self.white_king.count_ones()
+        );
+        assert_eq!(
+            self.black_king.count_ones(),
+            1,
+            "{}: Black king count is {}",
+            context,
+            self.black_king.count_ones()
+        );
+
+        // Check 6: Castling rights are consistent with rook positions
+        if state.castling_rights.white_three_zeros {
+            assert_ne!(
+                self.white_rooks & (1 << 0),
+                0,
+                "{}: White can castle queenside but rook not at a1",
+                context
+            );
+        }
+        if state.castling_rights.white_two_zeros {
+            assert_ne!(
+                self.white_rooks & (1 << 7),
+                0,
+                "{}: White can castle kingside but rook not at h1",
+                context
+            );
+        }
+        if state.castling_rights.black_three_zeros {
+            assert_ne!(
+                self.black_rooks & (1 << 56),
+                0,
+                "{}: Black can castle queenside but rook not at a8",
+                context
+            );
+        }
+        if state.castling_rights.black_two_zeros {
+            assert_ne!(
+                self.black_rooks & (1 << 63),
+                0,
+                "{}: Black can castle kingside but rook not at h8",
+                context
+            );
+        }
     }
 }

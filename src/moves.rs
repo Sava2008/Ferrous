@@ -86,9 +86,9 @@ impl Board {
             ),
         };
 
-        if let Some(e_p) = state.en_passant_target {
+        /*if let Some(e_p) = state.en_passant_target {
             enemy_occupancy |= 1 << e_p
-        }
+        }*/
 
         while pawns_bitboard != 0 {
             let initial_pos: u16 = pawns_bitboard.trailing_zeros() as u16;

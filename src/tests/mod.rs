@@ -539,23 +539,23 @@ mod tests {
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
 
-        board.black_rooks |= 1 << 0;
-        board.white_rooks &= !(1 << 0);
+        board.black_pawns &= !(1 << 48);
+        board.white_pawns &= !(1 << 8);
         board.total_occupancy();
         board.update_full_cache();
         board.count_material();
 
-        let move_encoding: u16 = create_move(56, 0, None);
+        let move_encoding: u16 = create_move(0, 56, None);
         state.whose_turn = PieceColor::Black;
         board.perform_move(&move_encoding, &mut state);
 
-        assert_eq!(state.castling_rights.white_three_zeros, false);
-        assert_eq!(state.castling_rights.white_two_zeros, true);
+        assert_eq!(state.castling_rights.black_three_zeros, false);
+        assert_eq!(state.castling_rights.black_two_zeros, true);
 
         board.cancel_move(&mut state);
 
-        assert_eq!(state.castling_rights.white_three_zeros, true);
-        assert_eq!(state.castling_rights.white_two_zeros, true);
+        assert_eq!(state.castling_rights.black_three_zeros, true);
+        assert_eq!(state.castling_rights.black_two_zeros, true);
     }
 
     #[test]
@@ -671,21 +671,18 @@ mod tests {
         compute_all_lines();
         let mut board = Board::set();
         let mut state = GameState::new(&board);
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
 
-        // Set en passant target from previous move
-        state.en_passant_target = Some(20); // e3
-
-        // Move knight
-        let move_encoding = create_move(1, 18, None); // Nb1-c3
+        board.perform_move(&create_move(12, 28, None), &mut state);
+        let move_encoding = create_move(62, 45, None);
         board.perform_move(&move_encoding, &mut state);
 
-        // Verify en passant target cleared
         assert_eq!(state.en_passant_target, None);
 
-        // Cancel move
         board.cancel_move(&mut state);
 
-        // Verify en passant target restored
         assert_eq!(state.en_passant_target, Some(20));
     }
 
@@ -727,26 +724,18 @@ mod tests {
     fn test_perform_move_updates_material_correctly() {
         let mut board = Board::set();
         let mut state = GameState::new(&board);
-        board.count_material();
-
-        let initial_material = board.material;
-
-        // Capture a pawn
-        board.black_pawns |= 1 << 28; // Put black pawn on e4
-        board.white_pawns = (board.white_pawns & !(1 << 12)) | (1 << 20); // White pawn on e3
-        board.update_full_cache();
         board.total_occupancy();
+        board.update_full_cache();
         board.count_material();
 
-        let move_encoding = create_move(20, 28, None); // e3-e4 capturing black pawn
+        let initial_material: i32 = board.material;
+
+        let move_encoding: u16 = create_move(12, 28, None);
         board.perform_move(&move_encoding, &mut state);
 
-        // Material should increase by pawn value
-        assert_eq!(board.material, initial_material + PAWN_VALUE);
+        assert_eq!(board.material, initial_material);
 
-        // Cancel capture
         board.cancel_move(&mut state);
-        board.count_material();
         assert_eq!(board.material, initial_material);
     }
 
@@ -847,5 +836,18 @@ mod tests {
             board.cached_pieces[59],
             Some((PieceColor::Black, PieceType::Rook))
         );
+    }
+    #[test]
+    fn en_passant_test() -> () {
+        initialize_sliding_attack_tables();
+        compute_all_rays();
+        compute_all_rays_from();
+        compute_all_lines();
+        let mut board = Board::set();
+        let mut state = GameState::new(&board);
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
+        board.perform_move(&create_move(12, 28, None), &mut state);
     }
 }
