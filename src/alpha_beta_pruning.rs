@@ -251,13 +251,13 @@ impl Engine {
                 &mut copied_state,
                 &mut nodes,
             );
-            println!(
+            /*println!(
                 "from: {}, to {}, promo: {}, Score: {}",
                 m & FROM_MASK,
                 (m & TO_MASK) >> TO_SHIFT,
                 (m & PROMOTION_MASK) >> PROMOTION_SHIFT,
                 score
-            );
+            );*/
             copied_board.cancel_move(&mut copied_state);
 
             if match self.side {

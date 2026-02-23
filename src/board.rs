@@ -183,10 +183,12 @@ impl Board {
     pub fn perform_move(&mut self, from_to: &u16, state: &mut GameState) -> () {
         let (from_sq, to_sq): (u8, u8) = (
             (from_to & FROM_MASK) as u8,
-            ((from_to >> TO_SHIFT) & FROM_MASK) as u8,
+            ((from_to & TO_MASK) >> TO_SHIFT) as u8,
         );
+        //println!("from: {from_sq}, to: {to_sq}");
 
         let moving_piece: (PieceColor, PieceType) = self.piece_at(&(from_sq as u16)).unwrap();
+        //println!("moving piece: {moving_piece:?}");
         let captured_piece: Option<(PieceColor, PieceType)> = self.piece_at(&(to_sq as u16));
         let mut promotion_choice: Option<(PieceColor, PieceType)> = None;
         let mut previous_move: PreviousMove = PreviousMove {
@@ -282,11 +284,13 @@ impl Board {
             };
             previous_move.changed_cache_indices[1] = (Some((to_sq, to_sq)), Some(enemy));
             let capture: Bitboard = !(1 << to_sq);
+            //println!("CAPTURE: bitboard not captured: {bitboard_for_capture:b}");
             *occupancy &= capture;
             *bitboard_for_capture &= capture;
+            //println!("CAPTURE: bitboard captured: {bitboard_for_capture:b}");
         }
 
-        let occupancy: &mut u64 = match moving_piece.0 {
+        let color_to_mutate: &mut u64 = match moving_piece.0 {
             PieceColor::White => match moving_piece.1 {
                 PieceType::King => {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
@@ -346,27 +350,29 @@ impl Board {
                 }
                 PieceType::Pawn => {
                     match (from_sq, to_sq) {
-                        ((8..=15), (24..=31)) => {
+                        (8..=15, 24..=31) => {
                             state.en_passant_target = Some(to_sq - 8); // en passant square behind the pawn
                         }
-                        ((48..56), (56..64)) => {
-                            let promotion_sq: Bitboard = 1 << to_sq;
-                            *&mut self.white_occupancy |= promotion_sq;
+                        (48..56, 56..64) => {
                             promotion_choice = match (from_to & PROMOTION_MASK) >> PROMOTION_SHIFT {
                                 1 => {
-                                    *&mut self.white_knights |= promotion_sq;
+                                    self.material += KNIGHT_VALUE;
+                                    previous_move.material_difference += KNIGHT_VALUE;
                                     Some((PieceColor::White, PieceType::Knight))
                                 }
                                 2 => {
-                                    *&mut self.white_bishops |= promotion_sq;
+                                    self.material += BISHOP_VALUE;
+                                    previous_move.material_difference += BISHOP_VALUE;
                                     Some((PieceColor::White, PieceType::Bishop))
                                 }
                                 3 => {
-                                    *&mut self.white_rooks |= promotion_sq;
+                                    self.material += ROOK_VALUE;
+                                    previous_move.material_difference += ROOK_VALUE;
                                     Some((PieceColor::White, PieceType::Rook))
                                 }
                                 4 => {
-                                    *&mut self.white_queens |= promotion_sq;
+                                    self.material += QUEEN_VALUE;
+                                    previous_move.material_difference += QUEEN_VALUE;
                                     Some((PieceColor::White, PieceType::Queen))
                                 }
                                 _ => unreachable!(),
@@ -454,27 +460,29 @@ impl Board {
                 }
                 PieceType::Pawn => {
                     match (from_sq, to_sq) {
-                        ((48..=55), (32..=39)) => {
+                        (48..=55, 32..=39) => {
                             state.en_passant_target = Some(to_sq + 8); // en passant square behind the pawn
                         }
-                        ((8..16), (0..8)) => {
-                            let promotion_sq: Bitboard = 1 << to_sq;
-                            *&mut self.black_occupancy |= promotion_sq;
+                        (8..16, 0..8) => {
                             promotion_choice = match (from_to & PROMOTION_MASK) >> PROMOTION_SHIFT {
                                 1 => {
-                                    *&mut self.black_knights |= promotion_sq;
+                                    self.material -= KNIGHT_VALUE;
+                                    previous_move.material_difference -= KNIGHT_VALUE;
                                     Some((PieceColor::Black, PieceType::Knight))
                                 }
                                 2 => {
-                                    *&mut self.black_bishops |= promotion_sq;
+                                    self.material -= BISHOP_VALUE;
+                                    previous_move.material_difference -= BISHOP_VALUE;
                                     Some((PieceColor::Black, PieceType::Bishop))
                                 }
                                 3 => {
-                                    *&mut self.black_rooks |= promotion_sq;
+                                    self.material -= ROOK_VALUE;
+                                    previous_move.material_difference -= ROOK_VALUE;
                                     Some((PieceColor::Black, PieceType::Rook))
                                 }
                                 4 => {
-                                    *&mut self.black_queens |= promotion_sq;
+                                    self.material -= QUEEN_VALUE;
+                                    previous_move.material_difference -= QUEEN_VALUE;
                                     Some((PieceColor::Black, PieceType::Queen))
                                 }
                                 _ => unreachable!(),
@@ -509,32 +517,57 @@ impl Board {
                 }
             },
         };
+        let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
+        *&mut self.total_occupancy &= start;
+        *&mut self.total_occupancy |= end;
+        *color_to_mutate &= start;
+        *color_to_mutate |= end;
 
         (
             previous_move.changed_cache_indices[0],
             self.cached_pieces[to_sq as usize],
         ) = match promotion_choice {
-            None => (
-                (Some((from_sq, to_sq)), Some(moving_piece)),
-                Some(moving_piece),
-            ),
-            Some(p) => {
-                previous_move.promotion_happened = true;
-                previous_move.changed_cache_indices[2] = (Some((from_sq, to_sq)), Some(p));
-                self.cached_pieces[to_sq as usize] = Some(p);
+            None => {
+                self.reset_bit(moving_piece, from_sq, to_sq);
                 (
                     (Some((from_sq, to_sq)), Some(moving_piece)),
                     Some(moving_piece),
                 )
             }
+            Some(p) => {
+                previous_move.promotion_happened = true;
+                previous_move.changed_cache_indices[2] = (Some((from_sq, to_sq)), Some(p));
+                /*println!(
+                    "PROMOTION: previous_move.changed_cache_indices[2]: {:?}",
+                    previous_move.changed_cache_indices[2]
+                );*/
+                match p.0 {
+                    PieceColor::White => {
+                        *&mut self.white_pawns &= start;
+                        match p.1 {
+                            PieceType::Queen => *&mut self.white_queens |= end,
+                            PieceType::Rook => *&mut self.white_rooks |= end,
+                            PieceType::Bishop => *&mut self.white_bishops |= end,
+                            PieceType::Knight => *&mut self.white_knights |= end,
+                            _ => unreachable!(),
+                        };
+                    }
+                    PieceColor::Black => {
+                        *&mut self.black_pawns &= start;
+                        match p.1 {
+                            PieceType::Queen => *&mut self.black_queens |= end,
+                            PieceType::Rook => *&mut self.black_rooks |= end,
+                            PieceType::Bishop => *&mut self.black_bishops |= end,
+                            PieceType::Knight => *&mut self.black_knights |= end,
+                            _ => unreachable!(),
+                        };
+                    }
+                };
+                self.cached_pieces[to_sq as usize] = Some(p);
+                ((Some((from_sq, to_sq)), Some(moving_piece)), Some(p))
+            }
         };
         self.cached_pieces[from_sq as usize] = None;
-        let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
-        *&mut self.total_occupancy &= start;
-        *&mut self.total_occupancy |= end;
-        *occupancy &= start;
-        *occupancy |= end;
-        self.reset_bit(moving_piece, from_sq, to_sq);
 
         state.moves_history.push(previous_move);
     }
@@ -608,15 +641,13 @@ impl Board {
                     _ => unreachable!(),
                 };
 
-                let total: &mut Bitboard = &mut self.total_occupancy;
                 self.cached_pieces[cached_index.1 as usize] = None;
                 let last_square: Bitboard = !(1 << cached_index.1);
-                *total &= last_square;
                 *bitboard_to_restore &= last_square;
                 *occupancy &= last_square;
             }
 
-            // captured piece / castled rook
+            // captured piece / castled rook / en passant
             if let (Some(cached_index), Some(piece)) = previous_move.changed_cache_indices[1] {
                 let (bitboard_to_restore, occupancy): (&mut u64, &mut u64) = match piece.1 {
                     PieceType::Bishop => match piece.0 {

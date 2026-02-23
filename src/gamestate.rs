@@ -122,7 +122,7 @@ impl CheckInfo {
                 _ => unreachable!(),
             };
             if enemy_bitboard.count_ones() > 1 {
-                let checker: u8 = (enemy_bitboard - 1).trailing_zeros() as u8;
+                let checker: u8 = (enemy_bitboard & (enemy_bitboard - 1)).trailing_zeros() as u8;
                 self.second_checker = Some(checker);
                 return;
             }
@@ -227,7 +227,10 @@ impl GameState {
     pub fn new(board: &Board) -> Self {
         return Self {
             en_passant_target: None,
-            castling_rights: match (board.white_king, board.black_king) {
+            castling_rights: match (
+                board.white_king.trailing_zeros(),
+                board.black_king.trailing_zeros(),
+            ) {
                 (4, 60) => CastlingRights::new(),
                 (4, _) => CastlingRights {
                     white_three_zeros: true,

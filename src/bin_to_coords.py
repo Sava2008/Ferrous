@@ -43,6 +43,6 @@ def indices_to_bin(indices: list[int]) -> str:
     return assemble_bin_from_coords([idx_to_coords[i] for i in indices])
 
 
-print(f"white queens: {bin_to_chess_coords(bin(140737488355328)[2:])}")
-print(f"white bishops: {bin_to_chess_coords(bin(70368744177664)[2:])}")
-print(f"white pawns: {bin_to_chess_coords(bin(1360640)[2:])}")
+print(f"white bishops: {bin_to_chess_coords(bin(8589934628)[2:])}")
+print(f"black pawns: {bin_to_chess_coords(bin(69524319247532032)[2:])}")
+print(f"black king: {bin_to_chess_coords(bin(1152921504606846976)[2:])}")

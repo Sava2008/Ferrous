@@ -43,6 +43,7 @@ impl Engine {
         }
     }
     #[inline(always)]
+    #[allow(unused)]
     fn does_improve_piece(piece: &(PieceColor, PieceType), m: &u16) -> bool {
         let (from_sq, to_sq): (usize, Bitboard) = (
             (m & FROM_MASK) as usize,

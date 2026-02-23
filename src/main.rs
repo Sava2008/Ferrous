@@ -39,13 +39,13 @@ fn main() {
     let mut state: GameState = GameState::new(&board);
     let mut white_engine: Engine = Engine {
         side: PieceColor::White,
-        depth: 4,
+        depth: 6,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
     };
     let mut black_engine: Engine = Engine {
         side: PieceColor::Black,
-        depth: 5,
+        depth: 7,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
     };
@@ -63,6 +63,8 @@ fn game_control(
     /*'outer: */
     loop {
         board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
         state.check_info.update(&board, &PieceColor::White);
         state.pin_info.update(&board, &PieceColor::White);
         state.update_check_constraints(&board);
@@ -95,6 +97,8 @@ fn game_control(
             break;
         }
         board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
         state.check_info.update(&board, &PieceColor::Black);
         state.pin_info.update(&board, &PieceColor::Black);
         state.update_check_constraints(&board);
