@@ -1,13 +1,7 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    board_geometry_templates::{Bitboard, FROM_MASK, TO_MASK, TO_SHIFT},
-    constants::attacks::{
-        BLACK_BISHOP_IMPROVEMENTS, BLACK_KING_IMPROVEMENTS, BLACK_KNIGHT_IMPROVEMENTS,
-        BLACK_PAWN_IMPROVEMENTS, BLACK_QUEEN_IMPROVEMENTS, BLACK_ROOK_IMPROVEMENTS,
-        WHITE_BISHOP_IMPROVEMENTS, WHITE_KING_IMPROVEMENTS, WHITE_KNIGHT_IMPROVEMENTS,
-        WHITE_PAWN_IMPROVEMENTS, WHITE_QUEEN_IMPROVEMENTS, WHITE_ROOK_IMPROVEMENTS,
-    },
+    board_geometry_templates::{FROM_MASK, TO_MASK, TO_SHIFT},
     enums::{PieceColor, PieceType},
 };
 
@@ -42,6 +36,7 @@ impl Engine {
             PieceType::King => 5,
         }
     }
+    /*
     #[inline(always)]
     #[allow(unused)]
     fn does_improve_piece(piece: &(PieceColor, PieceType), m: &u16) -> bool {
@@ -75,5 +70,5 @@ impl Engine {
                 PieceColor::White => unsafe { WHITE_KING_IMPROVEMENTS[from_sq] & to_sq != 0 },
             },
         };
-    }
+    }*/
 }

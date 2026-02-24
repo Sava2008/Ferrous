@@ -3,13 +3,7 @@ mod tests {
     use crate::{
         board::Board,
         board_geometry_templates::{PROMOTION_SHIFT, TO_SHIFT},
-        constants::{
-            attacks::{
-                compute_all_lines, compute_all_rays, compute_all_rays_from,
-                initialize_sliding_attack_tables,
-            },
-            piece_values::PAWN_VALUE,
-        },
+        constants::attacks::{compute_all_lines, initialize_sliding_attack_tables},
         enums::{InclusiveRange, PieceColor, PieceType},
         gamestate::GameState,
     };
@@ -360,8 +354,7 @@ mod tests {
     #[test]
     fn test_pawn_promotion_to_queen_and_cancel_white() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -394,8 +387,7 @@ mod tests {
     #[test]
     fn test_pawn_promotion_to_knight_and_cancel_white() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -432,8 +424,7 @@ mod tests {
     #[test]
     fn test_pawn_promotion_with_capture_and_cancel_white() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -474,8 +465,7 @@ mod tests {
     #[test]
     fn test_pawn_promotion_and_cancel_black() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -506,8 +496,7 @@ mod tests {
     #[test]
     fn test_castling_rights_lost_when_rook_moves() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -533,8 +522,7 @@ mod tests {
     #[test]
     fn test_castling_rights_lost_when_rook_captured() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -595,8 +583,7 @@ mod tests {
     #[test]
     fn test_cancel_with_check_constraints() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -631,8 +618,7 @@ mod tests {
     #[test]
     fn test_double_check_no_constraints() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board: Board = Board::set();
         let mut state: GameState = GameState::new(&board);
@@ -666,8 +652,7 @@ mod tests {
     #[test]
     fn test_en_passant_target_cleared_on_non_pawn_move() {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board = Board::set();
         let mut state = GameState::new(&board);
@@ -840,8 +825,7 @@ mod tests {
     #[test]
     fn en_passant_test() -> () {
         initialize_sliding_attack_tables();
-        compute_all_rays();
-        compute_all_rays_from();
+
         compute_all_lines();
         let mut board = Board::set();
         let mut state = GameState::new(&board);

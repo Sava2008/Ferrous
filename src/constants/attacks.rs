@@ -1,9 +1,12 @@
-use crate::{board_geometry_templates::Bitboard, constants::heuristics::*, enums::PieceColor};
-use once_cell::sync::Lazy;
-use std::{
-    cmp::{max, min},
-    collections::HashMap,
+use crate::{
+    board_geometry_templates::{
+        Bitboard, FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, RANK_1, RANK_2,
+        RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
+    },
+    enums::PieceColor,
 };
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 pub const KNIGHT_ATTACKS: [Bitboard; 64] = knight_attacks();
 pub const COORDS_TO_INDICES: Lazy<HashMap<String, u8>> = Lazy::new(|| {
@@ -579,7 +582,7 @@ pub fn compute_all_rays() -> () {
 }
 
 pub fn compute_all_rays_from() -> () {
-    let mut rays: [[u64; 64]; 64] = [[0u64; 64]; 64];
+    let mut rays: [[u64; 64]; 64] = [[0; 64]; 64];
     for sq1 in 0..64 {
         for sq2 in 0..64 {
             rays[sq1][sq2] = compute_ray_from(sq1 as u8, sq2 as u8);
@@ -630,7 +633,7 @@ fn compute_ray_between(sq1: u8, sq2: u8) -> u64 {
         f += file_step;
     }
 
-    ray
+    return ray;
 }
 
 // Compute ray from sq1 through sq2 and beyond
@@ -674,7 +677,7 @@ fn compute_ray_from(sq1: u8, sq2: u8) -> u64 {
         f += file_step;
     }
 
-    ray
+    return ray;
 }
 
 pub static mut TWO_SQUARES_LINE: [[Bitboard; 64]; 64] = [[0; 64]; 64];
@@ -695,39 +698,43 @@ pub fn compute_all_lines() -> () {
             let file_diff: i8 = (file2 as i8 - file1 as i8).abs();
 
             if rank_diff == 0 {
-                let min_file: usize = min(file1, file2);
-                let max_file: usize = max(file1, file2);
-                for f in min_file..=max_file {
-                    lines[sq1][sq2] |= 1 << (rank1 * 8 + f);
-                }
+                lines[sq1][sq2] |= match rank1 {
+                    0 => RANK_1,
+                    1 => RANK_2,
+                    2 => RANK_3,
+                    3 => RANK_4,
+                    4 => RANK_5,
+                    5 => RANK_6,
+                    6 => RANK_7,
+                    7 => RANK_8,
+                    _ => unreachable!(),
+                };
             } else if file_diff == 0 {
-                let min_rank: usize = min(rank1, rank2);
-                let max_rank: usize = max(rank1, rank2);
-                for r in min_rank..=max_rank {
-                    lines[sq1][sq2] |= 1 << (r * 8 + file1);
-                }
-            } else if rank_diff == file_diff {
-                let step: i8 = if rank2 > rank1 { 1 } else { -1 };
-                let mut r: i8 = rank1 as i8;
-                let mut f: i8 = file1 as i8;
-                while r >= 0 && r < 8 && f >= 0 && f < 8 {
-                    lines[sq1][sq2] |= 1 << (r * 8 + f);
-                    if r == rank2 as i8 && f == file2 as i8 {
-                        break;
-                    }
-                    r += step;
-                    f += step;
-                }
+                lines[sq1][sq2] |= match file1 {
+                    0 => FILE_A,
+                    1 => FILE_B,
+                    2 => FILE_C,
+                    3 => FILE_D,
+                    4 => FILE_E,
+                    5 => FILE_F,
+                    6 => FILE_G,
+                    7 => FILE_H,
+                    _ => unreachable!(),
+                };
             } else if rank_diff == file_diff {
                 let step_r: i8 = if rank2 > rank1 { 1 } else { -1 };
                 let step_f: i8 = if file2 > file1 { 1 } else { -1 };
+
                 let mut r: i8 = rank1 as i8;
                 let mut f: i8 = file1 as i8;
+
+                while r > 0 && f > 0 && r < 7 && f < 7 {
+                    r -= step_r;
+                    f -= step_f;
+                }
+
                 while r >= 0 && r < 8 && f >= 0 && f < 8 {
-                    lines[sq1][sq2] |= 1 << (r * 8 + f);
-                    if r == rank2 as i8 && f == file2 as i8 {
-                        break;
-                    }
+                    lines[sq1][sq2] |= 1 << (r as usize * 8 + f as usize);
                     r += step_r;
                     f += step_f;
                 }
@@ -738,172 +745,4 @@ pub fn compute_all_lines() -> () {
     unsafe {
         TWO_SQUARES_LINE = lines;
     }
-}
-
-// zero for false, one for true
-pub static mut WHITE_PAWN_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_PAWN_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut WHITE_KNIGHT_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_KNIGHT_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut WHITE_BISHOP_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_BISHOP_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut WHITE_ROOK_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_ROOK_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut WHITE_QUEEN_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_QUEEN_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut WHITE_KING_IMPROVEMENTS: [u64; 64] = [0; 64];
-pub static mut BLACK_KING_IMPROVEMENTS: [u64; 64] = [0; 64];
-
-fn compute_pawn_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_PAWN_HEURISTICS[j] > WHITE_PAWN_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_PAWN_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_PAWN_HEURISTICS[j] > BLACK_PAWN_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_PAWN_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-fn compute_knight_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_KNIGHT_HEURISTICS[j] > WHITE_KNIGHT_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_KNIGHT_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_KNIGHT_HEURISTICS[j] > BLACK_KNIGHT_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_KNIGHT_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-fn compute_bishop_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_BISHOP_HEURISTICS[j] > WHITE_BISHOP_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_BISHOP_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_BISHOP_HEURISTICS[j] > BLACK_BISHOP_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_BISHOP_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-fn compute_queen_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_QUEEN_HEURISTICS[j] > WHITE_QUEEN_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_QUEEN_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_QUEEN_HEURISTICS[j] > BLACK_QUEEN_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_QUEEN_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-fn compute_king_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_KING_HEURISTICS[j] > WHITE_KING_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_KING_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_KING_HEURISTICS[j] > BLACK_KING_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_KING_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-fn compute_rook_improvements() -> () {
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if WHITE_ROOK_HEURISTICS[j] > WHITE_ROOK_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            WHITE_ROOK_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-    for i in 0..64 {
-        let mut improvement_bb: Bitboard = 0;
-        for j in 0..64 {
-            if BLACK_ROOK_HEURISTICS[j] > BLACK_ROOK_HEURISTICS[i] {
-                improvement_bb |= 1 << j;
-            }
-        }
-        unsafe {
-            BLACK_ROOK_IMPROVEMENTS[i] = improvement_bb;
-        }
-    }
-}
-
-pub fn compute_all_piece_improvements() -> () {
-    compute_bishop_improvements();
-    compute_knight_improvements();
-    compute_pawn_improvements();
-    compute_queen_improvements();
-    compute_rook_improvements();
-    compute_king_improvements();
 }
