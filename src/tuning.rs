@@ -9,7 +9,12 @@ impl Engine {
     pub fn move_priority(&self, board: &Board, m: &u16, depth: usize) -> u16 {
         let mut priority_key: u16 = 0;
         let (initial_pos, final_pos): ((PieceColor, PieceType), Option<(PieceColor, PieceType)>) = (
-            board.piece_at(&(m & FROM_MASK)).unwrap(),
+            if let Some(a) = board.piece_at(&(m & FROM_MASK)) {
+                a
+            } else {
+                println!("board: {board:?}");
+                panic!();
+            },
             board.piece_at(&((m & TO_MASK) >> TO_SHIFT)),
         );
         if let Some(dest) = final_pos {

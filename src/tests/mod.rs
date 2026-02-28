@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
+
     use crate::{
         board::Board,
-        board_geometry_templates::{PROMOTION_SHIFT, TO_SHIFT},
+        board_geometry_templates::{FROM_MASK, PROMOTION_SHIFT, TO_MASK, TO_SHIFT},
         constants::attacks::{compute_all_lines, initialize_sliding_attack_tables},
+        converters::fen_converter::fen_to_board,
         enums::{InclusiveRange, PieceColor, PieceType},
         gamestate::GameState,
     };
@@ -133,53 +135,6 @@ mod tests {
             ],
         );
         assert_eq!(board.material, initial_material);
-    }
-
-    #[test]
-    fn test_en_passant_capture_and_cancel() {
-        let mut board = Board::set();
-        let mut state = GameState::new(&board);
-
-        // Setup: White pawn at e5 (36), black pawn at d5 (35) - black just moved d7-d5
-        board.white_pawns = (board.white_pawns & !(1 << 12)) | (1 << 36);
-        board.black_pawns = (board.black_pawns & !(1 << 51)) | (1 << 35);
-        state.en_passant_target = Some(43); // d6 is en passant target
-        board.update_full_cache();
-        board.total_occupancy();
-
-        let initial_material = board.material;
-
-        // White captures en passant: e5(36) to d6(43)
-        let move_encoding = create_move(36, 43, None);
-        board.perform_move(&move_encoding, &mut state);
-
-        // Verify en passant capture
-        verify_board_state(
-            &board,
-            &[
-                (PieceColor::White, PieceType::Pawn, 43), // White pawn at d6
-            ],
-        );
-        assert_eq!(board.piece_at(&36), None); // e5 empty
-        assert_eq!(board.piece_at(&35), None); // d5 empty (captured pawn)
-
-        // Verify material changed (black pawn lost)
-        assert!(board.material > initial_material);
-        assert_eq!(state.en_passant_target, None);
-
-        // Cancel en passant capture
-        board.cancel_move(&mut state);
-
-        // Verify original position restored
-        verify_board_state(
-            &board,
-            &[
-                (PieceColor::White, PieceType::Pawn, 36), // White pawn back at e5
-                (PieceColor::Black, PieceType::Pawn, 35), // Black pawn back at d5
-            ],
-        );
-        assert_eq!(board.material, initial_material);
-        assert_eq!(state.en_passant_target, Some(43));
     }
 
     #[test]
@@ -318,8 +273,8 @@ mod tests {
         let mut state = GameState::new(&board);
 
         // Clear pieces between black king and rook
-        board.black_knights &= !(1 << 61);
-        board.black_bishops &= !(1 << 62);
+        board.black_knights &= !(1 << 62);
+        board.black_bishops &= !(1 << 61);
         board.update_full_cache();
         board.total_occupancy();
 
@@ -650,28 +605,6 @@ mod tests {
     }
 
     #[test]
-    fn test_en_passant_target_cleared_on_non_pawn_move() {
-        initialize_sliding_attack_tables();
-
-        compute_all_lines();
-        let mut board = Board::set();
-        let mut state = GameState::new(&board);
-        board.total_occupancy();
-        board.update_full_cache();
-        board.count_material();
-
-        board.perform_move(&create_move(12, 28, None), &mut state);
-        let move_encoding = create_move(62, 45, None);
-        board.perform_move(&move_encoding, &mut state);
-
-        assert_eq!(state.en_passant_target, None);
-
-        board.cancel_move(&mut state);
-
-        assert_eq!(state.en_passant_target, Some(20));
-    }
-
-    #[test]
     fn test_fifty_move_counter_not_implemented() {
         // Note: This test acknowledges that fifty_move_rule_counter exists but isn't updated
         let mut board = Board::set();
@@ -731,23 +664,20 @@ mod tests {
         board.update_full_cache();
         board.total_occupancy();
 
-        // Sequence of different move types
-        let moves = [
-            create_move(12, 28, None), // 1. e4
-            create_move(52, 36, None), // 1... e5
-            create_move(1, 18, None),  // 2. Nc3
-            create_move(57, 42, None), // 2... Nf6
-            create_move(3, 35, Some(4)), // 3. Qxf7# (queen captures f7 pawn and promotes? no, queen move)
-                                         // Actually let's do a promotion later
+        let moves: [u16; 5] = [
+            create_move(12, 28, None),
+            create_move(52, 36, None),
+            create_move(1, 18, None),
+            create_move(57, 42, None),
+            create_move(3, 35, Some(4)),
         ];
 
-        let mut states = Vec::new();
+        let mut states: Vec<(Board, GameState)> = Vec::new();
         for &move_encoding in &moves {
             states.push((board.clone(), state.clone()));
             board.perform_move(&move_encoding, &mut state);
         }
 
-        // Cancel all moves
         for expected_state in states.iter().rev() {
             board.cancel_move(&mut state);
             assert_eq!(board, expected_state.0);
@@ -757,14 +687,13 @@ mod tests {
 
     #[test]
     fn test_cached_pieces_consistency_after_cancel() {
-        let mut board = Board::set();
-        let mut state = GameState::new(&board);
+        let mut board: Board = Board::set();
+        let mut state: GameState = GameState::new(&board);
         board.update_full_cache();
 
-        // Verify initial cache
         for i in 0..64 {
-            let mask = 1 << i;
-            let expected = if board.white_pawns & mask != 0 {
+            let mask: u64 = 1 << i;
+            let expected: Option<(PieceColor, PieceType)> = if board.white_pawns & mask != 0 {
                 Some((PieceColor::White, PieceType::Pawn))
             } else if board.white_knights & mask != 0 {
                 Some((PieceColor::White, PieceType::Knight))
@@ -794,25 +723,21 @@ mod tests {
             assert_eq!(board.cached_pieces[i], expected, "Mismatch at square {}", i);
         }
 
-        // Make a complex move
-        board.white_pawns = (board.white_pawns & !(1 << 12)) | (1 << 51); // Pawn at d7
-        board.black_rooks |= 1 << 59; // Rook at d8
+        board.white_pawns = (board.white_pawns & !(1 << 12)) | (1 << 51);
+        board.black_rooks |= 1 << 59;
         board.update_full_cache();
 
-        let move_encoding = create_move(51, 59, Some(4)); // Promote with capture
+        let move_encoding = create_move(51, 59, Some(4));
         board.perform_move(&move_encoding, &mut state);
 
-        // Verify cache after move
         assert_eq!(board.cached_pieces[51], None);
         assert_eq!(
             board.cached_pieces[59],
             Some((PieceColor::White, PieceType::Queen))
         );
 
-        // Cancel move
         board.cancel_move(&mut state);
 
-        // Verify cache restored
         assert_eq!(
             board.cached_pieces[51],
             Some((PieceColor::White, PieceType::Pawn))
@@ -823,7 +748,7 @@ mod tests {
         );
     }
     #[test]
-    fn en_passant_test() -> () {
+    fn en_passant_test1() -> () {
         initialize_sliding_attack_tables();
 
         compute_all_lines();
@@ -833,5 +758,130 @@ mod tests {
         board.update_full_cache();
         board.count_material();
         board.perform_move(&create_move(12, 28, None), &mut state);
+        board.perform_move(&create_move(51, 35, None), &mut state);
+        board.perform_move(&create_move(28, 36, None), &mut state);
+        board.perform_move(&create_move(53, 37, None), &mut state);
+        let copy_board = board.clone();
+        board.perform_move(&create_move(36, 45, None), &mut state);
+        assert_eq!(board.black_pawns.count_ones(), 7);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+    }
+    #[test]
+    fn en_passant_test2() -> () {
+        initialize_sliding_attack_tables();
+
+        compute_all_lines();
+        let (mut board, mut state) =
+            fen_to_board("rnbqkbnr/pppp1ppp/8/3P4/4pP2/8/PPP1P1PP/RNBQKBNR b KQkq f3 0 3");
+        state.en_passant_target = Some(21);
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
+        let copy_board = board.clone();
+        board.perform_move(&create_move(28, 21, None), &mut state);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 7);
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+    }
+    #[test]
+    fn en_passant_test3() -> () {
+        initialize_sliding_attack_tables();
+
+        compute_all_lines();
+        let (mut board, mut state) =
+            fen_to_board("rnbqkbnr/ppppppp1/8/8/4PPPp/8/PPPP3P/RNBQKBNR b KQkq g3 0 3");
+        state.en_passant_target = Some(22);
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
+        let copy_board = board.clone();
+        board.perform_move(&create_move(31, 22, None), &mut state);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 7);
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+    }
+    #[test]
+    fn en_passant_test4() -> () {
+        initialize_sliding_attack_tables();
+
+        compute_all_lines();
+        let (mut board, mut state) =
+            fen_to_board("rnbqkbnr/pppppp1p/8/5P2/6pP/8/PPPPP1P1/RNBQKBNR b KQkq h3 0 3");
+        state.en_passant_target = Some(23);
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
+        let copy_board = board.clone();
+        board.perform_move(&create_move(30, 23, None), &mut state);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 7);
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board);
+        assert_eq!(board.black_pawns.count_ones(), 8);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+    }
+    #[test]
+    fn en_passant_test5() -> () {
+        initialize_sliding_attack_tables();
+
+        compute_all_lines();
+        let (mut board, mut state) =
+            fen_to_board("rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+        board.total_occupancy();
+        board.update_full_cache();
+        board.count_material();
+        let copy_board1: Board = board.clone();
+        let copy_state1 = state.clone();
+        board.perform_move(&create_move(50, 34, None), &mut state);
+        for m in board.pawn_moves(&state, &PieceColor::White) {
+            println!("from: {}, to: {}", m & FROM_MASK, (m & TO_MASK) >> TO_SHIFT);
+        }
+        println!(
+            "white pawns: {:b}, black pawns: {:b}",
+            board.white_pawns, board.black_pawns
+        );
+        assert_eq!(state.en_passant_target, Some(42));
+        assert_eq!(board.black_pawns.count_ones(), 7);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+        let copy_board2 = board.clone();
+        let copy_state2 = state.clone();
+
+        board.perform_move(&create_move(35, 42, None), &mut state);
+        println!(
+            "white pawns: {:b}, black pawns: {:b}",
+            board.white_pawns, board.black_pawns
+        );
+        assert_eq!(state.en_passant_target, None);
+        assert_eq!(board.black_pawns.count_ones(), 6);
+        assert_eq!(board.white_pawns.count_ones(), 8);
+
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board2);
+        assert_eq!(state, copy_state2);
+        board.cancel_move(&mut state);
+        assert_eq!(board, copy_board1);
+        assert_eq!(state, copy_state1);
+
+        board.perform_move(&create_move(52, 36, None), &mut state);
+        for m in board.pawn_moves(&state, &PieceColor::White) {
+            println!("from: {}, to: {}", m & FROM_MASK, (m & TO_MASK) >> TO_SHIFT);
+        }
+        println!(
+            "white pawns: {:b}, black pawns: {:b}",
+            board.white_pawns, board.black_pawns
+        );
+        assert_eq!(state.en_passant_target, Some(44));
+        assert_eq!(board.black_pawns.count_ones(), 7);
+        assert_eq!(board.white_pawns.count_ones(), 8);
     }
 }

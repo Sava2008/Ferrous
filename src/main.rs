@@ -6,6 +6,7 @@ use crate::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, initialize_sliding_attack_tables,
     },
+    converters::fen_converter::fen_to_board,
     enums::{GameResult, PieceColor},
     gamestate::GameState,
 };
@@ -39,8 +40,9 @@ fn main() -> () {
     compute_all_rays_from();
     compute_all_lines();
 
-    let mut board: Board = Board::set();
-    let mut state: GameState = GameState::new(&board);
+    /*let mut board: Board = Board::set();
+    let mut state: GameState = GameState::new(&board);*/
+	let (mut board, mut state) = fen_to_board("rnbqkbnr/ppp2ppp/8/3pp3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3");
     board.total_occupancy();
     board.update_full_cache();
     board.count_material();
@@ -50,8 +52,6 @@ fn main() -> () {
 
     let mut engine_side: String = String::new();
     io::stdin().read_line(&mut engine_side).unwrap();
-
-    //let mut state: GameState = GameState::new(&board);
 
     let mut engine: Engine = Engine {
         side: match engine_side.trim() {
@@ -68,7 +68,9 @@ fn main() -> () {
     }
 
     game_control(&mut state, &mut board, &mut engine).unwrap();
-    let _ = io::stdin();
+
+    let mut no_focus_loss: String = String::new();
+    io::stdin().read_line(&mut no_focus_loss).unwrap();
 }
 
 // the main loop
