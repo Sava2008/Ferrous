@@ -281,6 +281,7 @@ mod tests {
         // Black kingside castle: e8(60) to g8(62)
         let move_encoding = create_move(60, 62, None);
         board.perform_move(&move_encoding, &mut state);
+        println!("board: {board:?}");
 
         // Verify castling
         verify_board_state(

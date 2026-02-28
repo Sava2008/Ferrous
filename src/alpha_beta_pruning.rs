@@ -111,9 +111,7 @@ impl Engine {
         beta: i32,
         maximizing: bool,
         state: &mut GameState,
-        nodes: &mut u64,
     ) -> i32 {
-        *nodes += 1;
         if depth == 0 {
             self.evaluate(board);
             return self.evaluation;
@@ -143,15 +141,7 @@ impl Engine {
                 state.update_check_constraints(&board);
 
                 best_score = max(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        current_alpha,
-                        beta,
-                        false,
-                        state,
-                        nodes,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
                     best_score,
                 );
                 board.cancel_move(state);
@@ -188,15 +178,7 @@ impl Engine {
                 state.update_check_constraints(&board);
 
                 best_score = min(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        alpha,
-                        current_beta,
-                        true,
-                        state,
-                        nodes,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
                     best_score,
                 );
                 board.cancel_move(state);
@@ -222,7 +204,6 @@ impl Engine {
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
         copied_state.whose_turn = self.side.clone();
-        let mut nodes: u64 = 0;
 
         let legal_moves: Vec<u16> =
             self.generate_legal_moves(&self.side, board, &copied_state, self.depth as usize);
@@ -243,7 +224,6 @@ impl Engine {
                 i32::MAX,
                 maximizing,
                 &mut copied_state,
-                &mut nodes,
             );
             copied_board.cancel_move(&mut copied_state);
 
@@ -255,7 +235,6 @@ impl Engine {
                 best_move = Some(m.clone());
             }
         }
-        println!("nodes: {nodes}");
         return best_move;
     }
 }

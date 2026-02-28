@@ -278,7 +278,7 @@ impl Board {
         );
         self.cached_pieces[from_sq as usize] = None;
         self.cached_pieces[to_sq as usize] = Some((*color, PieceType::Rook));
-        self.reset_bit((PieceColor::White, PieceType::Rook), from_sq, to_sq);
+        self.reset_bit((*color, PieceType::Rook), from_sq, to_sq);
         let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
         let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
         *total_occupancy &= start;
@@ -293,21 +293,15 @@ impl Board {
 
     fn en_passant(&mut self, e_p: u8, previous_move: &mut PreviousMove, color: &PieceColor) -> () {
         let (pawns, occupancy, captured_pawn_square) = match color {
-            PieceColor::Black => (&mut self.black_occupancy, &mut self.black_pawns, e_p - 8),
-            PieceColor::White => (&mut self.white_occupancy, &mut self.white_pawns, e_p + 8),
+            PieceColor::Black => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            PieceColor::White => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
         };
-        println!("EN PASSANT capture_pawn_square: {captured_pawn_square}");
         previous_move.changed_cache_indices[1] = (
             Some((captured_pawn_square, captured_pawn_square)),
             Some((*color, PieceType::Pawn)),
         );
-        println!(
-            "EN PASSANT previous_move.changed_cache_indices[1]: {:?}",
-            previous_move.changed_cache_indices[1]
-        );
         self.cached_pieces[captured_pawn_square as usize] = None;
         let capture: Bitboard = !(1 << captured_pawn_square);
-        println!("EN PASSANT capture: {capture:b}");
         *pawns &= capture;
         *occupancy &= capture;
         *&mut self.total_occupancy &= capture;
@@ -346,8 +340,13 @@ impl Board {
                 PieceType::King => {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
                     match (from_sq, to_sq) {
-                        (4, 2) | (4, 6) => {
-                            self.castling(&mut previous_move, from_sq, to_sq, &moving_piece.0)
+                        (4, 2) => {
+                            let (rook_from, rook_to) = (0, 3);
+                            self.castling(&mut previous_move, rook_from, rook_to, &moving_piece.0);
+                        }
+                        (4, 6) => {
+                            let (rook_from, rook_to) = (7, 5);
+                            self.castling(&mut previous_move, rook_from, rook_to, &moving_piece.0);
                         }
                         _ => (),
                     };
@@ -405,6 +404,7 @@ impl Board {
                                 }
                                 _ => unreachable!(),
                             };
+                            state.en_passant_target = None;
                         }
                         _ => {
                             if let Some(e_p) = state.en_passant_target {
@@ -428,8 +428,13 @@ impl Board {
                 PieceType::King => {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
                     match (from_sq, to_sq) {
-                        (60, 58) | (60, 62) => {
-                            self.castling(&mut previous_move, from_sq, to_sq, &moving_piece.0)
+                        (60, 58) => {
+                            let (rook_from, rook_to) = (56, 59);
+                            self.castling(&mut previous_move, rook_from, rook_to, &moving_piece.0);
+                        }
+                        (60, 62) => {
+                            let (rook_from, rook_to) = (63, 61);
+                            self.castling(&mut previous_move, rook_from, rook_to, &moving_piece.0);
                         }
                         _ => (),
                     };
@@ -486,6 +491,7 @@ impl Board {
                                 }
                                 _ => unreachable!(),
                             };
+                            state.en_passant_target = None;
                         }
                         _ => {
                             if let Some(e_p) = state.en_passant_target {

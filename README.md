@@ -10,6 +10,7 @@
 - alpha beta pruning algorithm
 - basic moves tuning
 - moves make-unmake system
+- move encoded in u16 now instead of being stored as a struct
 
 ### Planned on being carried out
 - pgn converter
@@ -26,7 +27,7 @@
 I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I have always admired how a machine can play better than any human being. I'd been considering the idea of making my own engine for a few months then, and had decided that I had had enough competence to fullfil the dream, so, I had embarked on building Ferrous, a functional chess engine that came up with a move in any position by simply evaluating the material, and piece positioning. This is the second version, which unlike the array-based first version, uses bitboards to look through thousands of positions per second and reach better depth
 
 ### Comments
-currently the performance is estimated to be around 700-800k nodes/sec, but Ferrous searches widely, not deeply due to bad move tuning
+currently the performance is estimated to be around 900k-1m nodes/sec, but Ferrous searches widely, not deeply due to bad move tuning. estimated elo approx. 1600-1650 on lichess.org
 
 ### Instruction on usage
 0. Rust 1.93.0 is required on your computer (should work with older versions, but I did not check that)

@@ -6,7 +6,6 @@ use crate::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, initialize_sliding_attack_tables,
     },
-    converters::fen_converter::fen_to_board,
     enums::{GameResult, PieceColor},
     gamestate::GameState,
 };
@@ -40,9 +39,9 @@ fn main() -> () {
     compute_all_rays_from();
     compute_all_lines();
 
-    /*let mut board: Board = Board::set();
-    let mut state: GameState = GameState::new(&board);*/
-	let (mut board, mut state) = fen_to_board("rnbqkbnr/ppp2ppp/8/3pp3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3");
+    let mut board: Board = Board::set();
+    let mut state: GameState = GameState::new(&board);
+
     board.total_occupancy();
     board.update_full_cache();
     board.count_material();
@@ -158,7 +157,7 @@ fn make_player_move(
     state.check_info.update(&board, player_color);
     state.pin_info.update(&board, player_color);
     state.update_check_constraints(&board);
-    println!("input a move, for example:\ne2 e4\nor with promotion: e7 e8 q");
+    println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
     let mut user_move = String::new();
     io::stdin().read_line(&mut user_move).unwrap();
