@@ -21,6 +21,7 @@ pub mod enums;
 pub mod gamestate;
 pub mod move_generation;
 pub mod moves;
+pub mod tests;
 pub mod tuning;
 
 enum MoveResult {

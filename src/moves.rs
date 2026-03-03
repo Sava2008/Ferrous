@@ -18,8 +18,9 @@ impl Board {
             };
         }
         let (enemy_king, mut knights_bitboard): (u8, Bitboard) = match color {
-            8 => (state.pin_info.black_king, self.white_knights),
-            &_ => (state.pin_info.white_king, self.black_knights),
+            &8 => (state.pin_info.black_king, self.white_knights),
+            &16 => (state.pin_info.white_king, self.black_knights),
+            _ => unreachable!(),
         };
 
         while knights_bitboard != 0 {
@@ -34,7 +35,8 @@ impl Board {
             let mut dest_bitboard: Bitboard = attacks
                 & !match color {
                     &8 => self.white_occupancy,
-                    &_ => self.black_occupancy,
+                    &16 => self.black_occupancy,
+                    _ => unreachable!(),
                 };
             if state.check_contraints != 0 {
                 dest_bitboard &= &state.check_contraints;
@@ -77,12 +79,13 @@ impl Board {
                 self.white_pawns,
                 self.black_occupancy,
             ),
-            &_ => (
+            &16 => (
                 state.pin_info.white_king,
                 state.pin_info.black_king as usize,
                 self.black_pawns,
                 self.white_occupancy,
             ),
+            _ => unreachable!(),
         };
 
         if let Some(e_p) = state.en_passant_target {
@@ -93,11 +96,13 @@ impl Board {
             let initial_pos: u16 = pawns_bitboard.trailing_zeros() as u16;
             let forward_square: u16 = match color {
                 &8 => initial_pos + 8,
-                &_ => initial_pos.wrapping_sub(8),
+                &16 => initial_pos.wrapping_sub(8),
+                _ => unreachable!(),
             };
             let attacks: Bitboard = match color {
                 &8 => WHITE_PAWN_ATTACKS[initial_pos as usize],
-                &_ => BLACK_PAWN_ATTACKS[initial_pos as usize],
+                &16 => BLACK_PAWN_ATTACKS[initial_pos as usize],
+                _ => unreachable!(),
             };
             let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
 
@@ -105,11 +110,13 @@ impl Board {
                 dest_bitboard |= 1 << forward_square;
                 let second_forward_square: u16 = match color {
                     &8 => initial_pos + 16,
-                    &_ => initial_pos.wrapping_sub(16),
+                    &16 => initial_pos.wrapping_sub(16),
+                    _ => unreachable!(),
                 };
                 if match color {
                     &8 => (1 << initial_pos) & RANK_2 != 0,
-                    &_ => (1 << initial_pos) & RANK_7 != 0,
+                    &16 => (1 << initial_pos) & RANK_7 != 0,
+                    _ => unreachable!(),
                 } && (self.total_occupancy >> second_forward_square) & 1 == 0
                 {
                     dest_bitboard |= 1 << second_forward_square;
@@ -145,7 +152,8 @@ impl Board {
         if KNIGHT_ATTACKS[square as usize]
             & match by {
                 &8 => self.white_knights,
-                &_ => self.black_knights,
+                &16 => self.black_knights,
+                _ => unreachable!(),
             }
             != 0
         {
@@ -154,12 +162,14 @@ impl Board {
 
         let pawn_attacks: Bitboard = match by {
             &8 => BLACK_PAWN_ATTACKS[square as usize],
-            &_ => WHITE_PAWN_ATTACKS[square as usize],
+            &16 => WHITE_PAWN_ATTACKS[square as usize],
+            _ => unreachable!(),
         };
         if pawn_attacks
             & match by {
                 &8 => self.white_pawns,
-                &_ => self.black_pawns,
+                &16 => self.black_pawns,
+                _ => unreachable!(),
             }
             != 0
         {
@@ -170,7 +180,8 @@ impl Board {
         if bishop_attacks(square as usize, occupancy)
             & match by {
                 &8 => self.white_bishops | self.white_queens,
-                &_ => self.black_bishops | self.black_queens,
+                &16 => self.black_bishops | self.black_queens,
+                _ => unreachable!(),
             }
             != 0
         {
@@ -180,7 +191,8 @@ impl Board {
         if rook_attacks(square as usize, occupancy)
             & match by {
                 &8 => self.white_rooks | self.white_queens,
-                &_ => self.black_rooks | self.black_queens,
+                &16 => self.black_rooks | self.black_queens,
+                _ => unreachable!(),
             }
             != 0
         {
@@ -190,7 +202,8 @@ impl Board {
         if KING_ATTACKS[square as usize]
             & match by {
                 &8 => self.white_king,
-                &_ => self.black_king,
+                &16 => self.black_king,
+                _ => unreachable!(),
             }
             != 0
         {
@@ -204,18 +217,20 @@ impl Board {
         let mut moves: Vec<u16> = Vec::new();
         let initial_pos: u16 = match color {
             &8 => self.white_king,
-            &_ => self.black_king,
+            &16 => self.black_king,
+            _ => unreachable!(),
         }
         .trailing_zeros() as u16;
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
             & !match color {
                 &8 => self.white_occupancy,
-                &_ => self.black_occupancy,
+                &16 => self.black_occupancy,
+                _ => unreachable!(),
             };
 
         while dest_bitboard != 0 {
             let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-            if !self.is_square_attacked(final_pos, &!color.clone()) {
+            if !self.is_square_attacked(final_pos, if *color == 8 { &16 } else { &8 }) {
                 moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
             }
             dest_bitboard &= dest_bitboard - 1;
@@ -249,7 +264,7 @@ impl Board {
                     0b0000000000000000000000000000000000000000000000000000000001100000,
                 ),
             },
-            &_ => match (
+            &16 => match (
                 &state.castling_rights.black_two_zeros,
                 &state.castling_rights.black_three_zeros,
             ) {
@@ -270,13 +285,15 @@ impl Board {
                     0b0000111000000000000000000000000000000000000000000000000000000000,
                 ),
             },
+            _ => unreachable!(),
         };
 
         if left_path != 0 && (left_path & self.total_occupancy == 0) {
             let mut finished_fully: bool = true;
             while left_path != 0 {
                 let square: u8 = left_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, &!color.clone()) && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, if *color == 8 { &16 } else { &8 })
+                    && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -291,7 +308,8 @@ impl Board {
             let mut finished_fully: bool = true;
             while right_path != 0 {
                 let square: u8 = right_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, &!color.clone()) && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, if *color == 8 { &16 } else { &8 })
+                    && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -331,12 +349,13 @@ impl Board {
                 self.white_rooks,
                 self.white_occupancy,
             ),
-            &_ => (
+            &16 => (
                 state.pin_info.white_king,
                 state.pin_info.black_king as usize,
                 self.black_rooks,
                 self.black_occupancy,
             ),
+            _ => unreachable!(),
         };
 
         while rooks_bitboard != 0 {
@@ -389,12 +408,13 @@ impl Board {
                 self.white_bishops,
                 self.white_occupancy,
             ),
-            &_ => (
+            &16 => (
                 state.pin_info.white_king,
                 state.pin_info.black_king as usize,
                 self.black_bishops,
                 self.black_occupancy,
             ),
+            _ => unreachable!(),
         };
         let occupancy: Bitboard = self.total_occupancy;
 
@@ -448,12 +468,13 @@ impl Board {
                 self.white_queens,
                 self.white_occupancy,
             ),
-            &_ => (
+            &16 => (
                 state.pin_info.white_king,
                 state.pin_info.black_king as usize,
                 self.black_queens,
                 self.black_occupancy,
             ),
+            _ => unreachable!(),
         };
 
         let occupancy: Bitboard = self.total_occupancy;

@@ -81,7 +81,8 @@ impl CheckInfo {
         self.second_checker = None;
         let king_square: usize = match whose_turn {
             &8 => board.white_king,
-            &_ => board.black_king,
+            &16 => board.black_king,
+            _ => unreachable!(),
         }
         .trailing_zeros() as usize;
 
@@ -91,24 +92,26 @@ impl CheckInfo {
             KNIGHT_ATTACKS[king_square],
             match whose_turn {
                 &8 => WHITE_PAWN_ATTACKS[king_square],
-                &_ => BLACK_PAWN_ATTACKS[king_square],
+                &16 => BLACK_PAWN_ATTACKS[king_square],
+                _ => unreachable!(),
             },
         );
         let enemy_pieces: [&u64; 5] = match whose_turn {
-            8 => [
+            &8 => [
                 &(&board.black_queens & (&lines | &diagonals)),
                 &(&board.black_rooks & &lines),
                 &(&board.black_bishops & &diagonals),
                 &(&board.black_knights & &knight_deltas),
                 &(&board.black_pawns & &pawn_deltas),
             ],
-            _ => [
+            &16 => [
                 &(&board.white_queens & (&lines | &diagonals)),
                 &(&board.white_rooks & &lines),
                 &(&board.white_bishops & &diagonals),
                 &(&board.white_knights & &knight_deltas),
                 &(&board.white_pawns & &pawn_deltas),
             ],
+            _ => unreachable!(),
         };
         for enemy_bitboard in enemy_pieces {
             if *enemy_bitboard == 0 {
@@ -158,10 +161,11 @@ impl PinInfo {
                 rook_attacks(self.white_king as usize, board.black_occupancy),
                 bishop_attacks(self.white_king as usize, board.black_occupancy),
             ),
-            &_ => (
+            &16 => (
                 rook_attacks(self.black_king as usize, board.white_occupancy),
                 bishop_attacks(self.black_king as usize, board.white_occupancy),
             ),
+            _ => unreachable!(),
         };
         let (mut linear_attackers, mut diagonal_attackers, king, friendly_occupancy): (
             Bitboard,
@@ -169,18 +173,19 @@ impl PinInfo {
             &u8,
             &Bitboard,
         ) = match color {
-            8 => (
+            &8 => (
                 lines & (&board.black_queens | &board.black_rooks),
                 diagonals & (&board.black_queens | &board.black_bishops),
                 &self.white_king,
                 &board.white_occupancy,
             ),
-            _ => (
+            &16 => (
                 lines & (&board.white_queens | &board.white_rooks),
                 diagonals & (&board.white_queens | &board.white_bishops),
                 &self.black_king,
                 &board.black_occupancy,
             ),
+            _ => unreachable!(),
         };
         self.pinned_pieces = 0;
         while linear_attackers != 0 {

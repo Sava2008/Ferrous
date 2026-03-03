@@ -138,8 +138,8 @@ impl Engine {
             for m in &legal_moves {
                 board.perform_move(&m, state);
 
-                state.check_info.update(&board, &!state.whose_turn.clone());
-                state.pin_info.update(&board, &!state.whose_turn.clone());
+                state.check_info.update(&board, &NO_PIECE_BLACK);
+                state.pin_info.update(&board, &NO_PIECE_BLACK);
                 state.update_check_constraints(&board);
 
                 best_score = max(
@@ -175,8 +175,8 @@ impl Engine {
             for m in &legal_moves {
                 board.perform_move(&m, state);
 
-                state.check_info.update(&board, &!state.whose_turn.clone());
-                state.pin_info.update(&board, &!state.whose_turn.clone());
+                state.check_info.update(&board, &NO_PIECE_WHITE);
+                state.pin_info.update(&board, &NO_PIECE_WHITE);
                 state.update_check_constraints(&board);
 
                 best_score = min(
@@ -207,6 +207,11 @@ impl Engine {
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
         copied_state.whose_turn = self.side.clone();
+        let opposite_color: u8 = if copied_state.whose_turn == NO_PIECE_BLACK {
+            NO_PIECE_WHITE
+        } else {
+            NO_PIECE_BLACK
+        };
 
         let legal_moves: Vec<u16> =
             self.generate_legal_moves(&self.side, board, &copied_state, self.depth as usize);
@@ -214,10 +219,8 @@ impl Engine {
             copied_board.perform_move(&m, &mut copied_state);
             copied_state
                 .check_info
-                .update(&copied_board, &!copied_state.whose_turn.clone());
-            copied_state
-                .pin_info
-                .update(&copied_board, &!copied_state.whose_turn.clone());
+                .update(&copied_board, &opposite_color);
+            copied_state.pin_info.update(&copied_board, &opposite_color);
             copied_state.update_check_constraints(&copied_board);
 
             let score: i32 = self.alpha_beta_pruning(

@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use crate::{
     board_geometry_templates::*,
     constants::{
@@ -167,7 +169,8 @@ impl Board {
             BLACK_PAWN_U8 => &mut self.black_pawns,
             BLACK_ROOK_U8 => &mut self.black_rooks,
             BLACK_QUEEN_U8 => &mut self.black_queens,
-            _ => &mut self.black_king,
+            BLACK_KING_U8 => &mut self.black_king,
+            _ => unreachable!(),
         };
 
         *bitboard_to_mutate &= from_mask;
@@ -250,9 +253,10 @@ impl Board {
                 }
                 (&mut self.black_rooks, &mut self.black_occupancy)
             }
-            _ => {
+            BLACK_KING_U8 => {
                 panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
             }
+            _ => unreachable!(),
         };
         previous_move.changed_cache_indices[1] = (Some((to_sq, to_sq)), Some(enemy));
         let capture: Bitboard = !(1 << to_sq);
@@ -278,7 +282,8 @@ impl Board {
         *total_occupancy |= end;
         let occupancy: &mut Bitboard = match color {
             &8 => &mut self.white_occupancy,
-            &_ => &mut self.black_occupancy,
+            &16 => &mut self.black_occupancy,
+            _ => unreachable!(),
         };
         *occupancy &= start;
         *occupancy |= end;
@@ -286,8 +291,9 @@ impl Board {
 
     fn en_passant(&mut self, e_p: u8, previous_move: &mut PreviousMove, color: &u8) -> () {
         let (pawns, occupancy, captured_pawn_square) = match color {
-            8 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
-            _ => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            &8 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
+            &16 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            _ => unreachable!(),
         };
         previous_move.changed_cache_indices[1] = (
             Some((captured_pawn_square, captured_pawn_square)),
@@ -392,7 +398,7 @@ impl Board {
                                 previous_move.material_difference += QUEEN_VALUE;
                                 Some(WHITE_QUEEN_U8)
                             }
-                            _ => unreachable!(),
+                            _ => unsafe { unreachable_unchecked() },
                         };
                         state.en_passant_target = None;
                     }
@@ -476,7 +482,7 @@ impl Board {
                                 previous_move.material_difference -= QUEEN_VALUE;
                                 Some(BLACK_QUEEN_U8)
                             }
-                            _ => unreachable!(),
+                            _ => unsafe { unreachable_unchecked() },
                         };
                         state.en_passant_target = None;
                     }
@@ -548,10 +554,11 @@ impl Board {
                         *&mut self.black_pawns &= start;
                         *&mut self.black_bishops |= end
                     }
-                    _ => {
+                    BLACK_KNIGHT_U8 => {
                         *&mut self.black_pawns &= start;
                         *&mut self.black_knights |= end
                     }
+                    _ => unreachable!(),
                 };
 
                 self.cached_pieces[to_sq as usize] = Some(p);
@@ -579,7 +586,8 @@ impl Board {
                     WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
                     BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
                     WHITE_KING_U8 => (&mut self.white_king, &mut self.white_occupancy),
-                    _ => (&mut self.black_king, &mut self.black_occupancy),
+                    BLACK_KING_U8 => (&mut self.black_king, &mut self.black_occupancy),
+                    _ => unreachable!(),
                 };
 
                 let total: &mut Bitboard = &mut self.total_occupancy;
@@ -607,7 +615,8 @@ impl Board {
                     WHITE_QUEEN_U8 => (&mut self.white_queens, &mut self.white_occupancy),
                     BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
                     WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
-                    _ => (&mut self.black_rooks, &mut self.black_occupancy),
+                    BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
+                    _ => unreachable!(),
                 };
 
                 self.cached_pieces[cached_index.1 as usize] = None;
@@ -628,7 +637,8 @@ impl Board {
                     WHITE_QUEEN_U8 => (&mut self.white_queens, &mut self.white_occupancy),
                     BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
                     WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
-                    _ => (&mut self.black_rooks, &mut self.black_occupancy),
+                    BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
+                    _ => unreachable!(),
                 };
 
                 let total: &mut Bitboard = &mut self.total_occupancy;
