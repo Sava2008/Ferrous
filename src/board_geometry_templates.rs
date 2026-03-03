@@ -23,3 +23,36 @@ pub const PROMOTION_SHIFT: u16 = 12;
 pub const FROM_MASK: u16 = 0b0000000000111111; // to access from info of a move, `data & FROM_MASK` to be applied
 pub const TO_MASK: u16 = 0b0000111111000000; // to access from info of a move, `(data & TO_MASK) >> 6` to be applied
 pub const PROMOTION_MASK: u16 = 0b0111000000000000; // to access from info of a move, `(data & PROMOTION_MASK) >> 12` to be applied
+
+/* piece type encryption: 1 (0b1) - pawn, 2 (0b10) - knight, 3 (0b11) - bishop,
+4 (0b100) - rook, 5 (0b101) - queen, 6 (0b110) - king
+
+piece color encryption: 1 (0b1) - white, 2 (0b10) - black */
+
+pub const PIECE_COLOR_SHIFT: u8 = 3; // `(u8 & PIECE_COLOR_MASK) >> 3` to get the piece color
+pub const PIECE_TYPE_MASK: u8 = 0b00000111;
+pub const PIECE_COLOR_MASK: u8 = 0b00011000;
+
+pub const WHITE_PAWN_U8: u8 = 9;
+pub const WHITE_KNIGHT_U8: u8 = 10;
+pub const WHITE_BISHOP_U8: u8 = 11;
+pub const WHITE_ROOK_U8: u8 = 12;
+pub const WHITE_QUEEN_U8: u8 = 13;
+pub const WHITE_KING_U8: u8 = 14;
+
+pub const BLACK_PAWN_U8: u8 = 17;
+pub const BLACK_KNIGHT_U8: u8 = 18;
+pub const BLACK_BISHOP_U8: u8 = 19;
+pub const BLACK_ROOK_U8: u8 = 20;
+pub const BLACK_QUEEN_U8: u8 = 21;
+pub const BLACK_KING_U8: u8 = 22;
+
+pub const NO_PIECE_WHITE: u8 = 8;
+pub const NO_PIECE_BLACK: u8 = 16;
+
+pub const COLORLESS_PAWN: u8 = 1;
+pub const COLORLESS_KNIGHT: u8 = 2;
+pub const COLORLESS_BISHOP: u8 = 3;
+pub const COLORLESS_ROOK: u8 = 4;
+pub const COLORLESS_QUEEN: u8 = 5;
+pub const COLORLESS_KING: u8 = 6;

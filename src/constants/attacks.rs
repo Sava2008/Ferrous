@@ -1,9 +1,6 @@
-use crate::{
-    board_geometry_templates::{
-        Bitboard, FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, RANK_1, RANK_2,
-        RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
-    },
-    enums::PieceColor,
+use crate::board_geometry_templates::{
+    Bitboard, FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, NO_PIECE_BLACK,
+    NO_PIECE_WHITE, RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -118,11 +115,11 @@ const fn king_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::White);
-pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(PieceColor::Black);
+pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_WHITE);
+pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_BLACK);
 
 #[allow(unused)]
-const fn pawn_attacks(color: PieceColor) -> [Bitboard; 64] {
+const fn pawn_attacks(color: u8) -> [Bitboard; 64] {
     let mut table: [u64; 64] = [0; 64];
     let mut square: usize = 0;
     while square < 64 {
@@ -130,19 +127,19 @@ const fn pawn_attacks(color: PieceColor) -> [Bitboard; 64] {
         let mut attacks: u64 = 0;
 
         if match color {
-            PieceColor::White => rank < 7,
-            PieceColor::Black => rank > 1,
+            8 => rank < 7,
+            _ => rank > 1,
         } {
             if file > 0 {
                 attacks |= match color {
-                    PieceColor::White => 1 << ((rank + 1) * 8 + (file - 1)),
-                    PieceColor::Black => 1 << ((rank - 1) * 8 + (file - 1)),
+                    8 => 1 << ((rank + 1) * 8 + (file - 1)),
+                    _ => 1 << ((rank - 1) * 8 + (file - 1)),
                 };
             }
             if file < 7 {
                 attacks |= match color {
-                    PieceColor::White => 1 << ((rank + 1) * 8 + (file + 1)),
-                    PieceColor::Black => 1 << ((rank - 1) * 8 + (file + 1)),
+                    8 => 1 << ((rank + 1) * 8 + (file + 1)),
+                    _ => 1 << ((rank - 1) * 8 + (file + 1)),
                 };
             }
         }
@@ -373,7 +370,6 @@ const fn bishop_mask() -> [Bitboard; 64] {
 pub const ROOK_MASKS: [Bitboard; 64] = rook_masks();
 pub const BISHOP_MASKS: [Bitboard; 64] = bishop_mask();
 
-#[allow(unused)]
 pub fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
     let bits: Vec<u32> = (0..64).filter(|&i| (mask >> i) & 1 == 1).collect();
 
@@ -419,7 +415,7 @@ pub const BISHOP_OFFSETS: [usize; 64] = {
 
 pub fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
     let (rank, file) = (square / 8, square % 8);
-    let mut attacks = 0u64;
+    let mut attacks: u64 = 0;
 
     let mut r: usize = rank + 1;
     while r < 8 {

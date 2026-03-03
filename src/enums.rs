@@ -1,31 +1,3 @@
-use std::ops::Not;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum PieceColor {
-    White,
-    Black,
-}
-
-impl Not for PieceColor {
-    type Output = Self;
-    fn not(self) -> Self::Output {
-        return match self {
-            PieceColor::Black => PieceColor::White,
-            PieceColor::White => PieceColor::Black,
-        };
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum PieceType {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
-}
-
 // handles how the range is handled e.g. 1..10
 #[derive(Debug)]
 pub enum InclusiveRange {

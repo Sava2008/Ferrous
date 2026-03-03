@@ -1,10 +1,12 @@
 use crate::{
-    board::Board, board_geometry_templates::Bitboard, constants::heuristics::*, enums::PieceColor,
+    board::Board,
+    board_geometry_templates::{Bitboard, NO_PIECE_BLACK, NO_PIECE_WHITE},
+    constants::heuristics::*,
     gamestate::GameState,
 };
 use std::cmp::{max, min};
 pub struct Engine {
-    pub side: PieceColor, // which color Ferrous plays
+    pub side: u8, // which color Ferrous plays
     pub depth: u8,
     pub evaluation: i32,
     pub killer_moves: [[Option<u16>; 2]; 16],
@@ -77,7 +79,7 @@ impl Engine {
     }
     pub fn generate_legal_moves(
         &self,
-        color: &PieceColor,
+        color: &u8,
         board: &Board,
         state: &GameState,
         depth: usize,
@@ -120,7 +122,7 @@ impl Engine {
             // white's branch
             let mut best_score: i32 = i32::MIN;
             let mut current_alpha: i32 = alpha;
-            state.whose_turn = PieceColor::White;
+            state.whose_turn = NO_PIECE_WHITE;
 
             let legal_moves: Vec<u16> =
                 self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
@@ -158,7 +160,7 @@ impl Engine {
             // black's branch
             let mut best_score: i32 = i32::MAX;
             let mut current_beta: i32 = beta;
-            state.whose_turn = PieceColor::Black;
+            state.whose_turn = NO_PIECE_BLACK;
 
             let legal_moves: Vec<u16> =
                 self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
@@ -197,8 +199,9 @@ impl Engine {
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<u16> {
         self.killer_moves = [[None; 2]; 16];
         let (mut best_score, maximizing): (i32, bool) = match self.side {
-            PieceColor::White => (i32::MIN, false),
-            PieceColor::Black => (i32::MAX, true),
+            8 => (i32::MIN, false),
+            16 => (i32::MAX, true),
+            _ => unreachable!(),
         };
         let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
@@ -228,8 +231,9 @@ impl Engine {
             copied_board.cancel_move(&mut copied_state);
 
             if match self.side {
-                PieceColor::White => score > best_score,
-                PieceColor::Black => score < best_score,
+                8 => score > best_score,
+                16 => score < best_score,
+                _ => unreachable!(),
             } {
                 best_score = score;
                 best_move = Some(m.clone());

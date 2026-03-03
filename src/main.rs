@@ -1,12 +1,14 @@
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    board_geometry_templates::{FROM_MASK, PROMOTION_SHIFT, TO_MASK, TO_SHIFT},
+    board_geometry_templates::{
+        FROM_MASK, NO_PIECE_BLACK, NO_PIECE_WHITE, PROMOTION_SHIFT, TO_MASK, TO_SHIFT,
+    },
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, initialize_sliding_attack_tables,
     },
-    enums::{GameResult, PieceColor},
+    enums::GameResult,
     gamestate::GameState,
 };
 use std::io::{self, Write};
@@ -19,7 +21,6 @@ pub mod enums;
 pub mod gamestate;
 pub mod move_generation;
 pub mod moves;
-pub mod tests;
 pub mod tuning;
 
 enum MoveResult {
@@ -54,15 +55,15 @@ fn main() -> () {
 
     let mut engine: Engine = Engine {
         side: match engine_side.trim() {
-            "b" => PieceColor::White,
-            "w" => PieceColor::Black,
+            "b" => 8,
+            "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
         depth: 6,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
     };
-    if engine.side == PieceColor::Black {
+    if engine.side == 16 {
         engine.depth += 1;
     }
 
@@ -80,30 +81,31 @@ fn game_control(
 ) -> Result<(), io::Error> {
     loop {
         match engine.side {
-            PieceColor::White => {
-                match make_engine_move(engine, board, state, &PieceColor::White) {
+            8 => {
+                match make_engine_move(engine, board, state, &NO_PIECE_WHITE) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
                 };
-                match make_player_move(board, state, &PieceColor::Black) {
+                match make_player_move(board, state, &NO_PIECE_BLACK) {
                     MoveResult::Continue => continue,
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                 };
             }
-            PieceColor::Black => {
-                match make_player_move(board, state, &PieceColor::White) {
+            16 => {
+                match make_player_move(board, state, &NO_PIECE_WHITE) {
                     MoveResult::Continue => continue,
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                 };
-                match make_engine_move(engine, board, state, &PieceColor::Black) {
+                match make_engine_move(engine, board, state, &NO_PIECE_BLACK) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
                 };
             }
+            _ => unreachable!(),
         }
     }
     return Ok(());
@@ -113,7 +115,7 @@ fn make_engine_move(
     engine: &mut Engine,
     board: &mut Board,
     state: &mut GameState,
-    engine_color: &PieceColor,
+    engine_color: &u8,
 ) -> MoveResult {
     board.total_occupancy();
     board.update_full_cache();
@@ -146,11 +148,7 @@ fn make_engine_move(
     return MoveResult::None;
 }
 
-fn make_player_move(
-    board: &mut Board,
-    state: &mut GameState,
-    player_color: &PieceColor,
-) -> MoveResult {
+fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8) -> MoveResult {
     board.total_occupancy();
     board.update_full_cache();
     board.count_material();
@@ -209,7 +207,7 @@ fn make_player_move(
 
     if legal_moves.is_empty() {
         if state.check_info.checked_king.is_some() {
-            state.result = if *player_color == PieceColor::White {
+            state.result = if *player_color == NO_PIECE_WHITE {
                 GameResult::BlackWins
             } else {
                 GameResult::WhiteWins

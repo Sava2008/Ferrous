@@ -1,5 +1,5 @@
-use crate::board_geometry_templates::Bitboard;
-use crate::enums::{GameResult, PieceColor, PieceType};
+use crate::board_geometry_templates::*;
+use crate::enums::GameResult;
 use crate::gamestate::{CastlingRights, CheckInfo, PinInfo};
 use crate::{board::Board, gamestate::GameState};
 
@@ -46,7 +46,7 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
     return row_col[1] * 8 + row_col[0];
 }
 
-pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &PieceColor) -> String {
+pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String {
     let mut fen: String = String::with_capacity(100);
     for rank in (0..8).rev() {
         let mut empty_counter: u8 = 0;
@@ -63,20 +63,20 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &PieceColor) -
                     empty_counter = 0;
                 }
 
-                let piece: (PieceColor, PieceType) = board.piece_at(&(square as u16)).unwrap();
+                let piece: u8 = board.piece_at(&(square as u16)).unwrap();
                 let piece_char: char = match piece {
-                    (PieceColor::White, PieceType::King) => 'K',
-                    (PieceColor::White, PieceType::Queen) => 'Q',
-                    (PieceColor::White, PieceType::Rook) => 'R',
-                    (PieceColor::White, PieceType::Bishop) => 'B',
-                    (PieceColor::White, PieceType::Knight) => 'N',
-                    (PieceColor::White, PieceType::Pawn) => 'P',
-                    (PieceColor::Black, PieceType::King) => 'k',
-                    (PieceColor::Black, PieceType::Queen) => 'q',
-                    (PieceColor::Black, PieceType::Rook) => 'r',
-                    (PieceColor::Black, PieceType::Bishop) => 'b',
-                    (PieceColor::Black, PieceType::Knight) => 'n',
-                    (PieceColor::Black, PieceType::Pawn) => 'p',
+                    WHITE_KING_U8 => 'K',
+                    WHITE_QUEEN_U8 => 'Q',
+                    WHITE_ROOK_U8 => 'R',
+                    WHITE_BISHOP_U8 => 'B',
+                    WHITE_KNIGHT_U8 => 'N',
+                    WHITE_PAWN_U8 => 'P',
+                    BLACK_KING_U8 => 'k',
+                    BLACK_QUEEN_U8 => 'q',
+                    BLACK_ROOK_U8 => 'r',
+                    BLACK_BISHOP_U8 => 'b',
+                    BLACK_KNIGHT_U8 => 'n',
+                    _ => 'p',
                 };
                 fen.push(piece_char);
             }
@@ -92,8 +92,8 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &PieceColor) -
     }
 
     fen.push_str(match whose_move {
-        PieceColor::White => " w ",
-        PieceColor::Black => " b ",
+        8 => " w ",
+        _ => " b ",
     });
 
     let castling_rights: [bool; 4] = state.castling_rights.to_array();
@@ -165,7 +165,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         pin_info: PinInfo::new(),
         moves_history: Vec::new(),
         total_moves_amount: 0,
-        whose_turn: PieceColor::White,
+        whose_turn: NO_PIECE_WHITE,
         result: GameResult::Going,
         check_contraints: 0,
     };
@@ -221,8 +221,8 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     }
 
     state.whose_turn = match color {
-        "w" => PieceColor::White,
-        "b" => PieceColor::Black,
+        "w" => 8,
+        "b" => 16,
         _ => unreachable!(),
     };
 

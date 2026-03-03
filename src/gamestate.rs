@@ -1,10 +1,13 @@
 use crate::{
     board::Board,
-    board_geometry_templates::Bitboard,
+    board_geometry_templates::{
+        Bitboard, COLORLESS_BISHOP, COLORLESS_KNIGHT, COLORLESS_PAWN, COLORLESS_QUEEN,
+        COLORLESS_ROOK, PIECE_COLOR_MASK, PIECE_COLOR_SHIFT, PIECE_TYPE_MASK,
+    },
     constants::attacks::{
         BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
     },
-    enums::{GameResult, InclusiveRange, PieceColor, PieceType},
+    enums::{GameResult, InclusiveRange},
 };
 
 /* order of updating the fields:
@@ -24,7 +27,7 @@ pub struct GameState {
     pub pin_info: PinInfo,
     pub moves_history: Vec<PreviousMove>,
     pub total_moves_amount: u16,
-    pub whose_turn: PieceColor,
+    pub whose_turn: u8,
     pub result: GameResult,
     pub check_contraints: Bitboard, // all the allowed squares for friendly pieces except the king during a check
 }
@@ -72,13 +75,13 @@ impl CheckInfo {
         };
     }
 
-    pub fn update(&mut self, board: &Board, whose_turn: &PieceColor) -> () {
+    pub fn update(&mut self, board: &Board, whose_turn: &u8) -> () {
         self.checked_king = None;
         self.first_checker = None;
         self.second_checker = None;
         let king_square: usize = match whose_turn {
-            &PieceColor::White => board.white_king,
-            &PieceColor::Black => board.black_king,
+            &8 => board.white_king,
+            &_ => board.black_king,
         }
         .trailing_zeros() as usize;
 
@@ -87,19 +90,19 @@ impl CheckInfo {
             rook_attacks(king_square, board.total_occupancy),
             KNIGHT_ATTACKS[king_square],
             match whose_turn {
-                &PieceColor::Black => BLACK_PAWN_ATTACKS[king_square],
-                &PieceColor::White => WHITE_PAWN_ATTACKS[king_square],
+                &8 => WHITE_PAWN_ATTACKS[king_square],
+                &_ => BLACK_PAWN_ATTACKS[king_square],
             },
         );
         let enemy_pieces: [&u64; 5] = match whose_turn {
-            PieceColor::White => [
+            8 => [
                 &(&board.black_queens & (&lines | &diagonals)),
                 &(&board.black_rooks & &lines),
                 &(&board.black_bishops & &diagonals),
                 &(&board.black_knights & &knight_deltas),
                 &(&board.black_pawns & &pawn_deltas),
             ],
-            PieceColor::Black => [
+            _ => [
                 &(&board.white_queens & (&lines | &diagonals)),
                 &(&board.white_rooks & &lines),
                 &(&board.white_bishops & &diagonals),
@@ -146,16 +149,16 @@ impl PinInfo {
         };
     }
 
-    pub fn update(&mut self, board: &Board, color: &PieceColor) -> () {
+    pub fn update(&mut self, board: &Board, color: &u8) -> () {
         self.white_king = board.white_king.trailing_zeros() as u8;
         self.black_king = board.black_king.trailing_zeros() as u8;
 
         let (lines, diagonals): (Bitboard, Bitboard) = match color {
-            &PieceColor::White => (
+            &8 => (
                 rook_attacks(self.white_king as usize, board.black_occupancy),
                 bishop_attacks(self.white_king as usize, board.black_occupancy),
             ),
-            &PieceColor::Black => (
+            &_ => (
                 rook_attacks(self.black_king as usize, board.white_occupancy),
                 bishop_attacks(self.black_king as usize, board.white_occupancy),
             ),
@@ -166,13 +169,13 @@ impl PinInfo {
             &u8,
             &Bitboard,
         ) = match color {
-            PieceColor::White => (
+            8 => (
                 lines & (&board.black_queens | &board.black_rooks),
                 diagonals & (&board.black_queens | &board.black_bishops),
                 &self.white_king,
                 &board.white_occupancy,
             ),
-            PieceColor::Black => (
+            _ => (
                 lines & (&board.white_queens | &board.white_rooks),
                 diagonals & (&board.white_queens | &board.white_bishops),
                 &self.black_king,
@@ -212,7 +215,7 @@ impl PinInfo {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreviousMove {
     // normal move changes 1 bitboard, castling or capture changes 2 and promotion with capture changes 3
-    pub changed_cache_indices: [(Option<(u8, u8)>, Option<(PieceColor, PieceType)>); 3], // start, finish
+    pub changed_cache_indices: [(Option<(u8, u8)>, Option<u8>); 3], // start, finish
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: Option<CastlingRights>, // if None, not to be restored
     pub previous_check_info: CheckInfo,
@@ -256,7 +259,7 @@ impl GameState {
             pin_info: PinInfo::new(),
             moves_history: Vec::new(),
             total_moves_amount: 0,
-            whose_turn: PieceColor::White,
+            whose_turn: 8,
             result: GameResult::Going,
             check_contraints: 0,
         };
@@ -267,26 +270,29 @@ impl GameState {
             self.check_contraints = 0;
             return;
         }
-        let checker_index: u8 = self.check_info.first_checker.unwrap();
-        let piece: (PieceColor, PieceType) = board.piece_at(&(checker_index as u16)).unwrap();
-        let color: PieceColor = board
-            .piece_at(&(self.check_info.checked_king.unwrap() as u16))
-            .unwrap()
-            .0;
-        if piece.0 == color {
+        let checker_index: u8 = unsafe { self.check_info.first_checker.unwrap_unchecked() };
+        let piece: u8 = unsafe { board.piece_at(&(checker_index as u16)).unwrap_unchecked() };
+        let color: u8 = unsafe {
+            (board
+                .piece_at(&(self.check_info.checked_king.unwrap_unchecked() as u16))
+                .unwrap_unchecked()
+                & PIECE_COLOR_MASK)
+                >> PIECE_COLOR_SHIFT
+        };
+        if ((piece & PIECE_COLOR_MASK) >> PIECE_COLOR_SHIFT) == color {
             println!(
                 "piece: {:?}, check_info: {:?}, position: {:?}",
                 piece, self.check_info, board
             );
             panic!("irrelevant color");
         }
-        self.check_contraints = match piece.1 {
-            PieceType::Bishop | PieceType::Queen | PieceType::Rook => Board::generate_range(
-                self.check_info.checked_king.unwrap(),
+        self.check_contraints = match piece & PIECE_TYPE_MASK {
+            COLORLESS_BISHOP | COLORLESS_QUEEN | COLORLESS_ROOK => Board::generate_range(
+                unsafe { self.check_info.checked_king.unwrap_unchecked() },
                 checker_index,
                 &InclusiveRange::LastOnly,
             ),
-            PieceType::Knight | PieceType::Pawn => 1 << checker_index,
+            COLORLESS_KNIGHT | COLORLESS_PAWN => 1 << checker_index,
             _ => panic!("irrelevant piece color or piece type"),
         };
     }

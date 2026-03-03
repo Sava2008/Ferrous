@@ -1,14 +1,15 @@
+use std::hint::unreachable_unchecked;
+
 use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
-    board_geometry_templates::{FROM_MASK, TO_MASK, TO_SHIFT},
-    enums::{PieceColor, PieceType},
+    board_geometry_templates::{FROM_MASK, PIECE_TYPE_MASK, TO_MASK, TO_SHIFT},
 };
 
 impl Engine {
     pub fn move_priority(&self, board: &Board, m: &u16, depth: usize) -> u16 {
         let mut priority_key: u16 = 0;
-        let (initial_pos, final_pos): ((PieceColor, PieceType), Option<(PieceColor, PieceType)>) = (
+        let (initial_pos, final_pos): (u8, Option<u8>) = (
             if let Some(a) = board.piece_at(&(m & FROM_MASK)) {
                 a
             } else {
@@ -18,8 +19,8 @@ impl Engine {
             board.piece_at(&((m & TO_MASK) >> TO_SHIFT)),
         );
         if let Some(dest) = final_pos {
-            let victim_value: u16 = Self::get_piece_value(dest.1) as u16;
-            let attacker_value: u16 = Self::get_piece_value(initial_pos.1) as u16;
+            let victim_value: u16 = Self::get_piece_value(dest & PIECE_TYPE_MASK) as u16;
+            let attacker_value: u16 = Self::get_piece_value(initial_pos & PIECE_TYPE_MASK) as u16;
             return (victim_value * 6 + (5 - attacker_value)) as u16;
         }
         if self.killer_moves[depth][0] == Some(*m) || self.killer_moves[depth][1] == Some(*m) {
@@ -31,14 +32,15 @@ impl Engine {
         return priority_key;
     }
     #[inline(always)]
-    fn get_piece_value(piece_type: PieceType) -> u8 {
-        match piece_type {
-            PieceType::Pawn => 0,
-            PieceType::Knight => 1,
-            PieceType::Bishop => 2,
-            PieceType::Rook => 3,
-            PieceType::Queen => 4,
-            PieceType::King => 5,
+    fn get_piece_value(piece_type: u8) -> u8 {
+        match piece_type & PIECE_TYPE_MASK {
+            1 => 0,
+            2 => 1,
+            3 => 2,
+            4 => 3,
+            5 => 4,
+            6 => 5,
+            _ => unsafe { unreachable_unchecked() },
         }
     }
     /*
