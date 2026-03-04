@@ -320,13 +320,6 @@ impl Board {
             changed_cache_indices: [(None, None); 3],
             previous_en_passant: state.en_passant_target,
             previous_castling_rights: None,
-            previous_check_info: state.check_info.clone(),
-            previous_pin_info: state.pin_info.clone(),
-            previous_check_constraints: if state.check_info.checked_king.is_some() {
-                state.check_contraints
-            } else {
-                0
-            },
             material_difference: 0,
             promotion_happened: false,
         };
@@ -661,9 +654,6 @@ impl Board {
                 state.castling_rights = castling_rights;
             }
             state.en_passant_target = previous_move.previous_en_passant;
-            state.check_info = previous_move.previous_check_info;
-            state.pin_info = previous_move.previous_pin_info;
-            state.check_contraints = previous_move.previous_check_constraints;
         }
     }
 

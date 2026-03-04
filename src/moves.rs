@@ -4,43 +4,27 @@ use crate::constants::attacks::*;
 use crate::gamestate::GameState;
 
 impl Board {
-    pub fn knight_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
+    pub fn knight_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-
-        if let Some(_checked_king) = state.check_info.checked_king {
-            match (
-                state.check_info.first_checker,
-                state.check_info.second_checker,
-            ) {
-                (Some(_c), None) => (),
-                (Some(_), Some(_)) => return moves,
+        let (enemy_king, mut knights_bitboard, excluded_enemy_occupancy): (u8, u64, u64) =
+            match color {
+                &8 => (
+                    self.black_king.trailing_zeros() as u8,
+                    self.white_knights,
+                    !self.white_occupancy,
+                ),
+                &16 => (
+                    self.white_king.trailing_zeros() as u8,
+                    self.black_knights,
+                    !self.black_occupancy,
+                ),
                 _ => unreachable!(),
             };
-        }
-        let (enemy_king, mut knights_bitboard): (u8, Bitboard) = match color {
-            &8 => (state.pin_info.black_king, self.white_knights),
-            &16 => (state.pin_info.white_king, self.black_knights),
-            _ => unreachable!(),
-        };
 
         while knights_bitboard != 0 {
             let initial_pos: u16 = knights_bitboard.trailing_zeros() as u16;
-
-            if &(state.pin_info.pinned_pieces) & (1 << initial_pos) != 0 {
-                knights_bitboard &= knights_bitboard - 1;
-                continue;
-            }
-
             let attacks: Bitboard = KNIGHT_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: Bitboard = attacks
-                & !match color {
-                    &8 => self.white_occupancy,
-                    &16 => self.black_occupancy,
-                    _ => unreachable!(),
-                };
-            if state.check_contraints != 0 {
-                dest_bitboard &= &state.check_contraints;
-            }
+            let mut dest_bitboard: Bitboard = attacks & excluded_enemy_occupancy;
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
@@ -56,37 +40,20 @@ impl Board {
 
     pub fn pawn_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-        if let Some(_checked_king) = state.check_info.checked_king {
-            match (
-                state.check_info.first_checker,
-                state.check_info.second_checker,
-            ) {
-                (Some(_c), None) => (),
-                (Some(_), Some(_)) => return moves,
+        let (enemy_king, mut pawns_bitboard, mut enemy_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &8 => (
+                    self.black_king.trailing_zeros() as u8,
+                    self.white_pawns,
+                    self.black_occupancy,
+                ),
+                &16 => (
+                    self.white_king.trailing_zeros() as u8,
+                    self.black_pawns,
+                    self.white_occupancy,
+                ),
                 _ => unreachable!(),
             };
-        }
-
-        let (enemy_king, friendly_king, mut pawns_bitboard, mut enemy_occupancy): (
-            u8,
-            usize,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &8 => (
-                state.pin_info.black_king,
-                state.pin_info.white_king as usize,
-                self.white_pawns,
-                self.black_occupancy,
-            ),
-            &16 => (
-                state.pin_info.white_king,
-                state.pin_info.black_king as usize,
-                self.black_pawns,
-                self.white_occupancy,
-            ),
-            _ => unreachable!(),
-        };
 
         if let Some(e_p) = state.en_passant_target {
             enemy_occupancy |= 1 << e_p
@@ -122,12 +89,6 @@ impl Board {
                     dest_bitboard |= 1 << second_forward_square;
                 }
             }
-            if state.check_contraints != 0 {
-                dest_bitboard &= &state.check_contraints;
-            }
-            if (1 << initial_pos) & &state.pin_info.pinned_pieces != 0 {
-                dest_bitboard &= unsafe { TWO_SQUARES_LINE[initial_pos as usize][friendly_king] };
-            }
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
                 if final_pos != enemy_king {
@@ -148,6 +109,7 @@ impl Board {
         return moves;
     }
 
+    #[inline(always)]
     pub fn is_square_attacked(&self, square: u8, by: &u8) -> bool {
         if KNIGHT_ATTACKS[square as usize]
             & match by {
@@ -215,12 +177,11 @@ impl Board {
 
     pub fn king_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-        let initial_pos: u16 = match color {
-            &8 => self.white_king,
-            &16 => self.black_king,
+        let (initial_pos, opposite_color): (u16, u8) = match color {
+            &8 => (self.white_king.trailing_zeros() as u16, 16),
+            &16 => (self.black_king.trailing_zeros() as u16, 8),
             _ => unreachable!(),
-        }
-        .trailing_zeros() as u16;
+        };
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
             & !match color {
                 &8 => self.white_occupancy,
@@ -230,12 +191,10 @@ impl Board {
 
         while dest_bitboard != 0 {
             let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-            if !self.is_square_attacked(final_pos, if *color == 8 { &16 } else { &8 }) {
-                moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
-            }
+            moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
             dest_bitboard &= dest_bitboard - 1;
         }
-        if Some(initial_pos as u8) == state.check_info.checked_king {
+        if self.is_square_attacked(initial_pos as u8, &opposite_color) {
             return moves;
         }
         let (castling_squares, mut right_path, mut left_path): (
@@ -292,8 +251,7 @@ impl Board {
             let mut finished_fully: bool = true;
             while left_path != 0 {
                 let square: u8 = left_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, if *color == 8 { &16 } else { &8 })
-                    && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, &opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -308,8 +266,7 @@ impl Board {
             let mut finished_fully: bool = true;
             while right_path != 0 {
                 let square: u8 = right_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, if *color == 8 { &16 } else { &8 })
-                    && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, &opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -324,52 +281,27 @@ impl Board {
         return moves;
     }
 
-    pub fn rook_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
+    pub fn rook_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-        if let Some(_checked_king) = state.check_info.checked_king {
-            match (
-                state.check_info.first_checker,
-                state.check_info.second_checker,
-            ) {
-                (Some(_c), None) => (),
-                (Some(_), Some(_)) => return moves,
+        let (enemy_king, mut rooks_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &8 => (
+                    self.black_king.trailing_zeros() as u8,
+                    self.white_rooks,
+                    self.white_occupancy,
+                ),
+                &16 => (
+                    self.white_king.trailing_zeros() as u8,
+                    self.black_rooks,
+                    self.black_occupancy,
+                ),
                 _ => unreachable!(),
             };
-        }
-
-        let (enemy_king, friendly_king, mut rooks_bitboard, friendly_occupancy): (
-            u8,
-            usize,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &8 => (
-                state.pin_info.black_king,
-                state.pin_info.white_king as usize,
-                self.white_rooks,
-                self.white_occupancy,
-            ),
-            &16 => (
-                state.pin_info.white_king,
-                state.pin_info.black_king as usize,
-                self.black_rooks,
-                self.black_occupancy,
-            ),
-            _ => unreachable!(),
-        };
 
         while rooks_bitboard != 0 {
             let initial_pos: usize = rooks_bitboard.trailing_zeros() as usize;
             let attacks: Bitboard = rook_attacks(initial_pos, self.total_occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
-            if state.check_contraints != 0 {
-                dest_bitboard &= &state.check_contraints;
-            }
-
-            if (1 << initial_pos) & &state.pin_info.pinned_pieces != 0 {
-                dest_bitboard &= unsafe { TWO_SQUARES_LINE[initial_pos as usize][friendly_king] };
-            }
-
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
                 if final_pos != enemy_king {
@@ -384,51 +316,28 @@ impl Board {
         return moves;
     }
 
-    pub fn bishop_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
+    pub fn bishop_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-        if let Some(_checked_king) = state.check_info.checked_king {
-            match (
-                state.check_info.first_checker,
-                state.check_info.second_checker,
-            ) {
-                (Some(_c), None) => (),
-                (Some(_), Some(_)) => return moves,
+        let (enemy_king, mut bishops_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &8 => (
+                    self.black_king.trailing_zeros() as u8,
+                    self.white_bishops,
+                    self.white_occupancy,
+                ),
+                &16 => (
+                    self.white_king.trailing_zeros() as u8,
+                    self.black_bishops,
+                    self.black_occupancy,
+                ),
                 _ => unreachable!(),
             };
-        }
-        let (enemy_king, friendly_king, mut bishops_bitboard, friendly_occupancy): (
-            u8,
-            usize,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &8 => (
-                state.pin_info.black_king,
-                state.pin_info.white_king as usize,
-                self.white_bishops,
-                self.white_occupancy,
-            ),
-            &16 => (
-                state.pin_info.white_king,
-                state.pin_info.black_king as usize,
-                self.black_bishops,
-                self.black_occupancy,
-            ),
-            _ => unreachable!(),
-        };
         let occupancy: Bitboard = self.total_occupancy;
 
         while bishops_bitboard != 0 {
             let initial_pos: usize = bishops_bitboard.trailing_zeros() as usize;
             let attacks: Bitboard = bishop_attacks(initial_pos, occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
-            if state.check_contraints != 0 {
-                dest_bitboard &= &state.check_contraints;
-            }
-
-            if (1 << initial_pos) & &state.pin_info.pinned_pieces != 0 {
-                dest_bitboard &= unsafe { TWO_SQUARES_LINE[initial_pos as usize][friendly_king] };
-            }
 
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
@@ -443,39 +352,22 @@ impl Board {
         return moves;
     }
 
-    pub fn queen_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
+    pub fn queen_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
-        if let Some(_checked_king) = state.check_info.checked_king {
-            match (
-                state.check_info.first_checker,
-                state.check_info.second_checker,
-            ) {
-                (Some(_c), None) => (),
-                (Some(_), Some(_)) => return moves,
+        let (enemy_king, mut queens_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
+            match color {
+                &8 => (
+                    self.black_king.trailing_zeros() as u8,
+                    self.white_queens,
+                    self.white_occupancy,
+                ),
+                &16 => (
+                    self.white_king.trailing_zeros() as u8,
+                    self.black_queens,
+                    self.black_occupancy,
+                ),
                 _ => unreachable!(),
             };
-        }
-
-        let (enemy_king, friendly_king, mut queens_bitboard, friendly_occupancy): (
-            u8,
-            usize,
-            Bitboard,
-            Bitboard,
-        ) = match color {
-            &8 => (
-                state.pin_info.black_king,
-                state.pin_info.white_king as usize,
-                self.white_queens,
-                self.white_occupancy,
-            ),
-            &16 => (
-                state.pin_info.white_king,
-                state.pin_info.black_king as usize,
-                self.black_queens,
-                self.black_occupancy,
-            ),
-            _ => unreachable!(),
-        };
 
         let occupancy: Bitboard = self.total_occupancy;
 
@@ -485,14 +377,6 @@ impl Board {
                 bishop_attacks(initial_pos, occupancy) | rook_attacks(initial_pos, occupancy);
 
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
-            if state.check_contraints != 0 {
-                dest_bitboard &= &state.check_contraints;
-            }
-
-            if (1 << initial_pos) & &state.pin_info.pinned_pieces != 0 {
-                dest_bitboard &= unsafe { TWO_SQUARES_LINE[initial_pos as usize][friendly_king] };
-            }
-
             while dest_bitboard != 0 {
                 let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
                 if final_pos != enemy_king {

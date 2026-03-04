@@ -6,12 +6,15 @@ use crate::{
     },
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
-        compute_all_rays_from, initialize_sliding_attack_tables,
+        compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
     enums::GameResult,
     gamestate::GameState,
 };
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    time::Instant,
+};
 pub mod alpha_beta_pruning;
 pub mod board;
 pub mod board_geometry_templates;
@@ -33,13 +36,14 @@ enum MoveResult {
 
 fn main() -> () {
     /* initialize_sliding_attack_tables(), compute_all_rays(),
-    compute_all_lines, compute_all_piece_improvements
+    compute_all_lines, compute_mvvlva
     and compute_all_rays_from() have to be called
     in the beginning of program and tests */
     initialize_sliding_attack_tables();
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
+    compute_mvvlva();
 
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);
@@ -83,7 +87,7 @@ fn game_control(
     loop {
         match engine.side {
             8 => {
-                match make_engine_move(engine, board, state, &NO_PIECE_WHITE) {
+                match make_engine_move(engine, board, state) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
@@ -100,7 +104,7 @@ fn game_control(
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                 };
-                match make_engine_move(engine, board, state, &NO_PIECE_BLACK) {
+                match make_engine_move(engine, board, state) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
@@ -112,21 +116,15 @@ fn game_control(
     return Ok(());
 }
 
-fn make_engine_move(
-    engine: &mut Engine,
-    board: &mut Board,
-    state: &mut GameState,
-    engine_color: &u8,
-) -> MoveResult {
+fn make_engine_move(engine: &mut Engine, board: &mut Board, state: &mut GameState) -> MoveResult {
     board.total_occupancy();
     board.update_full_cache();
     board.count_material();
-    state.check_info.update(&board, engine_color);
-    state.pin_info.update(&board, engine_color);
-    state.update_check_constraints(&board);
 
-    let white_engine_move: Option<u16> = engine.find_best_move(&board, state);
-    if let Some(m) = white_engine_move {
+    let time: Instant = Instant::now();
+    let engine_move: Option<u16> = engine.find_best_move(&board, state);
+    println!("time elapsed: {:.6?}", time.elapsed());
+    if let Some(m) = engine_move {
         board.perform_move(&m, state);
         println!(
             "Ferrous's move: {:?} {:?}",
@@ -136,7 +134,9 @@ fn make_engine_move(
                 .unwrap(),
         );
     } else {
-        if state.check_info.checked_king.is_some() {
+        if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8)
+            || board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16)
+        {
             state.result = GameResult::BlackWins;
             println!("you won by checkmate");
             return MoveResult::Win;
@@ -153,9 +153,6 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
     board.total_occupancy();
     board.update_full_cache();
     board.count_material();
-    state.check_info.update(&board, player_color);
-    state.pin_info.update(&board, player_color);
-    state.update_check_constraints(&board);
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
     let mut user_move = String::new();
@@ -207,7 +204,9 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
     legal_moves.extend(board.king_moves(&state, player_color));
 
     if legal_moves.is_empty() {
-        if state.check_info.checked_king.is_some() {
+        if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8)
+            || board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16)
+        {
             state.result = if *player_color == NO_PIECE_WHITE {
                 GameResult::BlackWins
             } else {

@@ -742,3 +742,14 @@ pub fn compute_all_lines() -> () {
         TWO_SQUARES_LINE = lines;
     }
 }
+
+pub static mut MVV_LVA: [[i16; 6]; 6] = [[69; 6]; 6]; // MVV_LVA[victim][attacker]
+pub fn compute_mvvlva() -> () {
+    for x in 0..6 {
+        for y in 0..6 {
+            unsafe {
+                MVV_LVA[x][y] = (x * 6 + (5 - y)) as i16;
+            }
+        }
+    }
+}

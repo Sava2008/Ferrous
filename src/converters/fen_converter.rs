@@ -1,6 +1,6 @@
 use crate::board_geometry_templates::*;
 use crate::enums::GameResult;
-use crate::gamestate::{CastlingRights, CheckInfo, PinInfo};
+use crate::gamestate::CastlingRights;
 use crate::{board::Board, gamestate::GameState};
 
 fn index_to_chess_notation(idx: u8) -> String {
@@ -161,13 +161,10 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
             black_two_zeros: false,
         },
         fifty_moves_rule_counter: 0,
-        check_info: CheckInfo::new(),
-        pin_info: PinInfo::new(),
         moves_history: Vec::new(),
         total_moves_amount: 0,
         whose_turn: NO_PIECE_WHITE,
         result: GameResult::Going,
-        check_contraints: 0,
     };
     let mut index: u8 = 63;
     let mut split_fen: std::str::SplitWhitespace<'_> = fen.split_whitespace();

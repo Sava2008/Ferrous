@@ -77,21 +77,21 @@ impl Engine {
         }
         self.evaluation += board.material;
     }
-    pub fn generate_legal_moves(
+    pub fn generate_pseudo_legal_moves(
         &self,
         color: &u8,
         board: &Board,
         state: &GameState,
         depth: usize,
     ) -> Vec<u16> {
-        let mut legal_moves: Vec<u16> = board.pawn_moves(&state, &color);
-        legal_moves.extend(board.knight_moves(&state, &color));
-        legal_moves.extend(board.bishop_moves(&state, &color));
-        legal_moves.extend(board.queen_moves(&state, &color));
-        legal_moves.extend(board.rook_moves(&state, &color));
-        legal_moves.extend(board.king_moves(&state, &color));
-        legal_moves.sort_by_key(|m: &u16| -(self.move_priority(board, m, depth) as i16));
-        return legal_moves;
+        let mut pseudo_legal_moves: Vec<u16> = board.pawn_moves(&state, &color);
+        pseudo_legal_moves.extend(board.knight_moves(&state, &color));
+        pseudo_legal_moves.extend(board.bishop_moves(&state, &color));
+        pseudo_legal_moves.extend(board.queen_moves(&state, &color));
+        pseudo_legal_moves.extend(board.rook_moves(&state, &color));
+        pseudo_legal_moves.extend(board.king_moves(&state, &color));
+        pseudo_legal_moves.sort_by_key(|m: &u16| self.move_priority(board, m, depth));
+        return pseudo_legal_moves;
     }
 
     fn add_killer(&mut self, killer: u16, depth: u8) {
@@ -124,23 +124,23 @@ impl Engine {
             let mut current_alpha: i32 = alpha;
             state.whose_turn = NO_PIECE_WHITE;
 
-            let legal_moves: Vec<u16> =
-                self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
+            let pseudo_legal_moves: Vec<u16> =
+                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state, depth as usize);
 
-            if legal_moves.len() == 0 {
-                return if state.check_info.checked_king.is_some() {
+            if pseudo_legal_moves.len() == 0 {
+                return if board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16) {
                     i32::MIN + (self.depth - depth) as i32
                 } else {
                     0
                 };
             }
 
-            for m in &legal_moves {
+            for m in &pseudo_legal_moves {
                 board.perform_move(&m, state);
-
-                state.check_info.update(&board, &NO_PIECE_BLACK);
-                state.pin_info.update(&board, &NO_PIECE_BLACK);
-                state.update_check_constraints(&board);
+                if board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16) {
+                    board.cancel_move(state);
+                    continue;
+                }
 
                 best_score = max(
                     self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
@@ -162,22 +162,22 @@ impl Engine {
             let mut current_beta: i32 = beta;
             state.whose_turn = NO_PIECE_BLACK;
 
-            let legal_moves: Vec<u16> =
-                self.generate_legal_moves(&state.whose_turn, &board, &state, depth as usize);
+            let pseudo_legal_moves: Vec<u16> =
+                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state, depth as usize);
 
-            if legal_moves.len() == 0 {
-                return if state.check_info.checked_king.is_some() {
+            if pseudo_legal_moves.len() == 0 {
+                return if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8) {
                     i32::MAX - (self.depth - depth) as i32
                 } else {
                     0
                 };
             }
-            for m in &legal_moves {
+            for m in &pseudo_legal_moves {
                 board.perform_move(&m, state);
-
-                state.check_info.update(&board, &NO_PIECE_WHITE);
-                state.pin_info.update(&board, &NO_PIECE_WHITE);
-                state.update_check_constraints(&board);
+                if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8) {
+                    board.cancel_move(state);
+                    continue;
+                }
 
                 best_score = min(
                     self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
@@ -207,21 +207,20 @@ impl Engine {
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
         copied_state.whose_turn = self.side.clone();
-        let opposite_color: u8 = if copied_state.whose_turn == NO_PIECE_BLACK {
-            NO_PIECE_WHITE
-        } else {
-            NO_PIECE_BLACK
+        let (king_square, color) = match self.side {
+            8 => (board.white_king.trailing_zeros() as u8, 16),
+            16 => (board.black_king.trailing_zeros() as u8, 8),
+            _ => unreachable!(),
         };
 
-        let legal_moves: Vec<u16> =
-            self.generate_legal_moves(&self.side, board, &copied_state, self.depth as usize);
-        for m in &legal_moves {
+        let pseudo_legal_moves: Vec<u16> =
+            self.generate_pseudo_legal_moves(&self.side, board, &copied_state, self.depth as usize);
+        for m in &pseudo_legal_moves {
             copied_board.perform_move(&m, &mut copied_state);
-            copied_state
-                .check_info
-                .update(&copied_board, &opposite_color);
-            copied_state.pin_info.update(&copied_board, &opposite_color);
-            copied_state.update_check_constraints(&copied_board);
+            if copied_board.is_square_attacked(king_square, &color) {
+                copied_board.cancel_move(&mut copied_state);
+                continue;
+            }
 
             let score: i32 = self.alpha_beta_pruning(
                 &mut copied_board,
