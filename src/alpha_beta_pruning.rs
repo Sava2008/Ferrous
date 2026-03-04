@@ -82,7 +82,6 @@ impl Engine {
         color: &u8,
         board: &Board,
         state: &GameState,
-        depth: usize,
     ) -> Vec<u16> {
         let mut pseudo_legal_moves: Vec<u16> = board.pawn_moves(&state, &color);
         pseudo_legal_moves.extend(board.knight_moves(&state, &color));
@@ -90,7 +89,6 @@ impl Engine {
         pseudo_legal_moves.extend(board.queen_moves(&state, &color));
         pseudo_legal_moves.extend(board.rook_moves(&state, &color));
         pseudo_legal_moves.extend(board.king_moves(&state, &color));
-        pseudo_legal_moves.sort_by_key(|m: &u16| self.move_priority(board, m, depth));
         return pseudo_legal_moves;
     }
 
@@ -124,8 +122,8 @@ impl Engine {
             let mut current_alpha: i32 = alpha;
             state.whose_turn = NO_PIECE_WHITE;
 
-            let pseudo_legal_moves: Vec<u16> =
-                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state, depth as usize);
+            let mut pseudo_legal_moves: Vec<u16> =
+                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state);
 
             if pseudo_legal_moves.len() == 0 {
                 return if board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16) {
@@ -135,8 +133,15 @@ impl Engine {
                 };
             }
 
-            for m in &pseudo_legal_moves {
-                board.perform_move(&m, state);
+            for i in 0..pseudo_legal_moves.len() {
+                let best_move_index: usize =
+                    self.find_best_for_alpha_beta(&board, depth as usize, &pseudo_legal_moves, i);
+                let (current_move, allegedly_best_move) =
+                    (pseudo_legal_moves[i], pseudo_legal_moves[best_move_index]);
+                pseudo_legal_moves[i] = allegedly_best_move;
+                pseudo_legal_moves[best_move_index] = current_move;
+
+                board.perform_move(&allegedly_best_move, state);
                 if board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16) {
                     board.cancel_move(state);
                     continue;
@@ -149,8 +154,8 @@ impl Engine {
                 board.cancel_move(state);
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
-                    if !board.is_capture(m) && depth < self.depth {
-                        self.add_killer(*m, depth);
+                    if !board.is_capture(&allegedly_best_move) && depth < self.depth {
+                        self.add_killer(allegedly_best_move, depth);
                     }
                     break;
                 }
@@ -162,8 +167,8 @@ impl Engine {
             let mut current_beta: i32 = beta;
             state.whose_turn = NO_PIECE_BLACK;
 
-            let pseudo_legal_moves: Vec<u16> =
-                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state, depth as usize);
+            let mut pseudo_legal_moves: Vec<u16> =
+                self.generate_pseudo_legal_moves(&state.whose_turn, &board, &state);
 
             if pseudo_legal_moves.len() == 0 {
                 return if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8) {
@@ -172,8 +177,15 @@ impl Engine {
                     0
                 };
             }
-            for m in &pseudo_legal_moves {
-                board.perform_move(&m, state);
+            for i in 0..pseudo_legal_moves.len() {
+                let best_move_index: usize =
+                    self.find_best_for_alpha_beta(&board, depth as usize, &pseudo_legal_moves, i);
+                let (current_move, allegedly_best_move) =
+                    (pseudo_legal_moves[i], pseudo_legal_moves[best_move_index]);
+                pseudo_legal_moves[i] = allegedly_best_move;
+                pseudo_legal_moves[best_move_index] = current_move;
+
+                board.perform_move(&allegedly_best_move, state);
                 if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8) {
                     board.cancel_move(state);
                     continue;
@@ -186,8 +198,8 @@ impl Engine {
                 board.cancel_move(state);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
-                    if !board.is_capture(m) && depth < self.depth {
-                        self.add_killer(*m, depth);
+                    if !board.is_capture(&allegedly_best_move) && depth < self.depth {
+                        self.add_killer(allegedly_best_move, depth);
                     }
                     break;
                 }
@@ -213,10 +225,21 @@ impl Engine {
             _ => unreachable!(),
         };
 
-        let pseudo_legal_moves: Vec<u16> =
-            self.generate_pseudo_legal_moves(&self.side, board, &copied_state, self.depth as usize);
-        for m in &pseudo_legal_moves {
-            copied_board.perform_move(&m, &mut copied_state);
+        let mut pseudo_legal_moves: Vec<u16> =
+            self.generate_pseudo_legal_moves(&self.side, board, &copied_state);
+        for i in 0..pseudo_legal_moves.len() {
+            let best_move_index: usize = self.find_best_for_alpha_beta(
+                &copied_board,
+                self.depth as usize,
+                &pseudo_legal_moves,
+                i,
+            );
+            let (current_move, allegedly_best_move) =
+                (pseudo_legal_moves[i], pseudo_legal_moves[best_move_index]);
+            pseudo_legal_moves[i] = allegedly_best_move;
+            pseudo_legal_moves[best_move_index] = current_move;
+
+            copied_board.perform_move(&allegedly_best_move, &mut copied_state);
             if copied_board.is_square_attacked(king_square, &color) {
                 copied_board.cancel_move(&mut copied_state);
                 continue;
@@ -238,7 +261,7 @@ impl Engine {
                 _ => unreachable!(),
             } {
                 best_score = score;
-                best_move = Some(m.clone());
+                best_move = Some(pseudo_legal_moves[i]);
             }
         }
         return best_move;

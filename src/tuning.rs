@@ -12,7 +12,25 @@ use crate::{
 };
 
 impl Engine {
-    pub fn move_priority(&self, board: &Board, m: &u16, depth: usize) -> i16 {
+    pub fn find_best_for_alpha_beta(
+        &self,
+        board: &Board,
+        depth: usize,
+        all_moves: &Vec<u16>,
+        from_index: usize,
+    ) -> usize {
+        let mut priority_key: i16 = 0;
+        let mut best_move_index: usize = 0;
+        for i in from_index..all_moves.len() {
+            let new_key: i16 = self.move_priority(board, &all_moves[i], depth);
+            if new_key > priority_key {
+                priority_key = new_key;
+                best_move_index = i;
+            }
+        }
+        return best_move_index;
+    }
+    fn move_priority(&self, board: &Board, m: &u16, depth: usize) -> i16 {
         let mut priority_key: i16 = 0;
         let (initial_pos, final_pos): (u8, Option<u8>) = (
             if let Some(a) = board.piece_at(&(m & FROM_MASK)) {
