@@ -12,23 +12,12 @@ use crate::{
 };
 
 impl Engine {
-    pub fn find_best_for_alpha_beta(
-        &self,
-        board: &Board,
-        depth: usize,
-        all_moves: &Vec<u16>,
-        from_index: usize,
-    ) -> usize {
-        let mut priority_key: i16 = 0;
-        let mut best_move_index: usize = 0;
-        for i in from_index..all_moves.len() {
-            let new_key: i16 = self.move_priority(board, &all_moves[i], depth);
-            if new_key > priority_key {
-                priority_key = new_key;
-                best_move_index = i;
-            }
+    pub fn score_all_moves(&self, board: &Board, depth: usize, all_moves: &Vec<u16>) -> Vec<i16> {
+        let mut priorities: Vec<i16> = Vec::with_capacity(all_moves.len());
+        for i in 0..all_moves.len() {
+            priorities.push(self.move_priority(board, &all_moves[i], depth));
         }
-        return best_move_index;
+        return priorities;
     }
     fn move_priority(&self, board: &Board, m: &u16, depth: usize) -> i16 {
         let mut priority_key: i16 = 0;
@@ -37,7 +26,7 @@ impl Engine {
                 a
             } else {
                 println!("board: {board:?}");
-                panic!();
+                panic!("no piece at {}", m & FROM_MASK);
             },
             board.piece_at(&((m & TO_MASK) >> TO_SHIFT)),
         );

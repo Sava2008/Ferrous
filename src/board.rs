@@ -30,6 +30,9 @@ pub struct Board {
     pub black_occupancy: Bitboard,
     pub total_occupancy: Bitboard,
 
+    pub white_king_square: u8,
+    pub black_king_square: u8,
+
     pub cached_pieces: [Option<u8>; 64],
 
     pub material: i32,
@@ -54,6 +57,8 @@ impl Board {
             white_occupancy: 0,
             black_occupancy: 0,
             total_occupancy: 0,
+            white_king_square: 4,
+            black_king_square: 60,
             cached_pieces: [None; 64],
             material: 0, // equal material
         };
@@ -330,6 +335,7 @@ impl Board {
         let color_to_mutate: &mut u64 = match moving_piece {
             WHITE_KING_U8 => {
                 previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                self.white_king_square = to_sq;
                 match (from_sq, to_sq) {
                     (4, 2) => {
                         let (rook_from, rook_to) = (0, 3);
@@ -415,6 +421,7 @@ impl Board {
 
             BLACK_KING_U8 => {
                 previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+                self.black_king_square = to_sq;
                 match (from_sq, to_sq) {
                     (60, 58) => {
                         let (rook_from, rook_to) = (56, 59);
@@ -578,8 +585,14 @@ impl Board {
                     BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
                     WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
                     BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
-                    WHITE_KING_U8 => (&mut self.white_king, &mut self.white_occupancy),
-                    BLACK_KING_U8 => (&mut self.black_king, &mut self.black_occupancy),
+                    WHITE_KING_U8 => {
+                        self.white_king_square = cached_index.0;
+                        (&mut self.white_king, &mut self.white_occupancy)
+                    }
+                    BLACK_KING_U8 => {
+                        self.black_king_square = cached_index.0;
+                        (&mut self.black_king, &mut self.black_occupancy)
+                    }
                     _ => unreachable!(),
                 };
 

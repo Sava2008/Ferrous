@@ -149,6 +149,8 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        white_king_square: 0,
+        black_king_square: 0,
         cached_pieces: [None; 64],
         material: 0,
     };
@@ -243,6 +245,8 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
 
     board.total_occupancy();
     board.update_full_cache();
+    board.white_king_square = board.white_king.trailing_zeros() as u8;
+    board.black_king_square = board.black_king.trailing_zeros() as u8;
 
     return (board, state);
 }

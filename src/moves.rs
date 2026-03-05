@@ -9,12 +9,12 @@ impl Board {
         let (enemy_king, mut knights_bitboard, excluded_enemy_occupancy): (u8, u64, u64) =
             match color {
                 &8 => (
-                    self.black_king.trailing_zeros() as u8,
+                    self.black_king_square,
                     self.white_knights,
                     !self.white_occupancy,
                 ),
                 &16 => (
-                    self.white_king.trailing_zeros() as u8,
+                    self.white_king_square,
                     self.black_knights,
                     !self.black_occupancy,
                 ),
@@ -43,12 +43,12 @@ impl Board {
         let (enemy_king, mut pawns_bitboard, mut enemy_occupancy): (u8, Bitboard, Bitboard) =
             match color {
                 &8 => (
-                    self.black_king.trailing_zeros() as u8,
+                    self.black_king_square,
                     self.white_pawns,
                     self.black_occupancy,
                 ),
                 &16 => (
-                    self.white_king.trailing_zeros() as u8,
+                    self.white_king_square,
                     self.black_pawns,
                     self.white_occupancy,
                 ),
@@ -178,8 +178,8 @@ impl Board {
     pub fn king_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
         let mut moves: Vec<u16> = Vec::new();
         let (initial_pos, opposite_color): (u16, u8) = match color {
-            &8 => (self.white_king.trailing_zeros() as u16, 16),
-            &16 => (self.black_king.trailing_zeros() as u16, 8),
+            &8 => (self.white_king_square as u16, 16),
+            &16 => (self.black_king_square as u16, 8),
             _ => unreachable!(),
         };
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
@@ -286,12 +286,12 @@ impl Board {
         let (enemy_king, mut rooks_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
             match color {
                 &8 => (
-                    self.black_king.trailing_zeros() as u8,
+                    self.black_king_square,
                     self.white_rooks,
                     self.white_occupancy,
                 ),
                 &16 => (
-                    self.white_king.trailing_zeros() as u8,
+                    self.white_king_square,
                     self.black_rooks,
                     self.black_occupancy,
                 ),
@@ -321,12 +321,12 @@ impl Board {
         let (enemy_king, mut bishops_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
             match color {
                 &8 => (
-                    self.black_king.trailing_zeros() as u8,
+                    self.black_king_square,
                     self.white_bishops,
                     self.white_occupancy,
                 ),
                 &16 => (
-                    self.white_king.trailing_zeros() as u8,
+                    self.white_king_square,
                     self.black_bishops,
                     self.black_occupancy,
                 ),
@@ -357,12 +357,12 @@ impl Board {
         let (enemy_king, mut queens_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
             match color {
                 &8 => (
-                    self.black_king.trailing_zeros() as u8,
+                    self.black_king_square,
                     self.white_queens,
                     self.white_occupancy,
                 ),
                 &16 => (
-                    self.white_king.trailing_zeros() as u8,
+                    self.white_king_square,
                     self.black_queens,
                     self.black_occupancy,
                 ),

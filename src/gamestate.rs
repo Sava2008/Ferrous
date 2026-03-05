@@ -61,10 +61,7 @@ impl GameState {
     pub fn new(board: &Board) -> Self {
         return Self {
             en_passant_target: None,
-            castling_rights: match (
-                board.white_king.trailing_zeros(),
-                board.black_king.trailing_zeros(),
-            ) {
+            castling_rights: match (board.white_king_square, board.black_king_square) {
                 (4, 60) => CastlingRights::new(),
                 (4, _) => CastlingRights {
                     white_three_zeros: true,

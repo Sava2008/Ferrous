@@ -134,8 +134,8 @@ fn make_engine_move(engine: &mut Engine, board: &mut Board, state: &mut GameStat
                 .unwrap(),
         );
     } else {
-        if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8)
-            || board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16)
+        if board.is_square_attacked(board.black_king_square, &8)
+            || board.is_square_attacked(board.white_king_square, &16)
         {
             state.result = GameResult::BlackWins;
             println!("you won by checkmate");
@@ -204,8 +204,8 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
     legal_moves.extend(board.king_moves(&state, player_color));
 
     if legal_moves.is_empty() {
-        if board.is_square_attacked(board.black_king.trailing_zeros() as u8, &8)
-            || board.is_square_attacked(board.white_king.trailing_zeros() as u8, &16)
+        if board.is_square_attacked(board.black_king_square, &8)
+            || board.is_square_attacked(board.white_king_square, &16)
         {
             state.result = if *player_color == NO_PIECE_WHITE {
                 GameResult::BlackWins
