@@ -33,8 +33,6 @@ pub struct Board {
     pub white_king_square: u8,
     pub black_king_square: u8,
 
-    pub cached_pieces: [Option<u8>; 64],
-
     pub material: i32,
 }
 
@@ -59,7 +57,6 @@ impl Board {
             total_occupancy: 0,
             white_king_square: 4,
             black_king_square: 60,
-            cached_pieces: [None; 64],
             material: 0, // equal material
         };
     }
@@ -75,40 +72,50 @@ impl Board {
             - (self.black_rooks.count_ones() as i32) * ROOK_VALUE
             - (self.black_queens.count_ones() as i32) * QUEEN_VALUE;
     }
-    pub fn update_full_cache(&mut self) {
-        for square in 0..64 {
-            let mask: Bitboard = 1 << square;
-            if self.white_pawns & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_PAWN_U8);
-            } else if self.white_knights & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_KNIGHT_U8);
-            } else if self.white_bishops & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_BISHOP_U8);
-            } else if self.white_rooks & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_ROOK_U8);
-            } else if self.white_queens & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_QUEEN_U8);
-            } else if self.white_king & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_KING_U8);
-            } else if self.black_pawns & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_PAWN_U8);
-            } else if self.black_knights & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_KNIGHT_U8);
-            } else if self.black_bishops & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_BISHOP_U8);
-            } else if self.black_rooks & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_ROOK_U8);
-            } else if self.black_queens & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_QUEEN_U8);
-            } else if self.black_king & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_KING_U8);
-            }
-        }
-    }
 
     #[inline(always)]
-    pub fn piece_at(&self, square: &u16) -> Option<u8> {
-        return unsafe { *self.cached_pieces.get_unchecked(*square as usize) }; // square always in range 0-63
+    pub fn piece_at(&self, square: u32) -> Option<u32> {
+        let transformed_square: u64 = 1 << (square as u64);
+        if transformed_square & self.white_occupancy != 0 {
+            if transformed_square & self.white_pawns != 0 {
+                return Some(WHITE_PAWN_U32);
+            }
+            if transformed_square & self.white_bishops != 0 {
+                return Some(WHITE_BISHOP_U32);
+            }
+            if transformed_square & self.white_knights != 0 {
+                return Some(WHITE_KNIGHT_U32);
+            }
+            if transformed_square & self.white_queens != 0 {
+                return Some(WHITE_QUEEN_U32);
+            }
+            if transformed_square & self.white_rooks != 0 {
+                return Some(WHITE_ROOK_U32);
+            }
+            if transformed_square & self.white_king != 0 {
+                return Some(WHITE_KING_U32);
+            }
+        } else {
+            if transformed_square & self.black_pawns != 0 {
+                return Some(BLACK_PAWN_U32);
+            }
+            if transformed_square & self.black_bishops != 0 {
+                return Some(BLACK_BISHOP_U32);
+            }
+            if transformed_square & self.black_knights != 0 {
+                return Some(BLACK_KNIGHT_U32);
+            }
+            if transformed_square & self.black_queens != 0 {
+                return Some(BLACK_QUEEN_U32);
+            }
+            if transformed_square & self.black_rooks != 0 {
+                return Some(BLACK_ROOK_U32);
+            }
+            if transformed_square & self.black_king != 0 {
+                return Some(BLACK_KING_U32);
+            }
+        }
+        return None;
     }
 
     pub fn white_occupancy(&mut self) -> () {
@@ -159,23 +166,29 @@ impl Board {
     }
 
     #[inline]
-    fn reset_bit(&mut self, piece: u8, bit_position1: u8, bit_position2: u8) -> () {
+    fn reset_bit(&mut self, piece: u32, bit_position1: u8, bit_position2: u8, color: u32) -> () {
         let from_mask: Bitboard = !(1 << bit_position1);
         let to_mask: Bitboard = 1 << bit_position2;
-        let bitboard_to_mutate: &mut Bitboard = match piece {
-            WHITE_BISHOP_U8 => &mut self.white_bishops,
-            WHITE_KNIGHT_U8 => &mut self.white_knights,
-            WHITE_PAWN_U8 => &mut self.white_pawns,
-            WHITE_ROOK_U8 => &mut self.white_rooks,
-            WHITE_QUEEN_U8 => &mut self.white_queens,
-            WHITE_KING_U8 => &mut self.white_king,
-            BLACK_BISHOP_U8 => &mut self.black_bishops,
-            BLACK_KNIGHT_U8 => &mut self.black_knights,
-            BLACK_PAWN_U8 => &mut self.black_pawns,
-            BLACK_ROOK_U8 => &mut self.black_rooks,
-            BLACK_QUEEN_U8 => &mut self.black_queens,
-            BLACK_KING_U8 => &mut self.black_king,
-            _ => unreachable!(),
+        let bitboard_to_mutate: &mut Bitboard = if color == 8 {
+            match self.piece_at(piece).unwrap() {
+                WHITE_PAWN_U32 => &mut self.white_pawns,
+                WHITE_KNIGHT_U32 => &mut self.white_knights,
+                WHITE_BISHOP_U32 => &mut self.white_bishops,
+                WHITE_QUEEN_U32 => &mut self.white_queens,
+                WHITE_KING_U32 => &mut self.white_king,
+                WHITE_ROOK_U32 => &mut self.white_rooks,
+                _ => unreachable!(),
+            }
+        } else {
+            match self.piece_at(piece).unwrap() {
+                BLACK_PAWN_U32 => &mut self.black_pawns,
+                BLACK_KNIGHT_U32 => &mut self.black_knights,
+                BLACK_BISHOP_U32 => &mut self.black_bishops,
+                BLACK_QUEEN_U32 => &mut self.black_queens,
+                BLACK_KING_U32 => &mut self.black_king,
+                BLACK_ROOK_U32 => &mut self.black_rooks,
+                _ => unreachable!(),
+            }
         };
 
         *bitboard_to_mutate &= from_mask;
@@ -185,85 +198,96 @@ impl Board {
     fn perform_capture(
         &mut self,
         state: &mut GameState,
-        enemy: u8,
+        enemy: u32,
         previous_move: &mut PreviousMove,
         to_sq: u8,
+        color: u32,
     ) -> () {
-        let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = match enemy {
-            WHITE_BISHOP_U8 => {
-                previous_move.material_difference -= BISHOP_VALUE;
-                self.material -= BISHOP_VALUE;
-                (&mut self.white_bishops, &mut self.white_occupancy)
-            }
-            WHITE_KNIGHT_U8 => {
-                previous_move.material_difference -= KNIGHT_VALUE;
-                self.material -= KNIGHT_VALUE;
-                (&mut self.white_knights, &mut self.white_occupancy)
-            }
-            WHITE_PAWN_U8 => {
-                previous_move.material_difference -= PAWN_VALUE;
-                self.material -= PAWN_VALUE;
-                (&mut self.white_pawns, &mut self.white_occupancy)
-            }
-            WHITE_QUEEN_U8 => {
-                previous_move.material_difference -= QUEEN_VALUE;
-                self.material -= QUEEN_VALUE;
-                (&mut self.white_queens, &mut self.white_occupancy)
-            }
-            WHITE_ROOK_U8 => {
-                previous_move.material_difference -= ROOK_VALUE;
-                self.material -= ROOK_VALUE;
-                if to_sq == 7 {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                    state.castling_rights.white_two_zeros = false;
-                } else if to_sq == 0 {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                    state.castling_rights.white_three_zeros = false;
+        let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = if color == 16 {
+            match enemy {
+                WHITE_BISHOP_U32 => {
+                    previous_move.material_difference -= BISHOP_VALUE;
+                    self.material -= BISHOP_VALUE;
+                    (&mut self.white_bishops, &mut self.white_occupancy)
                 }
-                (&mut self.white_rooks, &mut self.white_occupancy)
+                WHITE_KNIGHT_U32 => {
+                    previous_move.material_difference -= KNIGHT_VALUE;
+                    self.material -= KNIGHT_VALUE;
+                    (&mut self.white_knights, &mut self.white_occupancy)
+                }
+                WHITE_PAWN_U32 => {
+                    previous_move.material_difference -= PAWN_VALUE;
+                    self.material -= PAWN_VALUE;
+                    (&mut self.white_pawns, &mut self.white_occupancy)
+                }
+                WHITE_QUEEN_U32 => {
+                    previous_move.material_difference -= QUEEN_VALUE;
+                    self.material -= QUEEN_VALUE;
+                    (&mut self.white_queens, &mut self.white_occupancy)
+                }
+                WHITE_ROOK_U32 => {
+                    previous_move.material_difference -= ROOK_VALUE;
+                    self.material -= ROOK_VALUE;
+                    if to_sq == 7 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+                        state.castling_rights.white_two_zeros = false;
+                    } else if to_sq == 0 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+                        state.castling_rights.white_three_zeros = false;
+                    }
+                    (&mut self.white_rooks, &mut self.white_occupancy)
+                }
+                WHITE_KING_U32 => {
+                    panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
+                }
+                _ => unreachable!(),
             }
-            WHITE_KING_U8 => {
-                panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
-            }
-            BLACK_BISHOP_U8 => {
-                previous_move.material_difference += BISHOP_VALUE;
-                self.material += BISHOP_VALUE;
-                (&mut self.black_bishops, &mut self.black_occupancy)
-            }
-            BLACK_KNIGHT_U8 => {
-                previous_move.material_difference += KNIGHT_VALUE;
-                self.material += KNIGHT_VALUE;
-                (&mut self.black_knights, &mut self.black_occupancy)
-            }
-            BLACK_PAWN_U8 => {
-                previous_move.material_difference += PAWN_VALUE;
-                self.material += PAWN_VALUE;
-                (&mut self.black_pawns, &mut self.black_occupancy)
-            }
-            BLACK_QUEEN_U8 => {
-                previous_move.material_difference += QUEEN_VALUE;
-                self.material += QUEEN_VALUE;
-                (&mut self.black_queens, &mut self.black_occupancy)
-            }
-            BLACK_ROOK_U8 => {
-                previous_move.material_difference += ROOK_VALUE;
-                self.material += ROOK_VALUE;
-                if to_sq == 63 {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                    state.castling_rights.black_two_zeros = false;
-                } else if to_sq == 56 {
-                    previous_move.previous_castling_rights = Some(state.castling_rights.clone());
+        } else {
+            match enemy {
+                BLACK_BISHOP_U32 => {
+                    previous_move.material_difference += BISHOP_VALUE;
+                    self.material += BISHOP_VALUE;
+                    (&mut self.black_bishops, &mut self.black_occupancy)
+                }
+                BLACK_KNIGHT_U32 => {
+                    previous_move.material_difference += KNIGHT_VALUE;
+                    self.material += KNIGHT_VALUE;
+                    (&mut self.black_knights, &mut self.black_occupancy)
+                }
+                BLACK_PAWN_U32 => {
+                    previous_move.material_difference += PAWN_VALUE;
+                    self.material += PAWN_VALUE;
+                    (&mut self.black_pawns, &mut self.black_occupancy)
+                }
+                BLACK_QUEEN_U32 => {
+                    previous_move.material_difference += QUEEN_VALUE;
+                    self.material += QUEEN_VALUE;
+                    (&mut self.black_queens, &mut self.black_occupancy)
+                }
+                BLACK_ROOK_U32 => {
+                    previous_move.material_difference += ROOK_VALUE;
+                    self.material += ROOK_VALUE;
+                    if to_sq == 63 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
+                        state.castling_rights.black_two_zeros = false;
+                    } else if to_sq == 56 {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
 
-                    state.castling_rights.black_three_zeros = false;
+                        state.castling_rights.black_three_zeros = false;
+                    }
+                    (&mut self.black_rooks, &mut self.black_occupancy)
                 }
-                (&mut self.black_rooks, &mut self.black_occupancy)
+                BLACK_KING_U32 => {
+                    panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
+                }
+                _ => unreachable!(),
             }
-            BLACK_KING_U8 => {
-                panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
-            }
-            _ => unreachable!(),
         };
-        previous_move.changed_cache_indices[1] = (Some((to_sq, to_sq)), Some(enemy));
+        previous_move.moved_piece |= enemy << CAPTURED_PIECE_TYPE_SHIFT;
         let capture: Bitboard = !(1 << to_sq);
         *occupancy &= capture;
         *bitboard_for_capture &= capture;
@@ -274,37 +298,31 @@ impl Board {
         previous_move: &mut PreviousMove,
         from_sq: u8,
         to_sq: u8,
-        color: &u8,
+        color: u32,
     ) -> () {
-        let rook: u8 = COLORLESS_ROOK | *color;
-        previous_move.changed_cache_indices[1] = (Some((from_sq as u8, to_sq as u8)), Some(rook));
-        self.cached_pieces[from_sq as usize] = None;
-        self.cached_pieces[to_sq as usize] = Some(rook);
-        self.reset_bit(rook, from_sq, to_sq);
+        let rook: u32 = COLORLESS_ROOK | color;
+        previous_move.moved_piece |= 1 << CASTLING_SHIFT;
+        self.reset_bit(rook, from_sq, to_sq, color);
         let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
         let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
         *total_occupancy &= start;
         *total_occupancy |= end;
         let occupancy: &mut Bitboard = match color {
-            &8 => &mut self.white_occupancy,
-            &16 => &mut self.black_occupancy,
+            8 => &mut self.white_occupancy,
+            16 => &mut self.black_occupancy,
             _ => unreachable!(),
         };
         *occupancy &= start;
         *occupancy |= end;
     }
 
-    fn en_passant(&mut self, e_p: u8, previous_move: &mut PreviousMove, color: &u8) -> () {
+    fn en_passant(&mut self, e_p: u8, previous_move: &mut PreviousMove, color: u32) -> () {
         let (pawns, occupancy, captured_pawn_square) = match color {
-            &8 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
-            &16 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            8 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
+            16 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
             _ => unreachable!(),
         };
-        previous_move.changed_cache_indices[1] = (
-            Some((captured_pawn_square, captured_pawn_square)),
-            Some(COLORLESS_PAWN | *color),
-        );
-        self.cached_pieces[captured_pawn_square as usize] = None;
+        previous_move.moved_piece |= 1 << EN_PASSANT_SHIFT;
         let capture: Bitboard = !(1 << captured_pawn_square);
         *pawns &= capture;
         *occupancy &= capture;
@@ -312,38 +330,37 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
-    pub fn perform_move(&mut self, from_to: &u16, state: &mut GameState) -> () {
-        let (from_sq, to_sq): (u8, u8) = (
-            (from_to & FROM_MASK) as u8,
-            ((from_to & TO_MASK) >> TO_SHIFT) as u8,
-        );
+    pub fn perform_move(&mut self, piece_move: u32, state: &mut GameState, color: u32) -> () {
+        let (from_sq, to_sq): (u32, u32) =
+            ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
+        let to_sq_u8: u8 = to_sq as u8;
 
-        let moving_piece: u8 = unsafe { self.piece_at(&(from_sq as u16)).unwrap_unchecked() }; // a piece on the starting square must be present 
-        let captured_piece: Option<u8> = self.piece_at(&(to_sq as u16));
-        let mut promotion_choice: Option<u8> = None;
+        let moving_piece: u32 = moving_piece(piece_move);
+        let captured_piece: u32 = captured_piece(piece_move);
+
+        let mut promotion_choice: Option<u32> = None;
         let mut previous_move: PreviousMove = PreviousMove {
-            changed_cache_indices: [(None, None); 3],
+            moved_piece: piece_move,
             previous_en_passant: state.en_passant_target,
             previous_castling_rights: None,
             material_difference: 0,
-            promotion_happened: false,
         };
-        if let Some(enemy) = captured_piece {
-            self.perform_capture(state, enemy, &mut previous_move, to_sq);
+        if captured_piece != 0 {
+            self.perform_capture(state, captured_piece, &mut previous_move, to_sq_u8, color);
         }
 
         let color_to_mutate: &mut u64 = match moving_piece {
-            WHITE_KING_U8 => {
+            WHITE_KING_U32 => {
                 previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                self.white_king_square = to_sq;
+                self.white_king_square = to_sq as u8;
                 match (from_sq, to_sq) {
                     (4, 2) => {
                         let (rook_from, rook_to) = (0, 3);
-                        self.castling(&mut previous_move, rook_from, rook_to, &NO_PIECE_WHITE);
+                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
                     }
                     (4, 6) => {
                         let (rook_from, rook_to) = (7, 5);
-                        self.castling(&mut previous_move, rook_from, rook_to, &NO_PIECE_WHITE);
+                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
                     }
                     _ => (),
                 };
@@ -355,9 +372,9 @@ impl Board {
                 state.en_passant_target = None;
                 &mut self.white_occupancy
             }
-            WHITE_ROOK_U8 => {
-                if (to_sq != 56 && to_sq != 63)
-                    && self.piece_at(&(to_sq as u16)) != Some(BLACK_ROOK_U8)
+            WHITE_ROOK_U32 => {
+                if moving_piece_type(piece_move) != COLORLESS_ROOK
+                    || captured_piece_type(piece_move) != COLORLESS_ROOK
                 {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
                 }
@@ -370,32 +387,32 @@ impl Board {
                 state.en_passant_target = None;
                 &mut self.white_occupancy
             }
-            WHITE_PAWN_U8 => {
+            WHITE_PAWN_U32 => {
                 match (from_sq, to_sq) {
                     (8..=15, 24..=31) => {
-                        state.en_passant_target = Some(to_sq - 8); // en passant square behind the pawn
+                        state.en_passant_target = Some(to_sq_u8 - 8); // en passant square behind the pawn
                     }
                     (48..56, 56..64) => {
-                        promotion_choice = match (from_to & PROMOTION_MASK) >> PROMOTION_SHIFT {
+                        promotion_choice = match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
                             1 => {
                                 self.material += KNIGHT_VALUE;
                                 previous_move.material_difference += KNIGHT_VALUE;
-                                Some(WHITE_KNIGHT_U8)
+                                Some(WHITE_KNIGHT_U32)
                             }
                             2 => {
                                 self.material += BISHOP_VALUE;
                                 previous_move.material_difference += BISHOP_VALUE;
-                                Some(WHITE_BISHOP_U8)
+                                Some(WHITE_BISHOP_U32)
                             }
                             3 => {
                                 self.material += ROOK_VALUE;
                                 previous_move.material_difference += ROOK_VALUE;
-                                Some(WHITE_ROOK_U8)
+                                Some(WHITE_ROOK_U32)
                             }
                             4 => {
                                 self.material += QUEEN_VALUE;
                                 previous_move.material_difference += QUEEN_VALUE;
-                                Some(WHITE_QUEEN_U8)
+                                Some(WHITE_QUEEN_U32)
                             }
                             _ => unsafe { unreachable_unchecked() },
                         };
@@ -403,8 +420,8 @@ impl Board {
                     }
                     _ => {
                         if let Some(e_p) = state.en_passant_target {
-                            if to_sq == e_p {
-                                self.en_passant(e_p, &mut previous_move, &NO_PIECE_BLACK);
+                            if to_sq_u8 == e_p {
+                                self.en_passant(e_p, &mut previous_move, NO_PIECE_BLACK);
                                 previous_move.material_difference += PAWN_VALUE;
                                 self.material += PAWN_VALUE;
                             }
@@ -414,22 +431,22 @@ impl Board {
                 };
                 &mut self.white_occupancy
             }
-            WHITE_BISHOP_U8 | WHITE_KNIGHT_U8 | WHITE_QUEEN_U8 => {
+            WHITE_BISHOP_U32 | WHITE_KNIGHT_U32 | WHITE_QUEEN_U32 => {
                 state.en_passant_target = None;
                 &mut self.white_occupancy
             }
 
-            BLACK_KING_U8 => {
+            BLACK_KING_U32 => {
                 previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                self.black_king_square = to_sq;
+                self.black_king_square = to_sq as u8;
                 match (from_sq, to_sq) {
                     (60, 58) => {
                         let (rook_from, rook_to) = (56, 59);
-                        self.castling(&mut previous_move, rook_from, rook_to, &NO_PIECE_BLACK);
+                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
                     }
                     (60, 62) => {
                         let (rook_from, rook_to) = (63, 61);
-                        self.castling(&mut previous_move, rook_from, rook_to, &NO_PIECE_BLACK);
+                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
                     }
                     _ => (),
                 };
@@ -441,9 +458,9 @@ impl Board {
                 state.en_passant_target = None;
                 &mut self.black_occupancy
             }
-            BLACK_ROOK_U8 => {
-                if (to_sq != 0 && to_sq != 7)
-                    && self.piece_at(&(to_sq as u16)) != Some(WHITE_ROOK_U8)
+            BLACK_ROOK_U32 => {
+                if moving_piece_type(piece_move) != COLORLESS_ROOK
+                    || captured_piece_type(piece_move) != COLORLESS_ROOK
                 {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
                 }
@@ -455,32 +472,32 @@ impl Board {
                 state.en_passant_target = None;
                 &mut self.black_occupancy
             }
-            BLACK_PAWN_U8 => {
+            BLACK_PAWN_U32 => {
                 match (from_sq, to_sq) {
                     (48..=55, 32..=39) => {
-                        state.en_passant_target = Some(to_sq + 8); // en passant square behind the pawn
+                        state.en_passant_target = Some(to_sq_u8 + 8); // en passant square behind the pawn
                     }
                     (8..16, 0..8) => {
-                        promotion_choice = match (from_to & PROMOTION_MASK) >> PROMOTION_SHIFT {
+                        promotion_choice = match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
                             1 => {
                                 self.material -= KNIGHT_VALUE;
                                 previous_move.material_difference -= KNIGHT_VALUE;
-                                Some(BLACK_KNIGHT_U8)
+                                Some(BLACK_KNIGHT_U32)
                             }
                             2 => {
                                 self.material -= BISHOP_VALUE;
                                 previous_move.material_difference -= BISHOP_VALUE;
-                                Some(BLACK_BISHOP_U8)
+                                Some(BLACK_BISHOP_U32)
                             }
                             3 => {
                                 self.material -= ROOK_VALUE;
                                 previous_move.material_difference -= ROOK_VALUE;
-                                Some(BLACK_ROOK_U8)
+                                Some(BLACK_ROOK_U32)
                             }
                             4 => {
                                 self.material -= QUEEN_VALUE;
                                 previous_move.material_difference -= QUEEN_VALUE;
-                                Some(BLACK_QUEEN_U8)
+                                Some(BLACK_QUEEN_U32)
                             }
                             _ => unsafe { unreachable_unchecked() },
                         };
@@ -488,8 +505,8 @@ impl Board {
                     }
                     _ => {
                         if let Some(e_p) = state.en_passant_target {
-                            if to_sq == e_p {
-                                self.en_passant(e_p, &mut previous_move, &NO_PIECE_WHITE);
+                            if to_sq_u8 == e_p {
+                                self.en_passant(e_p, &mut previous_move, NO_PIECE_WHITE);
                                 previous_move.material_difference -= PAWN_VALUE;
                                 self.material -= PAWN_VALUE;
                             }
@@ -505,164 +522,202 @@ impl Board {
             }
         };
         let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
-        *&mut self.total_occupancy &= start;
-        *&mut self.total_occupancy |= end;
+        self.total_occupancy &= start;
+        self.total_occupancy |= end;
         *color_to_mutate &= start;
         *color_to_mutate |= end;
 
-        (
-            previous_move.changed_cache_indices[0],
-            self.cached_pieces[to_sq as usize],
-        ) = match promotion_choice {
-            None => {
-                self.reset_bit(moving_piece, from_sq, to_sq);
-                (
-                    (Some((from_sq, to_sq)), Some(moving_piece)),
-                    Some(moving_piece),
-                )
-            }
+        match promotion_choice {
             Some(p) => {
-                previous_move.promotion_happened = true;
-                previous_move.changed_cache_indices[2] = (Some((from_sq, to_sq)), Some(p));
-                match p {
-                    WHITE_QUEEN_U8 => {
-                        *&mut self.white_pawns &= start;
-                        *&mut self.white_queens |= end
+                if color == 8 {
+                    match p {
+                        WHITE_QUEEN_U32 => {
+                            *&mut self.white_pawns &= start;
+                            *&mut self.white_queens |= end
+                        }
+                        WHITE_ROOK_U32 => {
+                            *&mut self.white_pawns &= start;
+                            *&mut self.white_rooks |= end
+                        }
+                        WHITE_BISHOP_U32 => {
+                            *&mut self.white_pawns &= start;
+                            *&mut self.white_bishops |= end
+                        }
+                        WHITE_KNIGHT_U32 => {
+                            *&mut self.white_pawns &= start;
+                            *&mut self.white_knights |= end
+                        }
+                        _ => unreachable!(),
                     }
-                    WHITE_ROOK_U8 => {
-                        *&mut self.white_pawns &= start;
-                        *&mut self.white_rooks |= end
+                } else {
+                    match p {
+                        BLACK_QUEEN_U32 => {
+                            *&mut self.black_pawns &= start;
+                            *&mut self.black_queens |= end
+                        }
+                        BLACK_ROOK_U32 => {
+                            *&mut self.black_pawns &= start;
+                            *&mut self.black_rooks |= end
+                        }
+                        BLACK_BISHOP_U32 => {
+                            *&mut self.black_pawns &= start;
+                            *&mut self.black_bishops |= end
+                        }
+                        BLACK_KNIGHT_U32 => {
+                            *&mut self.black_pawns &= start;
+                            *&mut self.black_knights |= end
+                        }
+                        _ => unreachable!(),
                     }
-                    WHITE_BISHOP_U8 => {
-                        *&mut self.white_pawns &= start;
-                        *&mut self.white_bishops |= end
-                    }
-                    WHITE_KNIGHT_U8 => {
-                        *&mut self.white_pawns &= start;
-                        *&mut self.white_knights |= end
-                    }
-
-                    BLACK_QUEEN_U8 => {
-                        *&mut self.black_pawns &= start;
-                        *&mut self.black_queens |= end
-                    }
-                    BLACK_ROOK_U8 => {
-                        *&mut self.black_pawns &= start;
-                        *&mut self.black_rooks |= end
-                    }
-                    BLACK_BISHOP_U8 => {
-                        *&mut self.black_pawns &= start;
-                        *&mut self.black_bishops |= end
-                    }
-                    BLACK_KNIGHT_U8 => {
-                        *&mut self.black_pawns &= start;
-                        *&mut self.black_knights |= end
-                    }
-                    _ => unreachable!(),
                 };
-
-                self.cached_pieces[to_sq as usize] = Some(p);
-                ((Some((from_sq, to_sq)), Some(moving_piece)), Some(p))
+            }
+            None => {
+                let piece_to_mutate: &mut u64 = if color == 8 {
+                    match moving_piece {
+                        WHITE_PAWN_U32 => &mut self.white_pawns,
+                        WHITE_BISHOP_U32 => &mut self.white_bishops,
+                        WHITE_KNIGHT_U32 => &mut self.white_knights,
+                        WHITE_QUEEN_U32 => &mut self.white_queens,
+                        WHITE_KING_U32 => &mut self.white_king,
+                        WHITE_ROOK_U32 => &mut self.white_rooks,
+                        _ => unreachable!("moving piece: {moving_piece}"),
+                    }
+                } else {
+                    match moving_piece {
+                        BLACK_PAWN_U32 => &mut self.black_pawns,
+                        BLACK_BISHOP_U32 => &mut self.black_bishops,
+                        BLACK_KNIGHT_U32 => &mut self.black_knights,
+                        BLACK_QUEEN_U32 => &mut self.black_queens,
+                        BLACK_KING_U32 => &mut self.black_king,
+                        BLACK_ROOK_U32 => &mut self.black_rooks,
+                        _ => unreachable!(),
+                    }
+                };
+                *piece_to_mutate |= end;
+                *piece_to_mutate &= start;
             }
         };
-        self.cached_pieces[from_sq as usize] = None;
         state.moves_history.push(previous_move);
     }
 
-    pub fn cancel_move(&mut self, state: &mut GameState) -> () {
+    pub fn cancel_move(&mut self, state: &mut GameState, color: u32) -> () {
         if let Some(previous_move) = state.moves_history.pop() {
             self.material -= previous_move.material_difference;
 
-            if let (Some(cached_index), Some(piece)) = previous_move.changed_cache_indices[0] {
-                let (bitboard_to_restore, occupancy): (&mut u64, &mut u64) = match piece {
-                    WHITE_BISHOP_U8 => (&mut self.white_bishops, &mut self.white_occupancy),
-                    BLACK_BISHOP_U8 => (&mut self.black_bishops, &mut self.black_occupancy),
-                    WHITE_KNIGHT_U8 => (&mut self.white_knights, &mut self.white_occupancy),
-                    BLACK_KNIGHT_U8 => (&mut self.black_knights, &mut self.black_occupancy),
-                    WHITE_PAWN_U8 => (&mut self.white_pawns, &mut self.white_occupancy),
-                    BLACK_PAWN_U8 => (&mut self.black_pawns, &mut self.black_occupancy),
-                    WHITE_QUEEN_U8 => (&mut self.white_queens, &mut self.white_occupancy),
-                    BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
-                    WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
-                    BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
-                    WHITE_KING_U8 => {
-                        self.white_king_square = cached_index.0;
-                        (&mut self.white_king, &mut self.white_occupancy)
+            let m: u32 = previous_move.moved_piece;
+            let (start, end, main_piece, promotion, captured_piece, castling, en_passant) = (
+                from_square(m),
+                to_square(m),
+                moving_piece(m),
+                promotion(m),
+                captured_piece(m),
+                castling(m),
+                en_passant(m),
+            );
+            let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = if color == 8 {
+                (
+                    match main_piece {
+                        WHITE_PAWN_U32 => &mut self.white_pawns,
+                        WHITE_KNIGHT_U32 => &mut self.white_knights,
+                        WHITE_BISHOP_U32 => &mut self.white_bishops,
+                        WHITE_QUEEN_U32 => &mut self.white_queens,
+                        WHITE_KING_U32 => &mut self.white_king,
+                        WHITE_ROOK_U32 => &mut self.white_rooks,
+                        other => unreachable!("piece {other}"),
+                    },
+                    &mut self.white_occupancy,
+                )
+            } else {
+                (
+                    match main_piece {
+                        BLACK_PAWN_U32 => &mut self.black_pawns,
+                        BLACK_KNIGHT_U32 => &mut self.black_knights,
+                        BLACK_BISHOP_U32 => &mut self.black_bishops,
+                        BLACK_QUEEN_U32 => &mut self.black_queens,
+                        BLACK_KING_U32 => &mut self.black_king,
+                        BLACK_ROOK_U32 => &mut self.black_rooks,
+                        other => unreachable!("piece {other}"),
+                    },
+                    &mut self.black_occupancy,
+                )
+            };
+            let start_bb: u64 = 1 << start;
+            let not_end_bb: u64 = !(1 << end);
+            *moved_piece_bitboard &= not_end_bb;
+            if promotion == 0 {
+                *moved_piece_bitboard |= start_bb;
+            } else {
+                *match color {
+                    8 => &mut self.white_pawns,
+                    16 => &mut self.black_pawns,
+                    _ => unreachable!(),
+                } |= start_bb
+            }
+
+            *color_occupancy |= start_bb;
+            *color_occupancy &= not_end_bb;
+            self.total_occupancy |= start_bb;
+            if captured_piece != 0 {
+                let end_bb: u64 = 1 << end;
+                *if color == 8 {
+                    self.black_occupancy |= end_bb;
+                    match captured_piece {
+                        BLACK_PAWN_U32 => &mut self.black_pawns,
+                        BLACK_KNIGHT_U32 => &mut self.black_knights,
+                        BLACK_BISHOP_U32 => &mut self.black_bishops,
+                        BLACK_QUEEN_U32 => &mut self.black_queens,
+                        BLACK_ROOK_U32 => &mut self.black_rooks,
+                        _ => unreachable!(),
                     }
-                    BLACK_KING_U8 => {
-                        self.black_king_square = cached_index.0;
-                        (&mut self.black_king, &mut self.black_occupancy)
+                } else {
+                    self.white_occupancy |= end_bb;
+                    match captured_piece {
+                        WHITE_PAWN_U32 => &mut self.white_pawns,
+                        WHITE_KNIGHT_U32 => &mut self.white_knights,
+                        WHITE_BISHOP_U32 => &mut self.white_bishops,
+                        WHITE_QUEEN_U32 => &mut self.white_queens,
+                        WHITE_ROOK_U32 => &mut self.white_rooks,
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
-                };
+                } |= end_bb;
 
-                let total: &mut Bitboard = &mut self.total_occupancy;
-                let first_square: Bitboard = 1 << cached_index.0;
-                self.cached_pieces[cached_index.0 as usize] = Some(piece);
-
-                *total |= first_square;
-                *bitboard_to_restore |= first_square;
-                *occupancy |= first_square;
-
-                self.cached_pieces[cached_index.1 as usize] = None;
-                let last_square: Bitboard = !(1 << cached_index.1);
-                *total &= last_square;
-                *bitboard_to_restore &= last_square;
-                *occupancy &= last_square;
+                self.total_occupancy |= end_bb;
+            } else {
+                self.total_occupancy &= not_end_bb;
             }
 
-            // promoted piece
-            if let (Some(cached_index), Some(piece)) = previous_move.changed_cache_indices[2] {
-                let (bitboard_to_restore, occupancy): (&mut u64, &mut u64) = match piece {
-                    WHITE_BISHOP_U8 => (&mut self.white_bishops, &mut self.white_occupancy),
-                    BLACK_BISHOP_U8 => (&mut self.black_bishops, &mut self.black_occupancy),
-                    WHITE_KNIGHT_U8 => (&mut self.white_knights, &mut self.white_occupancy),
-                    BLACK_KNIGHT_U8 => (&mut self.black_knights, &mut self.black_occupancy),
-                    WHITE_QUEEN_U8 => (&mut self.white_queens, &mut self.white_occupancy),
-                    BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
-                    WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
-                    BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
-                    _ => unreachable!(),
-                };
-
-                self.cached_pieces[cached_index.1 as usize] = None;
-                let last_square: Bitboard = !(1 << cached_index.1);
-                *bitboard_to_restore &= last_square;
-                *occupancy &= last_square;
+            if en_passant != 0 {
+                let (enemy_pawns, enemy_occupancy, taken_pawn_square): (&mut u64, &mut u64, u64) =
+                    match color {
+                        8 => (
+                            &mut self.black_pawns,
+                            &mut self.black_occupancy,
+                            1 << (end - 8),
+                        ),
+                        16 => (
+                            &mut self.white_pawns,
+                            &mut self.white_occupancy,
+                            1 << (end + 8),
+                        ),
+                        _ => unreachable!(),
+                    };
+                *enemy_pawns |= taken_pawn_square;
+                self.total_occupancy |= taken_pawn_square;
+                *enemy_occupancy |= taken_pawn_square;
             }
 
-            // captured piece / castled rook / en passant
-            if let (Some(cached_index), Some(piece)) = previous_move.changed_cache_indices[1] {
-                let (bitboard_to_restore, occupancy): (&mut u64, &mut u64) = match piece {
-                    WHITE_BISHOP_U8 => (&mut self.white_bishops, &mut self.white_occupancy),
-                    BLACK_BISHOP_U8 => (&mut self.black_bishops, &mut self.black_occupancy),
-                    WHITE_KNIGHT_U8 => (&mut self.white_knights, &mut self.white_occupancy),
-                    BLACK_KNIGHT_U8 => (&mut self.black_knights, &mut self.black_occupancy),
-                    WHITE_PAWN_U8 => (&mut self.white_pawns, &mut self.white_occupancy),
-                    BLACK_PAWN_U8 => (&mut self.black_pawns, &mut self.black_occupancy),
-                    WHITE_QUEEN_U8 => (&mut self.white_queens, &mut self.white_occupancy),
-                    BLACK_QUEEN_U8 => (&mut self.black_queens, &mut self.black_occupancy),
-                    WHITE_ROOK_U8 => (&mut self.white_rooks, &mut self.white_occupancy),
-                    BLACK_ROOK_U8 => (&mut self.black_rooks, &mut self.black_occupancy),
+            if castling != 0 {
+                let (rooks, rook_start, rook_end) = match (start, end) {
+                    (4, 2) => (&mut self.white_rooks, 0, 3),
+                    (4, 6) => (&mut self.white_rooks, 7, 5),
+                    (60, 58) => (&mut self.black_rooks, 56, 59),
+                    (60, 62) => (&mut self.black_rooks, 63, 61),
                     _ => unreachable!(),
                 };
-
-                let total: &mut Bitboard = &mut self.total_occupancy;
-                let first_square: Bitboard = 1 << cached_index.0;
-
-                self.cached_pieces[cached_index.0 as usize] = Some(piece);
-
-                *total |= first_square;
-                *bitboard_to_restore |= first_square;
-                *occupancy |= first_square;
-                if cached_index.0 != cached_index.1 {
-                    self.cached_pieces[cached_index.1 as usize] = None;
-                    let last_square: Bitboard = !(1 << cached_index.1);
-                    *total &= last_square;
-                    *bitboard_to_restore &= last_square;
-                    *occupancy &= last_square;
-                }
+                *rooks |= 1 << rook_start;
+                *rooks &= !(1 << rook_end);
             }
+
             if let Some(castling_rights) = previous_move.previous_castling_rights {
                 state.castling_rights = castling_rights;
             }
@@ -682,7 +737,7 @@ impl Board {
         return rng;
     }
 
-    pub fn is_capture(&self, m: &u16) -> bool {
-        return self.piece_at(&((m & TO_MASK) >> TO_SHIFT)).is_some();
+    pub fn is_capture(&self, m: u32) -> bool {
+        return self.piece_at((m & TO_MASK) >> TO_SHIFT).is_some();
     }
 }

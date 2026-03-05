@@ -115,8 +115,8 @@ const fn king_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_WHITE);
-pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_BLACK);
+pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_WHITE as u8);
+pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_BLACK as u8);
 
 #[allow(unused)]
 const fn pawn_attacks(color: u8) -> [Bitboard; 64] {

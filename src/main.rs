@@ -2,7 +2,9 @@ use crate::{
     alpha_beta_pruning::Engine,
     board::Board,
     board_geometry_templates::{
-        FROM_MASK, NO_PIECE_BLACK, NO_PIECE_WHITE, PROMOTION_SHIFT, TO_MASK, TO_SHIFT,
+        CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING, EN_PASSANT_SHIFT, FROM_MASK,
+        MOVING_PIECE_TYPE_SHIFT, NO_PIECE_BLACK, NO_PIECE_WHITE, PROMOTION_SHIFT, TO_MASK,
+        TO_SHIFT, moving_piece_type,
     },
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
@@ -49,7 +51,6 @@ fn main() -> () {
     let mut state: GameState = GameState::new(&board);
 
     board.total_occupancy();
-    board.update_full_cache();
     board.count_material();
 
     print!("choose the color: ");
@@ -87,24 +88,24 @@ fn game_control(
     loop {
         match engine.side {
             8 => {
-                match make_engine_move(engine, board, state) {
+                match make_engine_move(engine, board, state, engine.side) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
                 };
-                match make_player_move(board, state, &NO_PIECE_BLACK) {
+                match make_player_move(board, state, NO_PIECE_BLACK) {
                     MoveResult::Continue => continue,
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                 };
             }
             16 => {
-                match make_player_move(board, state, &NO_PIECE_WHITE) {
+                match make_player_move(board, state, NO_PIECE_WHITE) {
                     MoveResult::Continue => continue,
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                 };
-                match make_engine_move(engine, board, state) {
+                match make_engine_move(engine, board, state, engine.side) {
                     MoveResult::Draw | MoveResult::Win => break,
                     MoveResult::None => (),
                     _ => unreachable!(),
@@ -116,16 +117,20 @@ fn game_control(
     return Ok(());
 }
 
-fn make_engine_move(engine: &mut Engine, board: &mut Board, state: &mut GameState) -> MoveResult {
+fn make_engine_move(
+    engine: &mut Engine,
+    board: &mut Board,
+    state: &mut GameState,
+    color: u32,
+) -> MoveResult {
     board.total_occupancy();
-    board.update_full_cache();
     board.count_material();
 
     let time: Instant = Instant::now();
-    let engine_move: Option<u16> = engine.find_best_move(&board, state);
+    let engine_move: Option<u32> = engine.find_best_move(&board, state);
     println!("time elapsed: {:.6?}", time.elapsed());
     if let Some(m) = engine_move {
-        board.perform_move(&m, state);
+        board.perform_move(m, state, color);
         println!(
             "Ferrous's move: {:?} {:?}",
             INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
@@ -134,8 +139,8 @@ fn make_engine_move(engine: &mut Engine, board: &mut Board, state: &mut GameStat
                 .unwrap(),
         );
     } else {
-        if board.is_square_attacked(board.black_king_square, &8)
-            || board.is_square_attacked(board.white_king_square, &16)
+        if board.is_square_attacked(board.black_king_square, 8)
+            || board.is_square_attacked(board.white_king_square, 16)
         {
             state.result = GameResult::BlackWins;
             println!("you won by checkmate");
@@ -149,9 +154,8 @@ fn make_engine_move(engine: &mut Engine, board: &mut Board, state: &mut GameStat
     return MoveResult::None;
 }
 
-fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8) -> MoveResult {
+fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32) -> MoveResult {
     board.total_occupancy();
-    board.update_full_cache();
     board.count_material();
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
@@ -164,26 +168,40 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
         return MoveResult::Continue;
     }
 
-    let from_sq: u16 = match COORDS_TO_INDICES.get(parts[0]) {
-        Some(&sq) => sq as u16,
+    let from_sq: u32 = match COORDS_TO_INDICES.get(parts[0]) {
+        Some(&sq) => sq as u32,
         None => {
             println!("Invalid starting square: {}", parts[0]);
             return MoveResult::Continue;
         }
     };
 
-    let to_sq: u16 = match COORDS_TO_INDICES.get(parts[1]) {
-        Some(&sq) => sq as u16,
+    let to_sq: u32 = match COORDS_TO_INDICES.get(parts[1]) {
+        Some(&sq) => sq as u32,
         None => {
             println!("Invalid destination square: {}", parts[1]);
             return MoveResult::Continue;
         }
     };
 
-    let mut parsed_move: u16 = from_sq | (to_sq << TO_SHIFT);
+    let mut parsed_move: u32 = from_sq | (to_sq << TO_SHIFT);
+    parsed_move |= board.piece_at(from_sq).unwrap() << MOVING_PIECE_TYPE_SHIFT;
+    if let Some(p) = board.piece_at(to_sq) {
+        parsed_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+    }
+    if moving_piece_type(parsed_move) == COLORLESS_KING
+        && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
+    {
+        parsed_move |= 1 << CASTLING_SHIFT;
+    }
+    if let Some(e_p) = state.en_passant_target {
+        if (e_p as u32) == to_sq {
+            parsed_move |= 1 << EN_PASSANT_SHIFT;
+        }
+    }
 
     if parts.len() == 3 {
-        let promo_piece: u16 = match parts[2].to_lowercase().as_str() {
+        let promo_piece: u32 = match parts[2].to_lowercase().as_str() {
             "q" => 4,
             "r" => 3,
             "b" => 2,
@@ -196,7 +214,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
         parsed_move |= promo_piece << PROMOTION_SHIFT;
     }
 
-    let mut legal_moves: Vec<u16> = board.knight_moves(&state, player_color);
+    let mut legal_moves: Vec<u32> = board.knight_moves(&state, player_color);
     legal_moves.extend(board.bishop_moves(&state, player_color));
     legal_moves.extend(board.rook_moves(&state, player_color));
     legal_moves.extend(board.pawn_moves(&state, player_color));
@@ -204,10 +222,10 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
     legal_moves.extend(board.king_moves(&state, player_color));
 
     if legal_moves.is_empty() {
-        if board.is_square_attacked(board.black_king_square, &8)
-            || board.is_square_attacked(board.white_king_square, &16)
+        if board.is_square_attacked(board.black_king_square, 8)
+            || board.is_square_attacked(board.white_king_square, 16)
         {
-            state.result = if *player_color == NO_PIECE_WHITE {
+            state.result = if player_color == NO_PIECE_WHITE {
                 GameResult::BlackWins
             } else {
                 GameResult::WhiteWins
@@ -222,7 +240,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: &u8)
     }
 
     if legal_moves.iter().any(|&mv| mv == parsed_move) {
-        board.perform_move(&parsed_move, state);
+        board.perform_move(parsed_move, state, player_color);
         return MoveResult::None;
     } else {
         println!("Illegal move");

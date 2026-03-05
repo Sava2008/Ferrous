@@ -52,7 +52,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
         let mut empty_counter: u8 = 0;
 
         for file in 0..8 {
-            let square: u8 = rank * 8 + file;
+            let square: u32 = rank * 8 + file;
             let mask: Bitboard = 1 << square;
 
             if board.total_occupancy & mask == 0 {
@@ -63,19 +63,19 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
                     empty_counter = 0;
                 }
 
-                let piece: u8 = board.piece_at(&(square as u16)).unwrap();
+                let piece: u32 = board.piece_at(square).unwrap();
                 let piece_char: char = match piece {
-                    WHITE_KING_U8 => 'K',
-                    WHITE_QUEEN_U8 => 'Q',
-                    WHITE_ROOK_U8 => 'R',
-                    WHITE_BISHOP_U8 => 'B',
-                    WHITE_KNIGHT_U8 => 'N',
-                    WHITE_PAWN_U8 => 'P',
-                    BLACK_KING_U8 => 'k',
-                    BLACK_QUEEN_U8 => 'q',
-                    BLACK_ROOK_U8 => 'r',
-                    BLACK_BISHOP_U8 => 'b',
-                    BLACK_KNIGHT_U8 => 'n',
+                    WHITE_KING_U32 => 'K',
+                    WHITE_QUEEN_U32 => 'Q',
+                    WHITE_ROOK_U32 => 'R',
+                    WHITE_BISHOP_U32 => 'B',
+                    WHITE_KNIGHT_U32 => 'N',
+                    WHITE_PAWN_U32 => 'P',
+                    BLACK_KING_U32 => 'k',
+                    BLACK_QUEEN_U32 => 'q',
+                    BLACK_ROOK_U32 => 'r',
+                    BLACK_BISHOP_U32 => 'b',
+                    BLACK_KNIGHT_U32 => 'n',
                     _ => 'p',
                 };
                 fen.push(piece_char);
@@ -151,7 +151,6 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         total_occupancy: 0,
         white_king_square: 0,
         black_king_square: 0,
-        cached_pieces: [None; 64],
         material: 0,
     };
     let mut state: GameState = GameState {
@@ -244,7 +243,6 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         (fifty_moves.parse().unwrap(), total_moves.parse().unwrap());
 
     board.total_occupancy();
-    board.update_full_cache();
     board.white_king_square = board.white_king.trailing_zeros() as u8;
     board.black_king_square = board.black_king.trailing_zeros() as u8;
 

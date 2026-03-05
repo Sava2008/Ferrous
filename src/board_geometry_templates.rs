@@ -18,41 +18,97 @@ pub const RANK_6: Bitboard = 0b0000000000000000111111110000000000000000000000000
 pub const RANK_7: Bitboard = 0b0000000011111111000000000000000000000000000000000000000000000000;
 pub const RANK_8: Bitboard = 0b1111111100000000000000000000000000000000000000000000000000000000;
 
-pub const TO_SHIFT: u16 = 6;
-pub const PROMOTION_SHIFT: u16 = 12;
-pub const FROM_MASK: u16 = 0b0000000000111111; // to access from info of a move, `data & FROM_MASK` to be applied
-pub const TO_MASK: u16 = 0b0000111111000000; // to access from info of a move, `(data & TO_MASK) >> 6` to be applied
-pub const PROMOTION_MASK: u16 = 0b0111000000000000; // to access from info of a move, `(data & PROMOTION_MASK) >> 12` to be applied
+/* move encoding (leftmost to rightmost):
+
+START INCLUSIVE, END INCLUSIVE
+bit 0-5: from square
+bit 6-11: to square
+bit 12-14: promotion choice
+bit 15-19: type + color of moving piece
+bit 20-24: type + color of captured piece
+ */
+
+pub const TO_SHIFT: u32 = 6;
+pub const PROMOTION_SHIFT: u32 = 12;
+pub const FROM_MASK: u32 = 0b0000000000111111; // to access from info of a move, `data & FROM_MASK` to be applied
+pub const TO_MASK: u32 = 0b0000111111000000; // to access from info of a move, `(data & TO_MASK) >> 6` to be applied
+pub const PROMOTION_MASK: u32 = 0b0111000000000000; // to access from info of a move, `(data & PROMOTION_MASK) >> 12` to be applied
 
 /* piece type encryption: 1 (0b1) - pawn, 2 (0b10) - knight, 3 (0b11) - bishop,
 4 (0b100) - rook, 5 (0b101) - queen, 6 (0b110) - king
 
 piece color encryption: 1 (0b1) - white, 2 (0b10) - black */
 
-pub const PIECE_COLOR_SHIFT: u8 = 3; // `(u8 & PIECE_COLOR_MASK) >> 3` to get the piece color
-pub const PIECE_TYPE_MASK: u8 = 0b00000111;
-pub const PIECE_COLOR_MASK: u8 = 0b00011000;
+pub const MOVING_PIECE_TYPE_SHIFT: u32 = 15;
+pub const MOVING_PIECE_COLOR_SHIFT: u32 = 18; // `(u32 & PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT` to get the piece color
+pub const CAPTURED_PIECE_TYPE_SHIFT: u32 = 20;
+pub const CAPTURED_PIECE_COLOR_SHIFT: u32 = 23;
+pub const CASTLING_SHIFT: u32 = 26;
+pub const EN_PASSANT_SHIFT: u32 = 25;
 
-pub const WHITE_PAWN_U8: u8 = 9;
-pub const WHITE_KNIGHT_U8: u8 = 10;
-pub const WHITE_BISHOP_U8: u8 = 11;
-pub const WHITE_ROOK_U8: u8 = 12;
-pub const WHITE_QUEEN_U8: u8 = 13;
-pub const WHITE_KING_U8: u8 = 14;
+pub const MOVING_PIECE_TYPE_MASK: u32 = 0b111000000000000000;
+pub const MOVING_PIECE_COLOR_MASK: u32 = 0b11000000000000000000;
+pub const CAPTURED_PIECE_TYPE_MASK: u32 = 0b11100000000000000000000;
+pub const CAPTURED_PIECE_COLOR_MASK: u32 = 0b1100000000000000000000000;
+pub const CASTLING_MASK: u32 = 0b100000000000000000000000000;
+pub const EN_PASSANT_MASK: u32 = 0b10000000000000000000000000;
 
-pub const BLACK_PAWN_U8: u8 = 17;
-pub const BLACK_KNIGHT_U8: u8 = 18;
-pub const BLACK_BISHOP_U8: u8 = 19;
-pub const BLACK_ROOK_U8: u8 = 20;
-pub const BLACK_QUEEN_U8: u8 = 21;
-pub const BLACK_KING_U8: u8 = 22;
+pub const WHITE_PAWN_U32: u32 = 9;
+pub const WHITE_KNIGHT_U32: u32 = 10;
+pub const WHITE_BISHOP_U32: u32 = 11;
+pub const WHITE_ROOK_U32: u32 = 12;
+pub const WHITE_QUEEN_U32: u32 = 13;
+pub const WHITE_KING_U32: u32 = 14;
 
-pub const NO_PIECE_WHITE: u8 = 8;
-pub const NO_PIECE_BLACK: u8 = 16;
+pub const BLACK_PAWN_U32: u32 = 17;
+pub const BLACK_KNIGHT_U32: u32 = 18;
+pub const BLACK_BISHOP_U32: u32 = 19;
+pub const BLACK_ROOK_U32: u32 = 20;
+pub const BLACK_QUEEN_U32: u32 = 21;
+pub const BLACK_KING_U32: u32 = 22;
 
-pub const COLORLESS_PAWN: u8 = 1;
-pub const COLORLESS_KNIGHT: u8 = 2;
-pub const COLORLESS_BISHOP: u8 = 3;
-pub const COLORLESS_ROOK: u8 = 4;
-pub const COLORLESS_QUEEN: u8 = 5;
-pub const COLORLESS_KING: u8 = 6;
+pub const NO_PIECE_WHITE: u32 = 8;
+pub const NO_PIECE_BLACK: u32 = 16;
+
+pub const COLORLESS_PAWN: u32 = 1;
+pub const COLORLESS_KNIGHT: u32 = 2;
+pub const COLORLESS_BISHOP: u32 = 3;
+pub const COLORLESS_ROOK: u32 = 4;
+pub const COLORLESS_QUEEN: u32 = 5;
+pub const COLORLESS_KING: u32 = 6;
+
+pub fn from_square(m: u32) -> u8 {
+    return (m & FROM_MASK) as u8;
+}
+pub fn to_square(m: u32) -> u32 {
+    return (m & TO_MASK) >> TO_SHIFT;
+}
+pub fn promotion(m: u32) -> u8 {
+    return ((m & PROMOTION_MASK) >> PROMOTION_SHIFT) as u8;
+}
+
+pub fn moving_piece_type(m: u32) -> u32 {
+    return (m & MOVING_PIECE_TYPE_MASK) >> MOVING_PIECE_TYPE_SHIFT;
+}
+pub fn moving_piece_color(m: u32) -> u8 {
+    return ((m & MOVING_PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT) as u8;
+}
+pub fn moving_piece(m: u32) -> u32 {
+    return (m & (MOVING_PIECE_TYPE_MASK | MOVING_PIECE_COLOR_MASK)) >> MOVING_PIECE_TYPE_SHIFT;
+}
+pub fn captured_piece_type(m: u32) -> u32 {
+    return (m & CAPTURED_PIECE_TYPE_MASK) >> CAPTURED_PIECE_TYPE_SHIFT;
+}
+pub fn captured_piece_color(m: u32) -> u8 {
+    return ((m & CAPTURED_PIECE_COLOR_MASK) >> CAPTURED_PIECE_COLOR_SHIFT) as u8;
+}
+pub fn captured_piece(m: u32) -> u32 {
+    return (m & (CAPTURED_PIECE_TYPE_MASK | CAPTURED_PIECE_COLOR_MASK))
+        >> CAPTURED_PIECE_TYPE_SHIFT;
+}
+pub fn castling(m: u32) -> u8 {
+    return ((m & CASTLING_MASK) >> CASTLING_SHIFT) as u8;
+}
+pub fn en_passant(m: u32) -> u8 {
+    return ((m & EN_PASSANT_MASK) >> EN_PASSANT_SHIFT) as u8;
+}

@@ -4,33 +4,30 @@ use crate::constants::attacks::*;
 use crate::gamestate::GameState;
 
 impl Board {
-    pub fn knight_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (enemy_king, mut knights_bitboard, excluded_enemy_occupancy): (u8, u64, u64) =
-            match color {
-                &8 => (
-                    self.black_king_square,
-                    self.white_knights,
-                    !self.white_occupancy,
-                ),
-                &16 => (
-                    self.white_king_square,
-                    self.black_knights,
-                    !self.black_occupancy,
-                ),
-                _ => unreachable!(),
-            };
+    pub fn knight_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::with_capacity(16);
+        let (mut knights_bitboard, excluded_occupancy, moving_piece): (u64, u64, u32) = match color
+        {
+            8 => (self.white_knights, !self.white_occupancy, WHITE_KNIGHT_U32),
+            16 => (self.black_knights, !self.black_occupancy, BLACK_KNIGHT_U32),
+            _ => unreachable!(),
+        };
 
         while knights_bitboard != 0 {
-            let initial_pos: u16 = knights_bitboard.trailing_zeros() as u16;
+            let initial_pos: u32 = knights_bitboard.trailing_zeros();
             let attacks: Bitboard = KNIGHT_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: Bitboard = attacks & excluded_enemy_occupancy;
+            let mut dest_bitboard: Bitboard = attacks & excluded_occupancy;
 
             while dest_bitboard != 0 {
-                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-                if final_pos != enemy_king {
-                    moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
+                let final_pos: u32 = dest_bitboard.trailing_zeros();
+                let mut pseudo_move: u32 = initial_pos
+                    | (final_pos << TO_SHIFT)
+                    | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+                if let Some(p) = self.piece_at(final_pos) {
+                    pseudo_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
                 }
+                moves.push(pseudo_move);
+
                 dest_bitboard &= dest_bitboard - 1;
             }
             knights_bitboard &= knights_bitboard - 1;
@@ -38,51 +35,44 @@ impl Board {
         return moves;
     }
 
-    pub fn pawn_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (enemy_king, mut pawns_bitboard, mut enemy_occupancy): (u8, Bitboard, Bitboard) =
-            match color {
-                &8 => (
-                    self.black_king_square,
-                    self.white_pawns,
-                    self.black_occupancy,
-                ),
-                &16 => (
-                    self.white_king_square,
-                    self.black_pawns,
-                    self.white_occupancy,
-                ),
-                _ => unreachable!(),
-            };
-
-        if let Some(e_p) = state.en_passant_target {
-            enemy_occupancy |= 1 << e_p
-        }
+    pub fn pawn_moves(&self, state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::new();
+        let (mut pawns_bitboard, mut enemy_occupancy, moving_piece): (u64, u64, u32) = match color {
+            8 => (self.white_pawns, self.black_occupancy, WHITE_PAWN_U32),
+            16 => (self.black_pawns, self.white_occupancy, BLACK_PAWN_U32),
+            _ => unreachable!(),
+        };
+        let en_passant: u32 = if let Some(e_p) = state.en_passant_target {
+            enemy_occupancy |= 1 << e_p;
+            e_p as u32
+        } else {
+            64
+        };
 
         while pawns_bitboard != 0 {
-            let initial_pos: u16 = pawns_bitboard.trailing_zeros() as u16;
-            let forward_square: u16 = match color {
-                &8 => initial_pos + 8,
-                &16 => initial_pos.wrapping_sub(8),
+            let initial_pos: u32 = pawns_bitboard.trailing_zeros();
+            let forward_square: u32 = match color {
+                8 => initial_pos + 8,
+                16 => initial_pos.wrapping_sub(8),
                 _ => unreachable!(),
             };
             let attacks: Bitboard = match color {
-                &8 => WHITE_PAWN_ATTACKS[initial_pos as usize],
-                &16 => BLACK_PAWN_ATTACKS[initial_pos as usize],
+                8 => WHITE_PAWN_ATTACKS[initial_pos as usize],
+                16 => BLACK_PAWN_ATTACKS[initial_pos as usize],
                 _ => unreachable!(),
             };
             let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
 
             if forward_square < 64 && (self.total_occupancy >> forward_square) & 1 == 0 {
                 dest_bitboard |= 1 << forward_square;
-                let second_forward_square: u16 = match color {
-                    &8 => initial_pos + 16,
-                    &16 => initial_pos.wrapping_sub(16),
+                let second_forward_square: u32 = match color {
+                    8 => initial_pos + 16,
+                    16 => initial_pos.wrapping_sub(16),
                     _ => unreachable!(),
                 };
                 if match color {
-                    &8 => (1 << initial_pos) & RANK_2 != 0,
-                    &16 => (1 << initial_pos) & RANK_7 != 0,
+                    8 => (1 << initial_pos) & RANK_2 != 0,
+                    16 => (1 << initial_pos) & RANK_7 != 0,
                     _ => unreachable!(),
                 } && (self.total_occupancy >> second_forward_square) & 1 == 0
                 {
@@ -90,17 +80,23 @@ impl Board {
                 }
             }
             while dest_bitboard != 0 {
-                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-                if final_pos != enemy_king {
-                    let piece_move: u16 = (initial_pos as u16) | ((final_pos as u16) << TO_SHIFT);
-                    if final_pos > 55 || final_pos < 8 {
-                        moves.push(piece_move | (0b001 << PROMOTION_SHIFT));
-                        moves.push(piece_move | (0b010 << PROMOTION_SHIFT));
-                        moves.push(piece_move | (0b011 << PROMOTION_SHIFT));
-                        moves.push(piece_move | (0b100 << PROMOTION_SHIFT));
-                    } else {
-                        moves.push(piece_move)
-                    }
+                let final_pos: u32 = dest_bitboard.trailing_zeros();
+                let mut piece_move: u32 = initial_pos
+                    | (final_pos << TO_SHIFT)
+                    | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+                if let Some(p) = self.piece_at(final_pos) {
+                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+                }
+                if final_pos == en_passant {
+                    piece_move |= 1 << EN_PASSANT_SHIFT;
+                }
+                if final_pos > 55 || final_pos < 8 {
+                    moves.push(piece_move | (0b001 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b010 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b011 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b100 << PROMOTION_SHIFT));
+                } else {
+                    moves.push(piece_move);
                 }
                 dest_bitboard &= dest_bitboard - 1;
             }
@@ -110,11 +106,11 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn is_square_attacked(&self, square: u8, by: &u8) -> bool {
+    pub fn is_square_attacked(&self, square: u8, by: u32) -> bool {
         if KNIGHT_ATTACKS[square as usize]
             & match by {
-                &8 => self.white_knights,
-                &16 => self.black_knights,
+                8 => self.white_knights,
+                16 => self.black_knights,
                 _ => unreachable!(),
             }
             != 0
@@ -123,14 +119,14 @@ impl Board {
         }
 
         let pawn_attacks: Bitboard = match by {
-            &8 => BLACK_PAWN_ATTACKS[square as usize],
-            &16 => WHITE_PAWN_ATTACKS[square as usize],
+            8 => BLACK_PAWN_ATTACKS[square as usize],
+            16 => WHITE_PAWN_ATTACKS[square as usize],
             _ => unreachable!(),
         };
         if pawn_attacks
             & match by {
-                &8 => self.white_pawns,
-                &16 => self.black_pawns,
+                8 => self.white_pawns,
+                16 => self.black_pawns,
                 _ => unreachable!(),
             }
             != 0
@@ -141,8 +137,8 @@ impl Board {
 
         if bishop_attacks(square as usize, occupancy)
             & match by {
-                &8 => self.white_bishops | self.white_queens,
-                &16 => self.black_bishops | self.black_queens,
+                8 => self.white_bishops | self.white_queens,
+                16 => self.black_bishops | self.black_queens,
                 _ => unreachable!(),
             }
             != 0
@@ -152,8 +148,8 @@ impl Board {
 
         if rook_attacks(square as usize, occupancy)
             & match by {
-                &8 => self.white_rooks | self.white_queens,
-                &16 => self.black_rooks | self.black_queens,
+                8 => self.white_rooks | self.white_queens,
+                16 => self.black_rooks | self.black_queens,
                 _ => unreachable!(),
             }
             != 0
@@ -163,8 +159,8 @@ impl Board {
 
         if KING_ATTACKS[square as usize]
             & match by {
-                &8 => self.white_king,
-                &16 => self.black_king,
+                8 => self.white_king,
+                16 => self.black_king,
                 _ => unreachable!(),
             }
             != 0
@@ -175,26 +171,31 @@ impl Board {
         return false;
     }
 
-    pub fn king_moves(&self, state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (initial_pos, opposite_color): (u16, u8) = match color {
-            &8 => (self.white_king_square as u16, 16),
-            &16 => (self.black_king_square as u16, 8),
+    pub fn king_moves(&self, state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::with_capacity(8);
+        let (initial_pos, opposite_color, moving_piece): (u32, u32, u32) = match color {
+            8 => (self.white_king_square as u32, 16, WHITE_KING_U32),
+            16 => (self.black_king_square as u32, 8, BLACK_KING_U32),
             _ => unreachable!(),
         };
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
             & !match color {
-                &8 => self.white_occupancy,
-                &16 => self.black_occupancy,
+                8 => self.white_occupancy,
+                16 => self.black_occupancy,
                 _ => unreachable!(),
             };
 
         while dest_bitboard != 0 {
-            let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-            moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
+            let final_pos: u32 = dest_bitboard.trailing_zeros();
+            let mut piece_move: u32 =
+                initial_pos | (final_pos << TO_SHIFT) | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+            if let Some(p) = self.piece_at(final_pos) {
+                piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+            }
+            moves.push(piece_move);
             dest_bitboard &= dest_bitboard - 1;
         }
-        if self.is_square_attacked(initial_pos as u8, &opposite_color) {
+        if self.is_square_attacked(initial_pos as u8, opposite_color) {
             return moves;
         }
         let (castling_squares, mut right_path, mut left_path): (
@@ -202,7 +203,7 @@ impl Board {
             Bitboard,
             Bitboard,
         ) = match color {
-            &8 => match (
+            8 => match (
                 &state.castling_rights.white_three_zeros,
                 &state.castling_rights.white_two_zeros,
             ) {
@@ -223,7 +224,7 @@ impl Board {
                     0b0000000000000000000000000000000000000000000000000000000001100000,
                 ),
             },
-            &16 => match (
+            16 => match (
                 &state.castling_rights.black_two_zeros,
                 &state.castling_rights.black_three_zeros,
             ) {
@@ -251,7 +252,7 @@ impl Board {
             let mut finished_fully: bool = true;
             while left_path != 0 {
                 let square: u8 = left_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, &opposite_color) && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -259,14 +260,14 @@ impl Board {
                 left_path &= left_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.1 {
-                moves.push((initial_pos as u16) | ((sq as u16) << TO_SHIFT));
+                moves.push(initial_pos | ((sq as u32) << TO_SHIFT) | (1 << CASTLING_SHIFT));
             }
         }
         if right_path != 0 && (right_path & self.total_occupancy == 0) {
             let mut finished_fully: bool = true;
             while right_path != 0 {
                 let square: u8 = right_path.trailing_zeros() as u8;
-                if self.is_square_attacked(square, &opposite_color) && ((1 << square) & FILE_B == 0)
+                if self.is_square_attacked(square, opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
@@ -274,39 +275,35 @@ impl Board {
                 right_path &= right_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.0 {
-                moves.push((initial_pos as u16) | ((sq as u16) << TO_SHIFT));
+                moves.push(initial_pos | ((sq as u32) << TO_SHIFT) | (1 << CASTLING_SHIFT));
             }
         }
 
         return moves;
     }
 
-    pub fn rook_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (enemy_king, mut rooks_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
-            match color {
-                &8 => (
-                    self.black_king_square,
-                    self.white_rooks,
-                    self.white_occupancy,
-                ),
-                &16 => (
-                    self.white_king_square,
-                    self.black_rooks,
-                    self.black_occupancy,
-                ),
-                _ => unreachable!(),
-            };
+    pub fn rook_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::new();
+        let (mut rooks_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
+            8 => (self.white_rooks, self.white_occupancy, WHITE_ROOK_U32),
+            16 => (self.black_rooks, self.black_occupancy, BLACK_ROOK_U32),
+            _ => unreachable!(),
+        };
 
         while rooks_bitboard != 0 {
-            let initial_pos: usize = rooks_bitboard.trailing_zeros() as usize;
-            let attacks: Bitboard = rook_attacks(initial_pos, self.total_occupancy);
+            let initial_pos: u32 = rooks_bitboard.trailing_zeros();
+            let attacks: Bitboard = rook_attacks(initial_pos as usize, self.total_occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
             while dest_bitboard != 0 {
-                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-                if final_pos != enemy_king {
-                    moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
+                let final_pos: u32 = dest_bitboard.trailing_zeros();
+                let mut piece_move: u32 = initial_pos
+                    | (final_pos << TO_SHIFT)
+                    | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+                if let Some(p) = self.piece_at(final_pos) {
+                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
                 }
+                moves.push(piece_move);
+
                 dest_bitboard &= dest_bitboard - 1;
             }
 
@@ -316,34 +313,30 @@ impl Board {
         return moves;
     }
 
-    pub fn bishop_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (enemy_king, mut bishops_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
-            match color {
-                &8 => (
-                    self.black_king_square,
-                    self.white_bishops,
-                    self.white_occupancy,
-                ),
-                &16 => (
-                    self.white_king_square,
-                    self.black_bishops,
-                    self.black_occupancy,
-                ),
-                _ => unreachable!(),
-            };
+    pub fn bishop_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::new();
+        let (mut bishops_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color
+        {
+            8 => (self.white_bishops, self.white_occupancy, WHITE_BISHOP_U32),
+            16 => (self.black_bishops, self.black_occupancy, BLACK_BISHOP_U32),
+            _ => unreachable!(),
+        };
         let occupancy: Bitboard = self.total_occupancy;
 
         while bishops_bitboard != 0 {
-            let initial_pos: usize = bishops_bitboard.trailing_zeros() as usize;
-            let attacks: Bitboard = bishop_attacks(initial_pos, occupancy);
+            let initial_pos: u32 = bishops_bitboard.trailing_zeros();
+            let attacks: Bitboard = bishop_attacks(initial_pos as usize, occupancy);
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
 
             while dest_bitboard != 0 {
-                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-                if final_pos != enemy_king {
-                    moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
+                let final_pos: u32 = dest_bitboard.trailing_zeros();
+                let mut piece_move: u32 = initial_pos
+                    | (final_pos << TO_SHIFT)
+                    | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+                if let Some(p) = self.piece_at(final_pos) {
+                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
                 }
+                moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;
             }
 
@@ -352,36 +345,32 @@ impl Board {
         return moves;
     }
 
-    pub fn queen_moves(&self, _state: &GameState, color: &u8) -> Vec<u16> {
-        let mut moves: Vec<u16> = Vec::new();
-        let (enemy_king, mut queens_bitboard, friendly_occupancy): (u8, Bitboard, Bitboard) =
-            match color {
-                &8 => (
-                    self.black_king_square,
-                    self.white_queens,
-                    self.white_occupancy,
-                ),
-                &16 => (
-                    self.white_king_square,
-                    self.black_queens,
-                    self.black_occupancy,
-                ),
-                _ => unreachable!(),
-            };
+    pub fn queen_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
+        let mut moves: Vec<u32> = Vec::new();
+        let (mut queens_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
+            8 => (self.white_queens, self.white_occupancy, WHITE_QUEEN_U32),
+            16 => (self.black_queens, self.black_occupancy, BLACK_QUEEN_U32),
+            _ => unreachable!(),
+        };
 
         let occupancy: Bitboard = self.total_occupancy;
 
         while queens_bitboard != 0 {
-            let initial_pos: usize = queens_bitboard.trailing_zeros() as usize;
-            let attacks: Bitboard =
-                bishop_attacks(initial_pos, occupancy) | rook_attacks(initial_pos, occupancy);
+            let initial_pos: u32 = queens_bitboard.trailing_zeros();
+            let initial_pos_as_index: usize = initial_pos as usize;
+            let attacks: Bitboard = bishop_attacks(initial_pos_as_index, occupancy)
+                | rook_attacks(initial_pos_as_index, occupancy);
 
             let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
             while dest_bitboard != 0 {
-                let final_pos: u8 = dest_bitboard.trailing_zeros() as u8;
-                if final_pos != enemy_king {
-                    moves.push((initial_pos as u16) | ((final_pos as u16) << TO_SHIFT));
+                let final_pos: u32 = dest_bitboard.trailing_zeros();
+                let mut piece_move: u32 = initial_pos
+                    | (final_pos << TO_SHIFT)
+                    | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
+                if let Some(p) = self.piece_at(final_pos) {
+                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
                 }
+                moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;
             }
 

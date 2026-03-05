@@ -15,7 +15,7 @@ pub struct GameState {
     pub fifty_moves_rule_counter: u8, // how many moves since the last capture/pawn advancement. enforces 50-move rule
     pub moves_history: Vec<PreviousMove>,
     pub total_moves_amount: u16,
-    pub whose_turn: u8,
+    pub whose_turn: u32,
     pub result: GameResult,
 }
 
@@ -48,12 +48,10 @@ impl CastlingRights {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreviousMove {
-    // normal move changes 1 bitboard, castling or capture changes 2 and promotion with capture changes 3
-    pub changed_cache_indices: [(Option<(u8, u8)>, Option<u8>); 3], // start, finish
+    pub moved_piece: u32,
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: Option<CastlingRights>, // if None, not to be restored
     pub material_difference: i32,
-    pub promotion_happened: bool,
 }
 
 impl GameState {
