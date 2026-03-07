@@ -25,6 +25,7 @@ pub struct Board {
     pub white_occupancy: Bitboard,
     pub black_occupancy: Bitboard,
     pub total_occupancy: Bitboard,
+    pub cached_pieces: [Option<u32>; 64],
 
     pub white_king_square: u8,
     pub black_king_square: u8,
@@ -51,10 +52,41 @@ impl Board {
             white_occupancy: 0,
             black_occupancy: 0,
             total_occupancy: 0,
+            cached_pieces: [None; 64],
             white_king_square: 4,
             black_king_square: 60,
             material: 0, // equal material
         };
+    }
+    pub fn update_full_cache(&mut self) {
+        for square in 0..64 {
+            let mask: Bitboard = 1 << square;
+            if self.white_pawns & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_PAWN_U32);
+            } else if self.white_knights & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_KNIGHT_U32);
+            } else if self.white_bishops & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_BISHOP_U32);
+            } else if self.white_rooks & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_ROOK_U32);
+            } else if self.white_queens & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_QUEEN_U32);
+            } else if self.white_king & mask != 0 {
+                self.cached_pieces[square] = Some(WHITE_KING_U32);
+            } else if self.black_pawns & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_PAWN_U32);
+            } else if self.black_knights & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_KNIGHT_U32);
+            } else if self.black_bishops & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_BISHOP_U32);
+            } else if self.black_rooks & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_ROOK_U32);
+            } else if self.black_queens & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_QUEEN_U32);
+            } else if self.black_king & mask != 0 {
+                self.cached_pieces[square] = Some(BLACK_KING_U32);
+            }
+        }
     }
     pub fn count_material(&mut self) -> () {
         self.material = (self.white_pawns.count_ones() as i32) * PAWN_VALUE
@@ -71,47 +103,7 @@ impl Board {
 
     #[inline(always)]
     pub fn piece_at(&self, square: u32) -> Option<u32> {
-        let transformed_square: u64 = 1 << (square as u64);
-        if transformed_square & self.white_occupancy != 0 {
-            if transformed_square & self.white_pawns != 0 {
-                return Some(WHITE_PAWN_U32);
-            }
-            if transformed_square & self.white_bishops != 0 {
-                return Some(WHITE_BISHOP_U32);
-            }
-            if transformed_square & self.white_knights != 0 {
-                return Some(WHITE_KNIGHT_U32);
-            }
-            if transformed_square & self.white_queens != 0 {
-                return Some(WHITE_QUEEN_U32);
-            }
-            if transformed_square & self.white_rooks != 0 {
-                return Some(WHITE_ROOK_U32);
-            }
-            if transformed_square & self.white_king != 0 {
-                return Some(WHITE_KING_U32);
-            }
-        } else {
-            if transformed_square & self.black_pawns != 0 {
-                return Some(BLACK_PAWN_U32);
-            }
-            if transformed_square & self.black_bishops != 0 {
-                return Some(BLACK_BISHOP_U32);
-            }
-            if transformed_square & self.black_knights != 0 {
-                return Some(BLACK_KNIGHT_U32);
-            }
-            if transformed_square & self.black_queens != 0 {
-                return Some(BLACK_QUEEN_U32);
-            }
-            if transformed_square & self.black_rooks != 0 {
-                return Some(BLACK_ROOK_U32);
-            }
-            if transformed_square & self.black_king != 0 {
-                return Some(BLACK_KING_U32);
-            }
-        }
-        return None;
+        return unsafe { *self.cached_pieces.get_unchecked(square as usize) };
     }
 
     pub fn white_occupancy(&mut self) -> () {
@@ -238,7 +230,7 @@ impl Board {
                 WHITE_KING_U32 => {
                     panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
                 }
-                _ => unreachable!(),
+                _ => unreachable!("piece {enemy}"),
             }
         } else {
             match enemy {
@@ -280,7 +272,7 @@ impl Board {
                 BLACK_KING_U32 => {
                     panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
                 }
-                _ => unreachable!(),
+                _ => unreachable!("piece: {enemy}, color {color}"),
             }
         };
         previous_move.moved_piece |= enemy << CAPTURED_PIECE_TYPE_SHIFT;
@@ -296,6 +288,7 @@ impl Board {
         to_sq: u8,
         color: u32,
     ) -> () {
+        self.cached_pieces.swap(from_sq as usize, to_sq as usize);
         let rook: u32 = if color == 8 {
             WHITE_ROOK_U32
         } else {
@@ -323,21 +316,27 @@ impl Board {
             16 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
             _ => unreachable!(),
         };
+        self.cached_pieces[captured_pawn_square as usize] = None;
         previous_move.moved_piece |= 1 << EN_PASSANT_SHIFT;
-        let capture: Bitboard = !(1 << captured_pawn_square);
+        let capture: u64 = !(1 << captured_pawn_square);
         *pawns &= capture;
         *occupancy &= capture;
         *&mut self.total_occupancy &= capture;
     }
 
     // performs verified moves, so there is no need for another verification
+    #[track_caller]
     pub fn perform_move(&mut self, piece_move: u32, state: &mut GameState, color: u32) -> () {
+        let caller = std::panic::Location::caller();
+
         let (from_sq, to_sq): (u32, u32) =
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
         let to_sq_u8: u8 = to_sq as u8;
 
         let moving_piece: u32 = moving_piece(piece_move);
         let captured_piece: u32 = captured_piece(piece_move);
+        self.cached_pieces[to_sq as usize] = Some(moving_piece);
+        self.cached_pieces[from_sq as usize] = None;
 
         let mut promotion_choice: Option<u32> = None;
         let mut previous_move: PreviousMove = PreviousMove {
@@ -359,11 +358,11 @@ impl Board {
                         (4, 2) => {
                             let (rook_from, rook_to) = (0, 3);
 
-                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
+                            self.castling(&mut previous_move, rook_from, rook_to, color);
                         }
                         (4, 6) => {
                             let (rook_from, rook_to) = (7, 5);
-                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
+                            self.castling(&mut previous_move, rook_from, rook_to, color);
                         }
                         _ => (),
                     };
@@ -421,7 +420,7 @@ impl Board {
                         _ => {
                             if let Some(e_p) = state.en_passant_target {
                                 if to_sq_u8 == e_p {
-                                    self.en_passant(e_p, &mut previous_move, NO_PIECE_BLACK);
+                                    self.en_passant(e_p, &mut previous_move, color);
                                     previous_move.material_difference += PAWN_VALUE;
                                     self.material += PAWN_VALUE;
                                 }
@@ -443,11 +442,11 @@ impl Board {
                     match (from_sq, to_sq) {
                         (60, 58) => {
                             let (rook_from, rook_to) = (56, 59);
-                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
+                            self.castling(&mut previous_move, rook_from, rook_to, color);
                         }
                         (60, 62) => {
                             let (rook_from, rook_to) = (63, 61);
-                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
+                            self.castling(&mut previous_move, rook_from, rook_to, color);
                         }
                         _ => (),
                     };
@@ -504,7 +503,7 @@ impl Board {
                         _ => {
                             if let Some(e_p) = state.en_passant_target {
                                 if to_sq_u8 == e_p {
-                                    self.en_passant(e_p, &mut previous_move, NO_PIECE_WHITE);
+                                    self.en_passant(e_p, &mut previous_move, color);
                                     previous_move.material_difference -= PAWN_VALUE;
                                     self.material -= PAWN_VALUE;
                                 }
@@ -532,7 +531,7 @@ impl Board {
                     match p {
                         WHITE_QUEEN_U32 => {
                             *&mut self.white_pawns &= start;
-                            *&mut self.white_queens |= end
+                            *&mut self.white_queens |= end;
                         }
                         WHITE_ROOK_U32 => {
                             *&mut self.white_pawns &= start;
@@ -569,6 +568,7 @@ impl Board {
                         _ => unreachable!(),
                     }
                 };
+                self.cached_pieces[to_sq as usize] = Some(p);
             }
             None => {
                 let piece_to_mutate: &mut u64 = if color == 8 {
@@ -589,7 +589,11 @@ impl Board {
                         BLACK_QUEEN_U32 => &mut self.black_queens,
                         BLACK_KING_U32 => &mut self.black_king,
                         BLACK_ROOK_U32 => &mut self.black_rooks,
-                        _ => unreachable!(),
+                        _ => unreachable!(
+                            "moving piece: {moving_piece}, color {color}, caller {} {}",
+                            caller.file(),
+                            caller.line()
+                        ),
                     }
                 };
                 *piece_to_mutate |= end;
@@ -613,6 +617,7 @@ impl Board {
                 castling(m),
                 en_passant(m),
             );
+            self.cached_pieces[end as usize] = None;
 
             let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = if color == 8 {
                 (
@@ -649,23 +654,49 @@ impl Board {
             };
             let start_bb: u64 = 1 << start;
             let not_end_bb: u64 = !(1 << end);
+            self.cached_pieces[start as usize] = Some(main_piece);
             *moved_piece_bitboard &= not_end_bb;
             if promotion == 0 {
                 *moved_piece_bitboard |= start_bb;
             } else {
-                let (pawns, promoted_piece) = match (color, promotion) {
-                    (8, 1) => (&mut self.white_pawns, &mut self.white_knights),
-                    (8, 2) => (&mut self.white_pawns, &mut self.white_bishops),
-                    (8, 3) => (&mut self.white_pawns, &mut self.white_rooks),
-                    (8, 4) => (&mut self.white_pawns, &mut self.white_queens),
-                    (16, 1) => (&mut self.black_pawns, &mut self.black_knights),
-                    (16, 2) => (&mut self.black_pawns, &mut self.black_bishops),
-                    (16, 3) => (&mut self.black_pawns, &mut self.black_rooks),
-                    (16, 4) => (&mut self.black_pawns, &mut self.black_queens),
+                let (pawns, promoted_piece, pawn) = match (color, promotion) {
+                    (8, 1) => (
+                        &mut self.white_pawns,
+                        &mut self.white_knights,
+                        WHITE_PAWN_U32,
+                    ),
+                    (8, 2) => (
+                        &mut self.white_pawns,
+                        &mut self.white_bishops,
+                        WHITE_PAWN_U32,
+                    ),
+                    (8, 3) => (&mut self.white_pawns, &mut self.white_rooks, WHITE_PAWN_U32),
+                    (8, 4) => (
+                        &mut self.white_pawns,
+                        &mut self.white_queens,
+                        WHITE_PAWN_U32,
+                    ),
+                    (16, 1) => (
+                        &mut self.black_pawns,
+                        &mut self.black_knights,
+                        BLACK_PAWN_U32,
+                    ),
+                    (16, 2) => (
+                        &mut self.black_pawns,
+                        &mut self.black_bishops,
+                        BLACK_PAWN_U32,
+                    ),
+                    (16, 3) => (&mut self.black_pawns, &mut self.black_rooks, BLACK_PAWN_U32),
+                    (16, 4) => (
+                        &mut self.black_pawns,
+                        &mut self.black_queens,
+                        BLACK_PAWN_U32,
+                    ),
                     _ => unreachable!(),
                 };
                 *pawns |= start_bb;
                 *promoted_piece &= not_end_bb;
+                self.cached_pieces[start as usize] = Some(pawn);
             }
 
             *color_occupancy |= start_bb;
@@ -694,67 +725,59 @@ impl Board {
                         _ => unreachable!(),
                     }
                 } |= end_bb;
+                self.cached_pieces[end as usize] = Some(captured_piece);
 
                 self.total_occupancy |= end_bb;
             } else {
+                self.cached_pieces[end as usize] = None;
                 self.total_occupancy &= not_end_bb;
             }
 
             if en_passant != 0 {
-                let (enemy_pawns, enemy_occupancy, taken_pawn_square): (&mut u64, &mut u64, u64) =
-                    match color {
-                        8 => (
-                            &mut self.black_pawns,
-                            &mut self.black_occupancy,
-                            1 << (end - 8),
-                        ),
-                        16 => (
-                            &mut self.white_pawns,
-                            &mut self.white_occupancy,
-                            1 << (end + 8),
-                        ),
-                        _ => unreachable!(),
-                    };
-                *enemy_pawns |= taken_pawn_square;
-                self.total_occupancy |= taken_pawn_square;
-                *enemy_occupancy |= taken_pawn_square;
+                let (pawn, enemy_pawns, enemy_occupancy, taken_pawn_square): (
+                    u32,
+                    &mut u64,
+                    &mut u64,
+                    usize,
+                ) = match color {
+                    8 => (
+                        BLACK_PAWN_U32,
+                        &mut self.black_pawns,
+                        &mut self.black_occupancy,
+                        end as usize - 8,
+                    ),
+                    16 => (
+                        WHITE_PAWN_U32,
+                        &mut self.white_pawns,
+                        &mut self.white_occupancy,
+                        end as usize + 8,
+                    ),
+                    _ => unreachable!(),
+                };
+                let taken_pawn_square_bb = 1 << taken_pawn_square;
+                *enemy_pawns |= taken_pawn_square_bb;
+                self.total_occupancy |= taken_pawn_square_bb;
+                *enemy_occupancy |= taken_pawn_square_bb;
+                self.cached_pieces[taken_pawn_square as usize] = Some(pawn);
             }
 
             if castling != 0 {
                 let (rooks, occupancy, rook_start, rook_end) = match (start, end) {
-                    (4, 2) => (
-                        &mut self.white_rooks,
-                        &mut self.white_occupancy,
-                        1 << 0,
-                        !(1 << 3),
-                    ),
-                    (4, 6) => (
-                        &mut self.white_rooks,
-                        &mut self.white_occupancy,
-                        1 << 7,
-                        !(1 << 5),
-                    ),
-                    (60, 58) => (
-                        &mut self.black_rooks,
-                        &mut self.black_occupancy,
-                        1 << 56,
-                        !(1 << 59),
-                    ),
-                    (60, 62) => (
-                        &mut self.black_rooks,
-                        &mut self.black_occupancy,
-                        1 << 63,
-                        !(1 << 61),
-                    ),
+                    (4, 2) => (&mut self.white_rooks, &mut self.white_occupancy, 0, 3),
+                    (4, 6) => (&mut self.white_rooks, &mut self.white_occupancy, 7, 5),
+                    (60, 58) => (&mut self.black_rooks, &mut self.black_occupancy, 56, 59),
+                    (60, 62) => (&mut self.black_rooks, &mut self.black_occupancy, 63, 61),
                     _ => unreachable!(),
                 };
-
-                *rooks |= rook_start;
-                *rooks &= rook_end;
-                *occupancy |= rook_start;
-                *occupancy &= rook_end;
-                self.total_occupancy |= rook_start;
-                self.total_occupancy &= rook_end;
+                let (rook_start_bb, rook_end_bb) = (1 << rook_start, !(1 << rook_end));
+                *rooks |= rook_start_bb;
+                *rooks &= rook_end_bb;
+                *occupancy |= rook_start_bb;
+                *occupancy &= rook_end_bb;
+                self.total_occupancy |= rook_start_bb;
+                self.total_occupancy &= rook_end_bb;
+                self.cached_pieces
+                    .swap(rook_end as usize, rook_start as usize);
             }
 
             if let Some(castling_rights) = previous_move.previous_castling_rights {

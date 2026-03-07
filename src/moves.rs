@@ -3,9 +3,21 @@ use crate::board_geometry_templates::*;
 use crate::constants::attacks::*;
 use crate::gamestate::GameState;
 
+#[derive(Clone, Copy)]
+pub struct MoveList {
+    pub pseudo_moves: [u32; 192],
+    pub first_not_occupied: usize,
+}
+
+impl MoveList {
+    fn push(&mut self, item: u32) -> () {
+        self.pseudo_moves[self.first_not_occupied] = item;
+        self.first_not_occupied += 1;
+    }
+}
+
 impl Board {
-    pub fn knight_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::with_capacity(16);
+    pub fn knight_moves(&self, color: u32, moves: &mut MoveList) -> () {
         let (mut knights_bitboard, excluded_occupancy, moving_piece): (u64, u64, u32) = match color
         {
             8 => (self.white_knights, !self.white_occupancy, WHITE_KNIGHT_U32),
@@ -32,11 +44,9 @@ impl Board {
             }
             knights_bitboard &= knights_bitboard - 1;
         }
-        return moves;
     }
 
-    pub fn pawn_moves(&self, state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::new();
+    pub fn pawn_moves(&self, state: &GameState, color: u32, moves: &mut MoveList) -> () {
         let (mut pawns_bitboard, mut enemy_occupancy, moving_piece): (u64, u64, u32) = match color {
             8 => (self.white_pawns, self.black_occupancy, WHITE_PAWN_U32),
             16 => (self.black_pawns, self.white_occupancy, BLACK_PAWN_U32),
@@ -102,7 +112,6 @@ impl Board {
             }
             pawns_bitboard &= pawns_bitboard - 1;
         }
-        return moves;
     }
 
     #[inline(always)]
@@ -171,8 +180,7 @@ impl Board {
         return false;
     }
 
-    pub fn king_moves(&self, state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::with_capacity(8);
+    pub fn king_moves(&self, state: &GameState, color: u32, moves: &mut MoveList) -> () {
         let (initial_pos, opposite_color, moving_piece): (u32, u32, u32) = match color {
             8 => (self.white_king_square as u32, 16, WHITE_KING_U32),
             16 => (self.black_king_square as u32, 8, BLACK_KING_U32),
@@ -196,7 +204,7 @@ impl Board {
             dest_bitboard &= dest_bitboard - 1;
         }
         if self.is_square_attacked(initial_pos as u8, opposite_color) {
-            return moves;
+            return;
         }
         let (castling_squares, mut right_path, mut left_path): (
             (Option<u8>, Option<u8>),
@@ -212,7 +220,7 @@ impl Board {
                     0b0000000000000000000000000000000000000000000000000000000000001110,
                     0b0000000000000000000000000000000000000000000000000000000001100000,
                 ),
-                (false, false) => return moves,
+                (false, false) => return,
                 (true, false) => (
                     (Some(2), None),
                     0b0000000000000000000000000000000000000000000000000000000000001110,
@@ -233,7 +241,7 @@ impl Board {
                     0b0110000000000000000000000000000000000000000000000000000000000000,
                     0b0000111000000000000000000000000000000000000000000000000000000000,
                 ),
-                (false, false) => return moves,
+                (false, false) => return,
                 (true, false) => (
                     (Some(62), None),
                     0b0110000000000000000000000000000000000000000000000000000000000000,
@@ -288,12 +296,9 @@ impl Board {
                 );
             }
         }
-
-        return moves;
     }
 
-    pub fn rook_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::new();
+    pub fn rook_moves(&self, color: u32, moves: &mut MoveList) -> () {
         let (mut rooks_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
             8 => (self.white_rooks, self.white_occupancy, WHITE_ROOK_U32),
             16 => (self.black_rooks, self.black_occupancy, BLACK_ROOK_U32),
@@ -319,12 +324,9 @@ impl Board {
 
             rooks_bitboard &= rooks_bitboard - 1;
         }
-
-        return moves;
     }
 
-    pub fn bishop_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::new();
+    pub fn bishop_moves(&self, color: u32, moves: &mut MoveList) -> () {
         let (mut bishops_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color
         {
             8 => (self.white_bishops, self.white_occupancy, WHITE_BISHOP_U32),
@@ -352,11 +354,9 @@ impl Board {
 
             bishops_bitboard &= bishops_bitboard - 1;
         }
-        return moves;
     }
 
-    pub fn queen_moves(&self, _state: &GameState, color: u32) -> Vec<u32> {
-        let mut moves: Vec<u32> = Vec::new();
+    pub fn queen_moves(&self, color: u32, moves: &mut MoveList) -> () {
         let (mut queens_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
             8 => (self.white_queens, self.white_occupancy, WHITE_QUEEN_U32),
             16 => (self.black_queens, self.black_occupancy, BLACK_QUEEN_U32),
@@ -386,6 +386,5 @@ impl Board {
 
             queens_bitboard &= queens_bitboard - 1;
         }
-        return moves;
     }
 }

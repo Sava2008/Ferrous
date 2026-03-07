@@ -7,7 +7,7 @@ use crate::{
 };
 
 impl Engine {
-    pub fn score_all_moves(&self, depth: usize, all_moves: &Vec<u32>) -> Vec<i16> {
+    pub fn score_all_moves(&self, depth: usize, all_moves: &[u32]) -> Vec<i16> {
         let mut priorities: Vec<i16> = Vec::with_capacity(all_moves.len());
         for i in 0..all_moves.len() {
             priorities.push(self.move_priority(&all_moves[i], depth));

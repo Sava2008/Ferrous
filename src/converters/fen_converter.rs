@@ -151,6 +151,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
+        cached_pieces: [None; 64],
         white_king_square: 0,
         black_king_square: 0,
         material: 0,
@@ -223,10 +224,10 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
 
     for right in castling.chars() {
         match right {
-            'Q' => state.castling_rights &= WHITE_LONG,
-            'q' => state.castling_rights &= BLACK_LONG,
-            'K' => state.castling_rights &= WHITE_SHORT,
-            'k' => state.castling_rights &= BLACK_SHORT,
+            'Q' => state.castling_rights |= WHITE_LONG,
+            'q' => state.castling_rights |= BLACK_LONG,
+            'K' => state.castling_rights |= WHITE_SHORT,
+            'k' => state.castling_rights |= BLACK_SHORT,
             '-' => (),
             _ => unreachable!(),
         };

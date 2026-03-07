@@ -13,6 +13,7 @@ use crate::{
     converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
+    moves::MoveList,
 };
 use std::{
     io::{self, Write},
@@ -36,26 +37,31 @@ fn measure_time() -> () {
 
     board.total_occupancy();
     board.count_material();
+    board.update_full_cache();
     let mut engine: Engine = Engine {
         side: 8,
         depth: 6,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 10],
     };
     let t = Instant::now();
     engine.evaluate(&board);
     println!("evaluation time: {}ns", t.elapsed().as_nanos());
 
     let t = Instant::now();
-    let moves: Vec<u32> = engine.generate_pseudo_legal_moves(8, &board, &state);
+    engine.generate_pseudo_legal_moves(8, &board, &state, engine.depth as usize);
     println!("move gen time: {}ns", t.elapsed().as_nanos());
 
     let t = Instant::now();
-    engine.move_priority(&moves[4], 6);
+    engine.move_priority(&engine.move_lists[engine.depth as usize].pseudo_moves[4], 6);
     println!("single move priority time: {}ns", t.elapsed().as_nanos());
 
     let t = Instant::now();
-    Engine::does_improve_piece(moves[6]);
+    Engine::does_improve_piece(engine.move_lists[engine.depth as usize].pseudo_moves[6]);
     println!(
         "piece improvemen calculation time: {}ns",
         t.elapsed().as_nanos()
@@ -65,7 +71,11 @@ fn measure_time() -> () {
     println!("attack check time: {}ns", t.elapsed().as_nanos());
 
     let t = Instant::now();
-    board.perform_move(moves[3], &mut state, 8);
+    board.perform_move(
+        engine.move_lists[engine.depth as usize].pseudo_moves[3],
+        &mut state,
+        8,
+    );
     board.cancel_move(&mut state, 8);
     println!("make-unmake time: {}ns", t.elapsed().as_nanos());
 }
@@ -95,6 +105,7 @@ fn main() -> () {
 
     board.total_occupancy();
     board.count_material();
+    board.update_full_cache();
 
     print!("choose the color: ");
     io::stdout().flush().unwrap();
@@ -108,9 +119,13 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 6,
+        depth: 7,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 10],
     };
     if engine.side == 16 {
         engine.depth += 1;
@@ -198,6 +213,10 @@ fn make_engine_move(
 }
 
 fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32) -> MoveResult {
+    let mut legal_moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
     board.total_occupancy();
     board.count_material();
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
@@ -257,14 +276,14 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         parsed_move |= promo_piece << PROMOTION_SHIFT;
     }
 
-    let mut legal_moves: Vec<u32> = board.knight_moves(&state, player_color);
-    legal_moves.extend(board.bishop_moves(&state, player_color));
-    legal_moves.extend(board.rook_moves(&state, player_color));
-    legal_moves.extend(board.pawn_moves(&state, player_color));
-    legal_moves.extend(board.queen_moves(&state, player_color));
-    legal_moves.extend(board.king_moves(&state, player_color));
+    board.knight_moves(player_color, &mut legal_moves);
+    board.bishop_moves(player_color, &mut legal_moves);
+    board.rook_moves(player_color, &mut legal_moves);
+    board.pawn_moves(&state, player_color, &mut legal_moves);
+    board.queen_moves(player_color, &mut legal_moves);
+    board.king_moves(&state, player_color, &mut legal_moves);
 
-    if legal_moves.is_empty() {
+    if legal_moves.pseudo_moves.iter().all(|m| *m == 0) {
         if board.is_square_attacked(board.black_king_square, 8)
             || board.is_square_attacked(board.white_king_square, 16)
         {
@@ -282,8 +301,14 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         }
     }
 
-    if legal_moves.iter().any(|&mv| mv == parsed_move) {
+    if legal_moves.pseudo_moves.iter().any(|&mv| mv == parsed_move) {
         board.perform_move(parsed_move, state, player_color);
+        if board.is_square_attacked(board.black_king_square, 8)
+            || board.is_square_attacked(board.white_king_square, 16)
+        {
+            println!("Illegal move");
+            return MoveResult::Continue;
+        }
         return MoveResult::None;
     } else {
         println!("Illegal move");
