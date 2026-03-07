@@ -1,6 +1,5 @@
 use crate::board_geometry_templates::*;
 use crate::enums::GameResult;
-use crate::gamestate::CastlingRights;
 use crate::{board::Board, gamestate::GameState};
 
 fn index_to_chess_notation(idx: u8) -> String {
@@ -46,7 +45,7 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
     return row_col[1] * 8 + row_col[0];
 }
 
-pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String {
+/*pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String {
     let mut fen: String = String::with_capacity(100);
     for rank in (0..8).rev() {
         let mut empty_counter: u8 = 0;
@@ -96,7 +95,10 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
         _ => " b ",
     });
 
-    let castling_rights: [bool; 4] = state.castling_rights.to_array();
+    let castling_rights: [bool; 4] = match state.castling_rights {
+        15 => [true; 4],
+
+         [false; 4];
     let mut castling_str: String = String::new();
 
     if castling_rights[0] {
@@ -130,7 +132,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
     ));
 
     return fen;
-}
+}*/
 
 pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     let mut board: Board = Board {
@@ -155,12 +157,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     };
     let mut state: GameState = GameState {
         en_passant_target: None,
-        castling_rights: CastlingRights {
-            white_three_zeros: false,
-            white_two_zeros: false,
-            black_three_zeros: false,
-            black_two_zeros: false,
-        },
+        castling_rights: 0,
         fifty_moves_rule_counter: 0,
         moves_history: Vec::new(),
         total_moves_amount: 0,
@@ -226,10 +223,10 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
 
     for right in castling.chars() {
         match right {
-            'Q' => state.castling_rights.white_three_zeros = true,
-            'q' => state.castling_rights.black_three_zeros = true,
-            'K' => state.castling_rights.white_two_zeros = true,
-            'k' => state.castling_rights.black_two_zeros = true,
+            'Q' => state.castling_rights &= WHITE_LONG,
+            'q' => state.castling_rights &= BLACK_LONG,
+            'K' => state.castling_rights &= WHITE_SHORT,
+            'k' => state.castling_rights &= BLACK_SHORT,
             '-' => (),
             _ => unreachable!(),
         };

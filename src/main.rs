@@ -10,6 +10,7 @@ use crate::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
+    converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
 };
@@ -29,6 +30,46 @@ pub mod moves;
 pub mod tests;
 pub mod tuning;
 
+fn measure_time() -> () {
+    let (mut board, mut state) =
+        fen_to_board("rnbqk2r/ppp1ppbp/5np1/3p2B1/3P4/2NQ4/PPP1PPPP/R3KBNR w KQkq - 2 5");
+
+    board.total_occupancy();
+    board.count_material();
+    let mut engine: Engine = Engine {
+        side: 8,
+        depth: 6,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 16],
+    };
+    let t = Instant::now();
+    engine.evaluate(&board);
+    println!("evaluation time: {}ns", t.elapsed().as_nanos());
+
+    let t = Instant::now();
+    let moves: Vec<u32> = engine.generate_pseudo_legal_moves(8, &board, &state);
+    println!("move gen time: {}ns", t.elapsed().as_nanos());
+
+    let t = Instant::now();
+    engine.move_priority(&moves[4], 6);
+    println!("single move priority time: {}ns", t.elapsed().as_nanos());
+
+    let t = Instant::now();
+    Engine::does_improve_piece(moves[6]);
+    println!(
+        "piece improvemen calculation time: {}ns",
+        t.elapsed().as_nanos()
+    );
+    let t = Instant::now();
+    board.is_square_attacked(34, 16);
+    println!("attack check time: {}ns", t.elapsed().as_nanos());
+
+    let t = Instant::now();
+    board.perform_move(moves[3], &mut state, 8);
+    board.cancel_move(&mut state, 8);
+    println!("make-unmake time: {}ns", t.elapsed().as_nanos());
+}
+
 enum MoveResult {
     Win,
     Draw,
@@ -46,6 +87,8 @@ fn main() -> () {
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
+    //measure_time();
+    //panic!();
 
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);

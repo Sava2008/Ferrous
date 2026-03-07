@@ -2,11 +2,7 @@ use std::hint::unreachable_unchecked;
 
 use crate::{
     board_geometry_templates::*,
-    constants::{
-        attacks::RAYS_BETWEEN,
-        piece_values::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE},
-    },
-    enums::InclusiveRange,
+    constants::piece_values::{BISHOP_VALUE, KNIGHT_VALUE, PAWN_VALUE, QUEEN_VALUE, ROOK_VALUE},
     gamestate::{GameState, PreviousMove},
 };
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
@@ -165,12 +161,12 @@ impl Board {
         return bitboard;
     }
 
-    #[inline]
+    #[inline(always)]
     fn reset_bit(&mut self, piece: u32, bit_position1: u8, bit_position2: u8, color: u32) -> () {
         let from_mask: Bitboard = !(1 << bit_position1);
         let to_mask: Bitboard = 1 << bit_position2;
         let bitboard_to_mutate: &mut Bitboard = if color == 8 {
-            match self.piece_at(piece).unwrap() {
+            match piece {
                 WHITE_PAWN_U32 => &mut self.white_pawns,
                 WHITE_KNIGHT_U32 => &mut self.white_knights,
                 WHITE_BISHOP_U32 => &mut self.white_bishops,
@@ -180,7 +176,7 @@ impl Board {
                 _ => unreachable!(),
             }
         } else {
-            match self.piece_at(piece).unwrap() {
+            match piece {
                 BLACK_PAWN_U32 => &mut self.black_pawns,
                 BLACK_KNIGHT_U32 => &mut self.black_knights,
                 BLACK_BISHOP_U32 => &mut self.black_bishops,
@@ -231,11 +227,11 @@ impl Board {
                     if to_sq == 7 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
-                        state.castling_rights.white_two_zeros = false;
+                        state.castling_rights &= !WHITE_SHORT;
                     } else if to_sq == 0 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
-                        state.castling_rights.white_three_zeros = false;
+                        state.castling_rights &= !WHITE_LONG;
                     }
                     (&mut self.white_rooks, &mut self.white_occupancy)
                 }
@@ -272,12 +268,12 @@ impl Board {
                     if to_sq == 63 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
-                        state.castling_rights.black_two_zeros = false;
+                        state.castling_rights &= !BLACK_SHORT;
                     } else if to_sq == 56 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
 
-                        state.castling_rights.black_three_zeros = false;
+                        state.castling_rights &= !BLACK_LONG;
                     }
                     (&mut self.black_rooks, &mut self.black_occupancy)
                 }
@@ -300,9 +296,14 @@ impl Board {
         to_sq: u8,
         color: u32,
     ) -> () {
-        let rook: u32 = COLORLESS_ROOK | color;
+        let rook: u32 = if color == 8 {
+            WHITE_ROOK_U32
+        } else {
+            BLACK_ROOK_U32
+        };
         previous_move.moved_piece |= 1 << CASTLING_SHIFT;
         self.reset_bit(rook, from_sq, to_sq, color);
+
         let total_occupancy: &mut Bitboard = &mut self.total_occupancy;
         let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
         *total_occupancy &= start;
@@ -349,178 +350,176 @@ impl Board {
             self.perform_capture(state, captured_piece, &mut previous_move, to_sq_u8, color);
         }
 
-        let color_to_mutate: &mut u64 = match moving_piece {
-            WHITE_KING_U32 => {
-                previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                self.white_king_square = to_sq as u8;
-                match (from_sq, to_sq) {
-                    (4, 2) => {
-                        let (rook_from, rook_to) = (0, 3);
-                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
-                    }
-                    (4, 6) => {
-                        let (rook_from, rook_to) = (7, 5);
-                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
-                    }
-                    _ => (),
-                };
-
-                (
-                    state.castling_rights.white_three_zeros,
-                    state.castling_rights.white_two_zeros,
-                ) = (false, false);
-                state.en_passant_target = None;
-                &mut self.white_occupancy
-            }
-            WHITE_ROOK_U32 => {
-                if moving_piece_type(piece_move) != COLORLESS_ROOK
-                    || captured_piece_type(piece_move) != COLORLESS_ROOK
-                {
+        let color_to_mutate: &mut u64 = if color == 8 {
+            match moving_piece {
+                WHITE_KING_U32 => {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                }
+                    self.white_king_square = to_sq as u8;
+                    match (from_sq, to_sq) {
+                        (4, 2) => {
+                            let (rook_from, rook_to) = (0, 3);
 
-                if from_sq == 0 {
-                    state.castling_rights.white_three_zeros = false;
-                } else if from_sq == 7 {
-                    state.castling_rights.white_two_zeros = false;
-                }
-                state.en_passant_target = None;
-                &mut self.white_occupancy
-            }
-            WHITE_PAWN_U32 => {
-                match (from_sq, to_sq) {
-                    (8..=15, 24..=31) => {
-                        state.en_passant_target = Some(to_sq_u8 - 8); // en passant square behind the pawn
-                    }
-                    (48..56, 56..64) => {
-                        promotion_choice = match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
-                            1 => {
-                                self.material += KNIGHT_VALUE;
-                                previous_move.material_difference += KNIGHT_VALUE;
-                                Some(WHITE_KNIGHT_U32)
-                            }
-                            2 => {
-                                self.material += BISHOP_VALUE;
-                                previous_move.material_difference += BISHOP_VALUE;
-                                Some(WHITE_BISHOP_U32)
-                            }
-                            3 => {
-                                self.material += ROOK_VALUE;
-                                previous_move.material_difference += ROOK_VALUE;
-                                Some(WHITE_ROOK_U32)
-                            }
-                            4 => {
-                                self.material += QUEEN_VALUE;
-                                previous_move.material_difference += QUEEN_VALUE;
-                                Some(WHITE_QUEEN_U32)
-                            }
-                            _ => unsafe { unreachable_unchecked() },
-                        };
-                        state.en_passant_target = None;
-                    }
-                    _ => {
-                        if let Some(e_p) = state.en_passant_target {
-                            if to_sq_u8 == e_p {
-                                self.en_passant(e_p, &mut previous_move, NO_PIECE_BLACK);
-                                previous_move.material_difference += PAWN_VALUE;
-                                self.material += PAWN_VALUE;
-                            }
+                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
                         }
-                        state.en_passant_target = None;
-                    }
-                };
-                &mut self.white_occupancy
-            }
-            WHITE_BISHOP_U32 | WHITE_KNIGHT_U32 | WHITE_QUEEN_U32 => {
-                state.en_passant_target = None;
-                &mut self.white_occupancy
-            }
+                        (4, 6) => {
+                            let (rook_from, rook_to) = (7, 5);
+                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_WHITE);
+                        }
+                        _ => (),
+                    };
 
-            BLACK_KING_U32 => {
-                previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                self.black_king_square = to_sq as u8;
-                match (from_sq, to_sq) {
-                    (60, 58) => {
-                        let (rook_from, rook_to) = (56, 59);
-                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
+                    state.castling_rights &= !(WHITE_LONG | WHITE_SHORT);
+                    state.en_passant_target = None;
+                }
+                WHITE_ROOK_U32 => {
+                    if moving_piece_type(piece_move) != COLORLESS_ROOK
+                        || captured_piece_type(piece_move) != COLORLESS_ROOK
+                    {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                     }
-                    (60, 62) => {
-                        let (rook_from, rook_to) = (63, 61);
-                        self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
-                    }
-                    _ => (),
-                };
 
-                (
-                    state.castling_rights.black_three_zeros,
-                    state.castling_rights.black_two_zeros,
-                ) = (false, false);
-                state.en_passant_target = None;
-                &mut self.black_occupancy
+                    if from_sq == 0 {
+                        state.castling_rights &= !WHITE_LONG;
+                    } else if from_sq == 7 {
+                        state.castling_rights &= !WHITE_SHORT;
+                    }
+                    state.en_passant_target = None;
+                }
+                WHITE_PAWN_U32 => {
+                    match (from_sq, to_sq) {
+                        (8..=15, 24..=31) => {
+                            state.en_passant_target = Some(to_sq_u8 - 8); // en passant square behind the pawn
+                        }
+                        (48..56, 56..64) => {
+                            promotion_choice =
+                                match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
+                                    1 => {
+                                        self.material += KNIGHT_VALUE;
+                                        previous_move.material_difference += KNIGHT_VALUE;
+                                        Some(WHITE_KNIGHT_U32)
+                                    }
+                                    2 => {
+                                        self.material += BISHOP_VALUE;
+                                        previous_move.material_difference += BISHOP_VALUE;
+                                        Some(WHITE_BISHOP_U32)
+                                    }
+                                    3 => {
+                                        self.material += ROOK_VALUE;
+                                        previous_move.material_difference += ROOK_VALUE;
+                                        Some(WHITE_ROOK_U32)
+                                    }
+                                    4 => {
+                                        self.material += QUEEN_VALUE;
+                                        previous_move.material_difference += QUEEN_VALUE;
+                                        Some(WHITE_QUEEN_U32)
+                                    }
+                                    _ => unsafe { unreachable_unchecked() },
+                                };
+                            state.en_passant_target = None;
+                        }
+                        _ => {
+                            if let Some(e_p) = state.en_passant_target {
+                                if to_sq_u8 == e_p {
+                                    self.en_passant(e_p, &mut previous_move, NO_PIECE_BLACK);
+                                    previous_move.material_difference += PAWN_VALUE;
+                                    self.material += PAWN_VALUE;
+                                }
+                            }
+                            state.en_passant_target = None;
+                        }
+                    };
+                }
+                _ => {
+                    state.en_passant_target = None;
+                }
             }
-            BLACK_ROOK_U32 => {
-                if moving_piece_type(piece_move) != COLORLESS_ROOK
-                    || captured_piece_type(piece_move) != COLORLESS_ROOK
-                {
+            &mut self.white_occupancy
+        } else {
+            match moving_piece {
+                BLACK_KING_U32 => {
                     previous_move.previous_castling_rights = Some(state.castling_rights.clone());
-                }
-                if from_sq == 56 {
-                    state.castling_rights.black_three_zeros = false;
-                } else if from_sq == 63 {
-                    state.castling_rights.black_two_zeros = false;
-                }
-                state.en_passant_target = None;
-                &mut self.black_occupancy
-            }
-            BLACK_PAWN_U32 => {
-                match (from_sq, to_sq) {
-                    (48..=55, 32..=39) => {
-                        state.en_passant_target = Some(to_sq_u8 + 8); // en passant square behind the pawn
-                    }
-                    (8..16, 0..8) => {
-                        promotion_choice = match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
-                            1 => {
-                                self.material -= KNIGHT_VALUE;
-                                previous_move.material_difference -= KNIGHT_VALUE;
-                                Some(BLACK_KNIGHT_U32)
-                            }
-                            2 => {
-                                self.material -= BISHOP_VALUE;
-                                previous_move.material_difference -= BISHOP_VALUE;
-                                Some(BLACK_BISHOP_U32)
-                            }
-                            3 => {
-                                self.material -= ROOK_VALUE;
-                                previous_move.material_difference -= ROOK_VALUE;
-                                Some(BLACK_ROOK_U32)
-                            }
-                            4 => {
-                                self.material -= QUEEN_VALUE;
-                                previous_move.material_difference -= QUEEN_VALUE;
-                                Some(BLACK_QUEEN_U32)
-                            }
-                            _ => unsafe { unreachable_unchecked() },
-                        };
-                        state.en_passant_target = None;
-                    }
-                    _ => {
-                        if let Some(e_p) = state.en_passant_target {
-                            if to_sq_u8 == e_p {
-                                self.en_passant(e_p, &mut previous_move, NO_PIECE_WHITE);
-                                previous_move.material_difference -= PAWN_VALUE;
-                                self.material -= PAWN_VALUE;
-                            }
+                    self.black_king_square = to_sq as u8;
+                    match (from_sq, to_sq) {
+                        (60, 58) => {
+                            let (rook_from, rook_to) = (56, 59);
+                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
                         }
-                        state.en_passant_target = None;
+                        (60, 62) => {
+                            let (rook_from, rook_to) = (63, 61);
+                            self.castling(&mut previous_move, rook_from, rook_to, NO_PIECE_BLACK);
+                        }
+                        _ => (),
+                    };
+
+                    state.castling_rights &= !(BLACK_LONG | BLACK_SHORT);
+                    state.en_passant_target = None;
+                }
+                BLACK_ROOK_U32 => {
+                    if moving_piece_type(piece_move) != COLORLESS_ROOK
+                        || captured_piece_type(piece_move) != COLORLESS_ROOK
+                    {
+                        previous_move.previous_castling_rights =
+                            Some(state.castling_rights.clone());
                     }
-                };
-                &mut self.black_occupancy
+                    if from_sq == 56 {
+                        state.castling_rights &= !BLACK_LONG;
+                    } else if from_sq == 63 {
+                        state.castling_rights &= !BLACK_SHORT;
+                    }
+                    state.en_passant_target = None;
+                }
+                BLACK_PAWN_U32 => {
+                    match (from_sq, to_sq) {
+                        (48..=55, 32..=39) => {
+                            state.en_passant_target = Some(to_sq_u8 + 8); // en passant square behind the pawn
+                        }
+                        (8..16, 0..8) => {
+                            promotion_choice =
+                                match (piece_move & PROMOTION_MASK) >> PROMOTION_SHIFT {
+                                    1 => {
+                                        self.material -= KNIGHT_VALUE;
+                                        previous_move.material_difference -= KNIGHT_VALUE;
+                                        Some(BLACK_KNIGHT_U32)
+                                    }
+                                    2 => {
+                                        self.material -= BISHOP_VALUE;
+                                        previous_move.material_difference -= BISHOP_VALUE;
+                                        Some(BLACK_BISHOP_U32)
+                                    }
+                                    3 => {
+                                        self.material -= ROOK_VALUE;
+                                        previous_move.material_difference -= ROOK_VALUE;
+                                        Some(BLACK_ROOK_U32)
+                                    }
+                                    4 => {
+                                        self.material -= QUEEN_VALUE;
+                                        previous_move.material_difference -= QUEEN_VALUE;
+                                        Some(BLACK_QUEEN_U32)
+                                    }
+                                    _ => unsafe { unreachable_unchecked() },
+                                };
+                            state.en_passant_target = None;
+                        }
+                        _ => {
+                            if let Some(e_p) = state.en_passant_target {
+                                if to_sq_u8 == e_p {
+                                    self.en_passant(e_p, &mut previous_move, NO_PIECE_WHITE);
+                                    previous_move.material_difference -= PAWN_VALUE;
+                                    self.material -= PAWN_VALUE;
+                                }
+                            }
+                            state.en_passant_target = None;
+                        }
+                    };
+                }
+                _ => {
+                    state.en_passant_target = None;
+                }
             }
-            _ => {
-                state.en_passant_target = None;
-                &mut self.black_occupancy
-            }
+            &mut self.black_occupancy
         };
+
         let (start, end): (Bitboard, Bitboard) = (!(1 << from_sq), 1 << to_sq);
         self.total_occupancy &= start;
         self.total_occupancy |= end;
@@ -614,6 +613,7 @@ impl Board {
                 castling(m),
                 en_passant(m),
             );
+
             let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = if color == 8 {
                 (
                     match main_piece {
@@ -621,9 +621,12 @@ impl Board {
                         WHITE_KNIGHT_U32 => &mut self.white_knights,
                         WHITE_BISHOP_U32 => &mut self.white_bishops,
                         WHITE_QUEEN_U32 => &mut self.white_queens,
-                        WHITE_KING_U32 => &mut self.white_king,
+                        WHITE_KING_U32 => {
+                            self.white_king_square = start;
+                            &mut self.white_king
+                        }
                         WHITE_ROOK_U32 => &mut self.white_rooks,
-                        other => unreachable!("piece {other}"),
+                        other => unreachable!("piece {other}, color {color}"),
                     },
                     &mut self.white_occupancy,
                 )
@@ -634,7 +637,10 @@ impl Board {
                         BLACK_KNIGHT_U32 => &mut self.black_knights,
                         BLACK_BISHOP_U32 => &mut self.black_bishops,
                         BLACK_QUEEN_U32 => &mut self.black_queens,
-                        BLACK_KING_U32 => &mut self.black_king,
+                        BLACK_KING_U32 => {
+                            self.black_king_square = start;
+                            &mut self.black_king
+                        }
                         BLACK_ROOK_U32 => &mut self.black_rooks,
                         other => unreachable!("piece {other}"),
                     },
@@ -647,11 +653,19 @@ impl Board {
             if promotion == 0 {
                 *moved_piece_bitboard |= start_bb;
             } else {
-                *match color {
-                    8 => &mut self.white_pawns,
-                    16 => &mut self.black_pawns,
+                let (pawns, promoted_piece) = match (color, promotion) {
+                    (8, 1) => (&mut self.white_pawns, &mut self.white_knights),
+                    (8, 2) => (&mut self.white_pawns, &mut self.white_bishops),
+                    (8, 3) => (&mut self.white_pawns, &mut self.white_rooks),
+                    (8, 4) => (&mut self.white_pawns, &mut self.white_queens),
+                    (16, 1) => (&mut self.black_pawns, &mut self.black_knights),
+                    (16, 2) => (&mut self.black_pawns, &mut self.black_bishops),
+                    (16, 3) => (&mut self.black_pawns, &mut self.black_rooks),
+                    (16, 4) => (&mut self.black_pawns, &mut self.black_queens),
                     _ => unreachable!(),
-                } |= start_bb
+                };
+                *pawns |= start_bb;
+                *promoted_piece &= not_end_bb;
             }
 
             *color_occupancy |= start_bb;
@@ -707,15 +721,40 @@ impl Board {
             }
 
             if castling != 0 {
-                let (rooks, rook_start, rook_end) = match (start, end) {
-                    (4, 2) => (&mut self.white_rooks, 0, 3),
-                    (4, 6) => (&mut self.white_rooks, 7, 5),
-                    (60, 58) => (&mut self.black_rooks, 56, 59),
-                    (60, 62) => (&mut self.black_rooks, 63, 61),
+                let (rooks, occupancy, rook_start, rook_end) = match (start, end) {
+                    (4, 2) => (
+                        &mut self.white_rooks,
+                        &mut self.white_occupancy,
+                        1 << 0,
+                        !(1 << 3),
+                    ),
+                    (4, 6) => (
+                        &mut self.white_rooks,
+                        &mut self.white_occupancy,
+                        1 << 7,
+                        !(1 << 5),
+                    ),
+                    (60, 58) => (
+                        &mut self.black_rooks,
+                        &mut self.black_occupancy,
+                        1 << 56,
+                        !(1 << 59),
+                    ),
+                    (60, 62) => (
+                        &mut self.black_rooks,
+                        &mut self.black_occupancy,
+                        1 << 63,
+                        !(1 << 61),
+                    ),
                     _ => unreachable!(),
                 };
-                *rooks |= 1 << rook_start;
-                *rooks &= !(1 << rook_end);
+
+                *rooks |= rook_start;
+                *rooks &= rook_end;
+                *occupancy |= rook_start;
+                *occupancy &= rook_end;
+                self.total_occupancy |= rook_start;
+                self.total_occupancy &= rook_end;
             }
 
             if let Some(castling_rights) = previous_move.previous_castling_rights {
@@ -725,19 +764,8 @@ impl Board {
         }
     }
 
-    pub fn generate_range(square1: u8, square2: u8, inclusion: &InclusiveRange) -> Bitboard {
-        let mut rng: Bitboard = unsafe { RAYS_BETWEEN[square1 as usize][square2 as usize] };
-
-        match inclusion {
-            &InclusiveRange::Both => rng |= (1 << square1) | (1 << square2),
-            &InclusiveRange::FirstOnly => rng |= 1 << square1,
-            &InclusiveRange::LastOnly => rng |= 1 << square2,
-            &InclusiveRange::None => (),
-        }
-        return rng;
-    }
-
+    #[inline(always)]
     pub fn is_capture(&self, m: u32) -> bool {
-        return self.piece_at((m & TO_MASK) >> TO_SHIFT).is_some();
+        return captured_piece(m) != 0;
     }
 }

@@ -77,38 +77,58 @@ pub const COLORLESS_ROOK: u32 = 4;
 pub const COLORLESS_QUEEN: u32 = 5;
 pub const COLORLESS_KING: u32 = 6;
 
+pub const WHITE_SHORT: u8 = 1;
+pub const WHITE_LONG: u8 = 2;
+pub const BLACK_SHORT: u8 = 4;
+pub const BLACK_LONG: u8 = 8; // all available = 15
+
+pub const WHITE_SHORT_MASK: u8 = 0b1;
+pub const WHITE_LONG_MASK: u8 = 0b10;
+pub const BLACK_SHORT_MASK: u8 = 0b100;
+pub const BLACK_LONG_MASK: u8 = 0b1000;
+
+#[inline(always)]
 pub fn from_square(m: u32) -> u8 {
     return (m & FROM_MASK) as u8;
 }
+#[inline(always)]
 pub fn to_square(m: u32) -> u32 {
     return (m & TO_MASK) >> TO_SHIFT;
 }
+#[inline(always)]
 pub fn promotion(m: u32) -> u8 {
     return ((m & PROMOTION_MASK) >> PROMOTION_SHIFT) as u8;
 }
-
+#[inline(always)]
 pub fn moving_piece_type(m: u32) -> u32 {
     return (m & MOVING_PIECE_TYPE_MASK) >> MOVING_PIECE_TYPE_SHIFT;
 }
+#[inline(always)]
 pub fn moving_piece_color(m: u32) -> u8 {
     return ((m & MOVING_PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT) as u8;
 }
+#[inline(always)]
 pub fn moving_piece(m: u32) -> u32 {
     return (m & (MOVING_PIECE_TYPE_MASK | MOVING_PIECE_COLOR_MASK)) >> MOVING_PIECE_TYPE_SHIFT;
 }
+#[inline(always)]
 pub fn captured_piece_type(m: u32) -> u32 {
     return (m & CAPTURED_PIECE_TYPE_MASK) >> CAPTURED_PIECE_TYPE_SHIFT;
 }
+#[inline(always)]
 pub fn captured_piece_color(m: u32) -> u8 {
     return ((m & CAPTURED_PIECE_COLOR_MASK) >> CAPTURED_PIECE_COLOR_SHIFT) as u8;
 }
+#[inline(always)]
 pub fn captured_piece(m: u32) -> u32 {
     return (m & (CAPTURED_PIECE_TYPE_MASK | CAPTURED_PIECE_COLOR_MASK))
         >> CAPTURED_PIECE_TYPE_SHIFT;
 }
+#[inline(always)]
 pub fn castling(m: u32) -> u8 {
     return ((m & CASTLING_MASK) >> CASTLING_SHIFT) as u8;
 }
+#[inline(always)]
 pub fn en_passant(m: u32) -> u8 {
     return ((m & EN_PASSANT_MASK) >> EN_PASSANT_SHIFT) as u8;
 }

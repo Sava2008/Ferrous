@@ -2,35 +2,24 @@ use std::hint::unreachable_unchecked;
 
 use crate::{
     alpha_beta_pruning::Engine,
-    board::Board,
     board_geometry_templates::*,
     constants::{attacks::MVV_LVA, heuristics::*},
 };
 
 impl Engine {
-    pub fn score_all_moves(&self, board: &Board, depth: usize, all_moves: &Vec<u32>) -> Vec<i16> {
+    pub fn score_all_moves(&self, depth: usize, all_moves: &Vec<u32>) -> Vec<i16> {
         let mut priorities: Vec<i16> = Vec::with_capacity(all_moves.len());
         for i in 0..all_moves.len() {
-            priorities.push(self.move_priority(board, &all_moves[i], depth));
+            priorities.push(self.move_priority(&all_moves[i], depth));
         }
         return priorities;
     }
-    fn move_priority(&self, board: &Board, m: &u32, depth: usize) -> i16 {
+    pub fn move_priority(&self, m: &u32, depth: usize) -> i16 {
         let mut priority_key: i16 = 0;
-        let (initial_pos, final_pos): (u32, Option<u32>) = (
-            if let Some(a) = board.piece_at(m & FROM_MASK) {
-                a
-            } else {
-                println!("board: {board:?}");
-                panic!("no piece at {}", m & FROM_MASK);
-            },
-            board.piece_at((m & TO_MASK) >> TO_SHIFT),
-        );
-        if let Some(dest) = final_pos {
-            let victim_value: usize =
-                Self::get_piece_value(dest & CAPTURED_PIECE_TYPE_MASK) as usize;
-            let attacker_value: usize =
-                Self::get_piece_value(initial_pos & MOVING_PIECE_TYPE_MASK) as usize;
+        let (initial_pos, final_pos): (u32, u32) = (moving_piece_type(*m), captured_piece_type(*m));
+        if final_pos != 0 {
+            let victim_value: usize = Self::get_piece_value(final_pos) as usize;
+            let attacker_value: usize = Self::get_piece_value(initial_pos) as usize;
             priority_key -= unsafe { MVV_LVA[victim_value][attacker_value] };
         }
         if self.killer_moves[depth][0] == Some(*m) || self.killer_moves[depth][1] == Some(*m) {
@@ -55,7 +44,7 @@ impl Engine {
     }
 
     #[inline(always)]
-    fn does_improve_piece(m: u32) -> bool {
+    pub fn does_improve_piece(m: u32) -> bool {
         let (from_sq, to_sq): (usize, usize) = (
             (m & FROM_MASK) as usize,
             ((m & TO_MASK) >> TO_SHIFT) as usize,

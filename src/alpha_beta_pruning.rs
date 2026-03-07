@@ -1,9 +1,4 @@
-use crate::{
-    board::Board,
-    board_geometry_templates::{Bitboard, NO_PIECE_BLACK, NO_PIECE_WHITE},
-    constants::heuristics::*,
-    gamestate::GameState,
-};
+use crate::{board::Board, constants::heuristics::*, gamestate::GameState};
 use std::cmp::{max, min};
 pub struct Engine {
     pub side: u32, // which color Ferrous plays
@@ -15,7 +10,7 @@ pub struct Engine {
 impl Engine {
     pub fn evaluate(&mut self, board: &Board) -> () {
         self.evaluation = 0;
-        let mut p: Bitboard = board.white_bishops;
+        let mut p: u64 = board.white_bishops;
         while p != 0 {
             self.evaluation += WHITE_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
@@ -111,6 +106,7 @@ impl Engine {
         beta: i32,
         maximizing: bool,
         state: &mut GameState,
+        nodes: &mut u64,
     ) -> i32 {
         if depth == 0 {
             self.evaluate(board);
@@ -118,12 +114,13 @@ impl Engine {
         }
         if maximizing {
             // white's branch
+            *nodes += 1;
             let mut best_score: i32 = i32::MIN;
             let mut current_alpha: i32 = alpha;
-            state.whose_turn = NO_PIECE_WHITE;
+            // state.whose_turn = NO_PIECE_WHITE;
 
             let mut pseudo_legal_moves: Vec<u32> =
-                self.generate_pseudo_legal_moves(state.whose_turn, &board, &state);
+                self.generate_pseudo_legal_moves(8, &board, &state);
 
             if pseudo_legal_moves.len() == 0 {
                 return if board.is_square_attacked(board.white_king_square, 16) {
@@ -133,7 +130,7 @@ impl Engine {
                 };
             }
             let mut priorities: Vec<i16> =
-                self.score_all_moves(board, depth as usize, &pseudo_legal_moves);
+                self.score_all_moves(depth as usize, &pseudo_legal_moves);
 
             for i in 0..pseudo_legal_moves.len() {
                 let (best_move_index, _) = priorities[i..]
@@ -146,17 +143,25 @@ impl Engine {
                 pseudo_legal_moves.swap(true_index, i);
                 priorities.swap(true_index, i);
 
-                board.perform_move(allegedly_best_move, state, state.whose_turn);
+                board.perform_move(allegedly_best_move, state, 8);
                 if board.is_square_attacked(board.white_king_square, 16) {
-                    board.cancel_move(state, state.whose_turn);
+                    board.cancel_move(state, 8);
                     continue;
                 }
 
                 best_score = max(
-                    self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
+                    self.alpha_beta_pruning(
+                        board,
+                        depth - 1,
+                        current_alpha,
+                        beta,
+                        false,
+                        state,
+                        nodes,
+                    ),
                     best_score,
                 );
-                board.cancel_move(state, state.whose_turn);
+                board.cancel_move(state, 8);
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
                     if !board.is_capture(allegedly_best_move) && depth < self.depth {
@@ -168,12 +173,13 @@ impl Engine {
             return best_score;
         } else {
             // black's branch
+            *nodes += 1;
             let mut best_score: i32 = i32::MAX;
             let mut current_beta: i32 = beta;
-            state.whose_turn = NO_PIECE_BLACK;
+            // state.whose_turn = NO_PIECE_BLACK;
 
             let mut pseudo_legal_moves: Vec<u32> =
-                self.generate_pseudo_legal_moves(state.whose_turn, &board, &state);
+                self.generate_pseudo_legal_moves(16, &board, &state);
 
             if pseudo_legal_moves.len() == 0 {
                 return if board.is_square_attacked(board.black_king_square, 8) {
@@ -183,7 +189,7 @@ impl Engine {
                 };
             }
             let mut priorities: Vec<i16> =
-                self.score_all_moves(board, depth as usize, &pseudo_legal_moves);
+                self.score_all_moves(depth as usize, &pseudo_legal_moves);
 
             for i in 0..pseudo_legal_moves.len() {
                 let (best_move_index, _) = priorities[i..]
@@ -196,17 +202,25 @@ impl Engine {
                 pseudo_legal_moves.swap(true_index, i);
                 priorities.swap(true_index, i);
 
-                board.perform_move(allegedly_best_move, state, state.whose_turn);
+                board.perform_move(allegedly_best_move, state, 16);
                 if board.is_square_attacked(board.black_king_square, 8) {
-                    board.cancel_move(state, state.whose_turn);
+                    board.cancel_move(state, 16);
                     continue;
                 }
 
                 best_score = min(
-                    self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
+                    self.alpha_beta_pruning(
+                        board,
+                        depth - 1,
+                        alpha,
+                        current_beta,
+                        true,
+                        state,
+                        nodes,
+                    ),
                     best_score,
                 );
-                board.cancel_move(state, state.whose_turn);
+                board.cancel_move(state, 16);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
                     if !board.is_capture(allegedly_best_move) && depth < self.depth {
@@ -220,6 +234,7 @@ impl Engine {
     }
 
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<u32> {
+        let mut nodes: u64 = 0;
         self.killer_moves = [[None; 2]; 16];
         let (mut best_score, maximizing): (i32, bool) = match self.side {
             8 => (i32::MIN, false),
@@ -235,11 +250,10 @@ impl Engine {
             16 => board.black_king_square,
             _ => unreachable!(),
         };
-
         let mut pseudo_legal_moves: Vec<u32> =
             self.generate_pseudo_legal_moves(self.side, board, &copied_state);
         let mut priorities: Vec<i16> =
-            self.score_all_moves(board, self.depth as usize, &pseudo_legal_moves);
+            self.score_all_moves(self.depth as usize, &pseudo_legal_moves);
 
         for i in 0..pseudo_legal_moves.len() {
             let (best_move_index, _) = priorities[i..]
@@ -265,6 +279,7 @@ impl Engine {
                 i32::MAX,
                 maximizing,
                 &mut copied_state,
+                &mut nodes,
             );
             copied_board.cancel_move(&mut copied_state, self.side);
 
@@ -277,6 +292,7 @@ impl Engine {
                 best_move = Some(pseudo_legal_moves[i]);
             }
         }
+        println!("nodes: {nodes}");
         return best_move;
     }
 }

@@ -204,8 +204,8 @@ impl Board {
             Bitboard,
         ) = match color {
             8 => match (
-                &state.castling_rights.white_three_zeros,
-                &state.castling_rights.white_two_zeros,
+                &state.castling_rights & WHITE_LONG_MASK != 0,
+                &state.castling_rights & WHITE_SHORT_MASK != 0,
             ) {
                 (true, true) => (
                     (Some(2), Some(6)),
@@ -225,8 +225,8 @@ impl Board {
                 ),
             },
             16 => match (
-                &state.castling_rights.black_two_zeros,
-                &state.castling_rights.black_three_zeros,
+                &state.castling_rights & BLACK_SHORT_MASK != 0,
+                &state.castling_rights & BLACK_LONG_MASK != 0,
             ) {
                 (true, true) => (
                     (Some(62), Some(58)),
@@ -260,7 +260,12 @@ impl Board {
                 left_path &= left_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.1 {
-                moves.push(initial_pos | ((sq as u32) << TO_SHIFT) | (1 << CASTLING_SHIFT));
+                moves.push(
+                    initial_pos
+                        | ((sq as u32) << TO_SHIFT)
+                        | (moving_piece << MOVING_PIECE_TYPE_SHIFT)
+                        | (1 << CASTLING_SHIFT),
+                );
             }
         }
         if right_path != 0 && (right_path & self.total_occupancy == 0) {
@@ -275,7 +280,12 @@ impl Board {
                 right_path &= right_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.0 {
-                moves.push(initial_pos | ((sq as u32) << TO_SHIFT) | (1 << CASTLING_SHIFT));
+                moves.push(
+                    initial_pos
+                        | ((sq as u32) << TO_SHIFT)
+                        | (moving_piece << MOVING_PIECE_TYPE_SHIFT)
+                        | (1 << CASTLING_SHIFT),
+                );
             }
         }
 
