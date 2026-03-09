@@ -46,7 +46,7 @@ fn measure_time() -> () {
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 10],
+        }; 16],
     };
     let t = Instant::now();
     engine.evaluate(&board);
@@ -119,13 +119,13 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 7,
+        depth: 8,
         evaluation: 0,
         killer_moves: [[None; 2]; 16],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 10],
+        }; 16],
     };
     if engine.side == 16 {
         engine.depth += 1;

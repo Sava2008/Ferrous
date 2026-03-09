@@ -1,5 +1,3 @@
-use std::hint::unreachable_unchecked;
-
 use crate::{
     alpha_beta_pruning::Engine,
     board_geometry_templates::*,
@@ -18,7 +16,7 @@ impl Engine {
         let mut priority_key: i16 = 0;
         let (initial_pos, final_pos): (u32, u32) = (moving_piece_type(*m), captured_piece_type(*m));
         if final_pos != 0 {
-            let victim_value: usize = Self::get_piece_value(final_pos) as usize;
+            let victim_value: usize = Self::get_piece_value(final_pos) as usize; //
             let attacker_value: usize = Self::get_piece_value(initial_pos) as usize;
             priority_key -= unsafe { MVV_LVA[victim_value][attacker_value] };
         }
@@ -30,16 +28,15 @@ impl Engine {
         }
         return priority_key;
     }
-    #[inline(always)]
     fn get_piece_value(piece_type: u32) -> u8 {
-        match captured_piece(piece_type) {
+        match piece_type {
             1 => 0,
             2 => 1,
             3 => 2,
             4 => 3,
             5 => 4,
             6 => 5,
-            _ => unsafe { unreachable_unchecked() },
+            other => unreachable!("captured piece: {other}"),
         }
     }
 

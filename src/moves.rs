@@ -116,7 +116,8 @@ impl Board {
 
     #[inline(always)]
     pub fn is_square_attacked(&self, square: u8, by: u32) -> bool {
-        if KNIGHT_ATTACKS[square as usize]
+        let usize_square: usize = square as usize;
+        if KNIGHT_ATTACKS[usize_square]
             & match by {
                 8 => self.white_knights,
                 16 => self.black_knights,
@@ -128,8 +129,8 @@ impl Board {
         }
 
         let pawn_attacks: Bitboard = match by {
-            8 => BLACK_PAWN_ATTACKS[square as usize],
-            16 => WHITE_PAWN_ATTACKS[square as usize],
+            8 => BLACK_PAWN_ATTACKS[usize_square],
+            16 => WHITE_PAWN_ATTACKS[usize_square],
             _ => unreachable!(),
         };
         if pawn_attacks
@@ -142,9 +143,8 @@ impl Board {
         {
             return true;
         }
-        let occupancy: Bitboard = self.total_occupancy & !(self.white_king | self.black_king);
 
-        if bishop_attacks(square as usize, occupancy)
+        if bishop_attacks(usize_square, self.total_occupancy)
             & match by {
                 8 => self.white_bishops | self.white_queens,
                 16 => self.black_bishops | self.black_queens,
@@ -155,7 +155,7 @@ impl Board {
             return true;
         }
 
-        if rook_attacks(square as usize, occupancy)
+        if rook_attacks(usize_square, self.total_occupancy)
             & match by {
                 8 => self.white_rooks | self.white_queens,
                 16 => self.black_rooks | self.black_queens,
@@ -165,8 +165,7 @@ impl Board {
         {
             return true;
         }
-
-        if KING_ATTACKS[square as usize]
+        if KING_ATTACKS[usize_square]
             & match by {
                 8 => self.white_king,
                 16 => self.black_king,

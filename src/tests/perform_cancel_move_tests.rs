@@ -182,3 +182,36 @@ fn castling_long_and_cancel_test() -> () {
         assert_eq!(state, copied_state);
     }
 }
+#[test]
+fn knight_moves_and_cancel_test() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) = fen_to_board("Q5r1/4kp1p/5p2/4p3/8/N6n/PP3PrP/3R1R1K b - - 0 1");
+    board.total_occupancy();
+    board.update_full_cache();
+    board.count_material();
+    let mut legal_moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.knight_moves(16, &mut legal_moves);
+    assert_eq!(legal_moves.first_not_occupied, 4);
+    let (copied_board, copied_state) = (board.clone(), state.clone());
+    for i in 0..4 {
+        let m = legal_moves.pseudo_moves[i];
+        println!(
+            "from {}, to {}, capture {}, castling: {}",
+            m & FROM_MASK,
+            (m & TO_MASK) >> TO_SHIFT,
+            captured_piece(m),
+            castling(m)
+        );
+        board.perform_move(m, &mut state, 16);
+        board.cancel_move(&mut state, 16);
+        assert_eq!(board, copied_board);
+        assert_eq!(state, copied_state);
+    }
+}

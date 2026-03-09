@@ -190,6 +190,7 @@ impl Board {
         previous_move: &mut PreviousMove,
         to_sq: u8,
         color: u32,
+        m: &u32,
     ) -> () {
         let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = if color == 16 {
             match enemy {
@@ -230,7 +231,7 @@ impl Board {
                 WHITE_KING_U32 => {
                     panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
                 }
-                _ => unreachable!("piece {enemy}"),
+                _ => unreachable!("piece {enemy}, board: {self:?}"),
             }
         } else {
             match enemy {
@@ -270,7 +271,12 @@ impl Board {
                     (&mut self.black_rooks, &mut self.black_occupancy)
                 }
                 BLACK_KING_U32 => {
-                    panic!("attemped to capture black king. state: {state:?}, board: {self:?}")
+                    panic!(
+                        "attemped to capture black king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}",
+                        m & FROM_MASK,
+                        (m & TO_MASK) >> TO_SHIFT,
+                        moving_piece(*m)
+                    )
                 }
                 _ => unreachable!("piece: {enemy}, color {color}"),
             }
@@ -325,10 +331,7 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
-    #[track_caller]
     pub fn perform_move(&mut self, piece_move: u32, state: &mut GameState, color: u32) -> () {
-        let caller = std::panic::Location::caller();
-
         let (from_sq, to_sq): (u32, u32) =
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
         let to_sq_u8: u8 = to_sq as u8;
@@ -346,7 +349,14 @@ impl Board {
             material_difference: 0,
         };
         if captured_piece != 0 {
-            self.perform_capture(state, captured_piece, &mut previous_move, to_sq_u8, color);
+            self.perform_capture(
+                state,
+                captured_piece,
+                &mut previous_move,
+                to_sq_u8,
+                color,
+                &piece_move,
+            );
         }
 
         let color_to_mutate: &mut u64 = if color == 8 {
@@ -589,11 +599,7 @@ impl Board {
                         BLACK_QUEEN_U32 => &mut self.black_queens,
                         BLACK_KING_U32 => &mut self.black_king,
                         BLACK_ROOK_U32 => &mut self.black_rooks,
-                        _ => unreachable!(
-                            "moving piece: {moving_piece}, color {color}, caller {} {}",
-                            caller.file(),
-                            caller.line()
-                        ),
+                        _ => unreachable!("moving piece: {moving_piece}, color {color}",),
                     }
                 };
                 *piece_to_mutate |= end;
