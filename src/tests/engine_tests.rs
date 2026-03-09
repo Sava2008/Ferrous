@@ -25,6 +25,7 @@ fn checkmate_in_two_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -35,6 +36,7 @@ fn checkmate_in_two_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -74,6 +76,7 @@ fn checkmate_in_three_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -84,6 +87,7 @@ fn checkmate_in_three_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -136,6 +140,7 @@ fn checkmate_in_four_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -146,6 +151,7 @@ fn checkmate_in_four_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -233,6 +239,7 @@ fn checkmate_in_five_test1() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);

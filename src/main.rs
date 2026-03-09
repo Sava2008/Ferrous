@@ -31,55 +31,6 @@ pub mod moves;
 pub mod tests;
 pub mod tuning;
 
-fn measure_time() -> () {
-    let (mut board, mut state) =
-        fen_to_board("rnbqk2r/ppp1ppbp/5np1/3p2B1/3P4/2NQ4/PPP1PPPP/R3KBNR w KQkq - 2 5");
-
-    board.total_occupancy();
-    board.count_material();
-    board.update_full_cache();
-    let mut engine: Engine = Engine {
-        side: 8,
-        depth: 6,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 16],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 16],
-    };
-    let t = Instant::now();
-    engine.evaluate(&board);
-    println!("evaluation time: {}ns", t.elapsed().as_nanos());
-
-    let t = Instant::now();
-    engine.generate_pseudo_legal_moves(8, &board, &state, engine.depth as usize);
-    println!("move gen time: {}ns", t.elapsed().as_nanos());
-
-    let t = Instant::now();
-    engine.move_priority(&engine.move_lists[engine.depth as usize].pseudo_moves[4], 6);
-    println!("single move priority time: {}ns", t.elapsed().as_nanos());
-
-    let t = Instant::now();
-    Engine::does_improve_piece(engine.move_lists[engine.depth as usize].pseudo_moves[6]);
-    println!(
-        "piece improvemen calculation time: {}ns",
-        t.elapsed().as_nanos()
-    );
-    let t = Instant::now();
-    board.is_square_attacked(34, 16);
-    println!("attack check time: {}ns", t.elapsed().as_nanos());
-
-    let t = Instant::now();
-    board.perform_move(
-        engine.move_lists[engine.depth as usize].pseudo_moves[3],
-        &mut state,
-        8,
-    );
-    board.cancel_move(&mut state, 8);
-    println!("make-unmake time: {}ns", t.elapsed().as_nanos());
-}
-
 enum MoveResult {
     Win,
     Draw,
@@ -126,6 +77,7 @@ fn main() -> () {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16],
+        move_scores: [[0; 192]; 16],
     };
     if engine.side == 16 {
         engine.depth += 1;

@@ -9,9 +9,11 @@ pub struct Engine {
     pub evaluation: i32,
     pub killer_moves: [[Option<u32>; 2]; 16],
     pub move_lists: [MoveList; 16],
+    pub move_scores: [[i16; 192]; 16],
 }
 
 impl Engine {
+    #[inline(always)]
     pub fn evaluate(&mut self, board: &Board) -> () {
         self.evaluation = 0;
         let mut p: u64 = board.white_bishops;
@@ -76,6 +78,8 @@ impl Engine {
         }
         self.evaluation += board.material;
     }
+
+    #[inline(always)]
     pub fn generate_pseudo_legal_moves(
         &mut self,
         color: u32,
@@ -128,14 +132,11 @@ impl Engine {
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            let mut priorities: Vec<i16> = self.score_all_moves(
-                depth as usize,
-                &self.move_lists[depth_as_index].pseudo_moves[..last_occupied],
-            );
-            let mut legal_moves_amount = last_occupied;
+            self.score_all_moves(depth_as_index, last_occupied);
+            let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let (best_move_index, _) = priorities[i..]
+                let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                     .iter()
                     .enumerate()
                     .min_by_key(|&(_, score)| score)
@@ -146,10 +147,10 @@ impl Engine {
                 self.move_lists[depth_as_index]
                     .pseudo_moves
                     .swap(true_index, i);
-                priorities.swap(true_index, i);
+                self.move_scores[depth_as_index].swap(true_index, i);
 
                 board.perform_move(allegedly_best_move, state, 8);
-                if board.is_square_attacked(board.white_king.trailing_zeros() as u8, 16) {
+                if board.is_square_attacked(board.white_king_square, 16) {
                     board.cancel_move(state, 8);
                     legal_moves_amount -= 1;
                     continue;
@@ -177,7 +178,7 @@ impl Engine {
                 }
             }
             if legal_moves_amount == 0 {
-                return if board.is_square_attacked(board.white_king.trailing_zeros() as u8, 16) {
+                return if board.is_square_attacked(board.white_king_square, 16) {
                     i32::MIN + (self.depth - depth) as i32
                 } else {
                     0
@@ -192,14 +193,11 @@ impl Engine {
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            let mut priorities: Vec<i16> = self.score_all_moves(
-                depth as usize,
-                &self.move_lists[depth_as_index].pseudo_moves[..last_occupied],
-            );
+            self.score_all_moves(depth_as_index, last_occupied);
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let (best_move_index, _) = priorities[i..]
+                let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                     .iter()
                     .enumerate()
                     .min_by_key(|&(_, score)| score)
@@ -210,10 +208,10 @@ impl Engine {
                 self.move_lists[depth_as_index]
                     .pseudo_moves
                     .swap(true_index, i);
-                priorities.swap(true_index, i);
+                self.move_scores[depth_as_index].swap(true_index, i);
 
                 board.perform_move(allegedly_best_move, state, 16);
-                if board.is_square_attacked(board.black_king.trailing_zeros() as u8, 8) {
+                if board.is_square_attacked(board.black_king_square, 8) {
                     board.cancel_move(state, 16);
                     legal_moves_amount -= 1;
                     continue;
@@ -241,7 +239,7 @@ impl Engine {
                 }
             }
             if legal_moves_amount == 0 {
-                return if board.is_square_attacked(board.black_king.trailing_zeros() as u8, 8) {
+                return if board.is_square_attacked(board.black_king_square, 8) {
                     i32::MAX - (self.depth - depth) as i32
                 } else {
                     0
@@ -258,6 +256,7 @@ impl Engine {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
         }; 16];
+        self.move_scores = [[0; 192]; 16];
         let (mut best_score, maximizing): (i32, bool) = match self.side {
             8 => (i32::MIN, false),
             16 => (i32::MAX, true),
@@ -272,13 +271,10 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u32;
         self.generate_pseudo_legal_moves(self.side, board, &copied_state, depth_as_index);
         let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-        let mut priorities = self.score_all_moves(
-            self.depth as usize,
-            &self.move_lists[depth_as_index].pseudo_moves[0..last_occupied],
-        );
+        self.score_all_moves(depth_as_index, last_occupied);
 
         for i in 0..last_occupied {
-            let (best_move_index, _) = priorities[i..]
+            let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                 .iter()
                 .enumerate()
                 .min_by_key(|&(_, score)| score)
@@ -288,7 +284,7 @@ impl Engine {
             self.move_lists[depth_as_index]
                 .pseudo_moves
                 .swap(true_index, i);
-            priorities.swap(true_index, i);
+            self.move_scores[depth_as_index].swap(true_index, i);
             copied_board.perform_move(allegedly_best_move, &mut copied_state, self.side);
 
             let current_king_square: u8 = match self.side {

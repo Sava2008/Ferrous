@@ -5,12 +5,13 @@ use crate::{
 };
 
 impl Engine {
-    pub fn score_all_moves(&self, depth: usize, all_moves: &[u32]) -> Vec<i16> {
-        let mut priorities: Vec<i16> = Vec::with_capacity(all_moves.len());
-        for i in 0..all_moves.len() {
-            priorities.push(self.move_priority(&all_moves[i], depth));
+    pub fn score_all_moves(&mut self, depth: usize, last_occupied: usize) -> () {
+        for i in 0..last_occupied {
+            self.move_scores[depth][i] = self.move_priority(
+                &self.move_lists[depth].pseudo_moves[0..last_occupied][i],
+                depth,
+            );
         }
-        return priorities;
     }
     pub fn move_priority(&self, m: &u32, depth: usize) -> i16 {
         let mut priority_key: i16 = 0;
@@ -23,7 +24,7 @@ impl Engine {
         if self.killer_moves[depth][0] == Some(*m) || self.killer_moves[depth][1] == Some(*m) {
             priority_key -= 100;
         }
-        if Self::does_improve_piece(*m) {
+        if Self::does_improve_piece(*m, initial_pos) {
             priority_key -= 5;
         }
         return priority_key;
@@ -41,25 +42,40 @@ impl Engine {
     }
 
     #[inline(always)]
-    pub fn does_improve_piece(m: u32) -> bool {
-        let (from_sq, to_sq): (usize, usize) = (
+    pub fn does_improve_piece(m: u32, t: u32) -> bool {
+        let (from_sq, to_sq, color): (usize, usize, u8) = (
             (m & FROM_MASK) as usize,
             ((m & TO_MASK) >> TO_SHIFT) as usize,
+            moving_piece_color(m),
         );
-        return match moving_piece(m) {
-            BLACK_BISHOP_U32 => BLACK_BISHOP_HEURISTICS[to_sq] > BLACK_BISHOP_HEURISTICS[from_sq],
-            WHITE_BISHOP_U32 => WHITE_BISHOP_HEURISTICS[to_sq] > WHITE_BISHOP_HEURISTICS[from_sq],
-            BLACK_PAWN_U32 => BLACK_PAWN_HEURISTICS[to_sq] > BLACK_PAWN_HEURISTICS[from_sq],
-            WHITE_PAWN_U32 => WHITE_PAWN_HEURISTICS[to_sq] > WHITE_PAWN_HEURISTICS[from_sq],
-            BLACK_KNIGHT_U32 => BLACK_KNIGHT_HEURISTICS[to_sq] > BLACK_KNIGHT_HEURISTICS[from_sq],
-            WHITE_KNIGHT_U32 => WHITE_KNIGHT_HEURISTICS[to_sq] > WHITE_KNIGHT_HEURISTICS[from_sq],
-            BLACK_QUEEN_U32 => BLACK_QUEEN_HEURISTICS[to_sq] > BLACK_QUEEN_HEURISTICS[from_sq],
-            WHITE_QUEEN_U32 => WHITE_QUEEN_HEURISTICS[to_sq] > WHITE_QUEEN_HEURISTICS[from_sq],
-            BLACK_ROOK_U32 => BLACK_ROOK_HEURISTICS[to_sq] > BLACK_ROOK_HEURISTICS[from_sq],
-            WHITE_ROOK_U32 => WHITE_ROOK_HEURISTICS[to_sq] > WHITE_ROOK_HEURISTICS[from_sq],
-            BLACK_KING_U32 => BLACK_KING_HEURISTICS[to_sq] > BLACK_KING_HEURISTICS[from_sq],
-            WHITE_KING_U32 => WHITE_KING_HEURISTICS[to_sq] > WHITE_KING_HEURISTICS[from_sq],
-            other => unreachable!("bits: {other}"),
+        return if color == 8 {
+            match t {
+                COLORLESS_BISHOP => {
+                    WHITE_BISHOP_HEURISTICS[to_sq] > WHITE_BISHOP_HEURISTICS[from_sq]
+                }
+                COLORLESS_PAWN => WHITE_PAWN_HEURISTICS[to_sq] > WHITE_PAWN_HEURISTICS[from_sq],
+                WHITE_KNIGHT_U32 => {
+                    WHITE_KNIGHT_HEURISTICS[to_sq] > WHITE_KNIGHT_HEURISTICS[from_sq]
+                }
+                COLORLESS_QUEEN => WHITE_QUEEN_HEURISTICS[to_sq] > WHITE_QUEEN_HEURISTICS[from_sq],
+                COLORLESS_ROOK => WHITE_ROOK_HEURISTICS[to_sq] > WHITE_ROOK_HEURISTICS[from_sq],
+                COLORLESS_KING => WHITE_KING_HEURISTICS[to_sq] > WHITE_KING_HEURISTICS[from_sq],
+                other => unreachable!("bits: {other}"),
+            }
+        } else {
+            match t {
+                COLORLESS_BISHOP => {
+                    BLACK_BISHOP_HEURISTICS[to_sq] > BLACK_BISHOP_HEURISTICS[from_sq]
+                }
+                COLORLESS_PAWN => BLACK_PAWN_HEURISTICS[to_sq] > BLACK_PAWN_HEURISTICS[from_sq],
+                COLORLESS_KNIGHT => {
+                    BLACK_KNIGHT_HEURISTICS[to_sq] > BLACK_KNIGHT_HEURISTICS[from_sq]
+                }
+                COLORLESS_QUEEN => BLACK_QUEEN_HEURISTICS[to_sq] > BLACK_QUEEN_HEURISTICS[from_sq],
+                COLORLESS_ROOK => BLACK_ROOK_HEURISTICS[to_sq] > BLACK_ROOK_HEURISTICS[from_sq],
+                COLORLESS_KING => BLACK_KING_HEURISTICS[to_sq] > BLACK_KING_HEURISTICS[from_sq],
+                _ => unreachable!(),
+            }
         };
     }
 }
