@@ -10,7 +10,6 @@ use crate::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
-    converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
     moves::MoveList,
@@ -55,7 +54,6 @@ fn main() -> () {
     let mut state: GameState = GameState::new(&board);
 
     board.total_occupancy();
-    board.count_material();
     board.update_full_cache();
 
     print!("choose the color: ");
@@ -134,13 +132,12 @@ fn make_engine_move(
     color: u32,
 ) -> MoveResult {
     board.total_occupancy();
-    board.count_material();
 
     let time: Instant = Instant::now();
     let engine_move: Option<u32> = engine.find_best_move(&board, state);
     println!("time elapsed: {:.6?}", time.elapsed());
     if let Some(m) = engine_move {
-        board.perform_move(m, state, color);
+        board.perform_move(m, state, color, &mut engine.evaluation);
         println!(
             "Ferrous's move: {:?} {:?}",
             INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
@@ -170,7 +167,6 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         first_not_occupied: 0,
     };
     board.total_occupancy();
-    board.count_material();
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
     let mut user_move = String::new();
@@ -254,7 +250,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
     }
 
     if legal_moves.pseudo_moves.iter().any(|&mv| mv == parsed_move) {
-        board.perform_move(parsed_move, state, player_color);
+        board.perform_move(parsed_move, state, player_color, &mut 0);
         if board.is_square_attacked(board.black_king_square, 8)
             || board.is_square_attacked(board.white_king_square, 16)
         {

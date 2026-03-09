@@ -154,7 +154,6 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         cached_pieces: [None; 64],
         white_king_square: 0,
         black_king_square: 0,
-        material: 0,
     };
     let mut state: GameState = GameState {
         en_passant_target: None,
