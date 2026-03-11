@@ -78,7 +78,7 @@ fn main() -> () {
         move_scores: [[0; 192]; 16],
     };
     if engine.side == 16 {
-        engine.depth += 1;
+        engine.depth -= 1;
     }
 
     game_control(&mut state, &mut board, &mut engine).unwrap();

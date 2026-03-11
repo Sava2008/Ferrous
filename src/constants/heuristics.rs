@@ -9,11 +9,16 @@ pub const WHITE_PAWN_HEURISTICS: [i32; 64] = [
     9, 10, 10, 10, 10, 10, 10, 9, // Rank8
 ];
 
-pub const BLACK_PAWN_HEURISTICS: [i32; 64] = {
-    let mut temp: [i32; 64] = WHITE_PAWN_HEURISTICS;
-    temp.reverse();
-    temp
-};
+pub const BLACK_PAWN_HEURISTICS: [i32; 64] = [
+    9, 10, 10, 10, 10, 10, 10, 9, // Rank1
+    6, 7, 7, 7, 7, 7, 7, 6, // Rank2
+    0, 2, 2, 3, 3, 2, 2, 0, // Rank3
+    -1, 1, 3, 4, 4, 3, 1, -1, // Rank4
+    1, -5, 4, 6, 6, 4, -3, 1, // Rank5
+    -1, 0, -7, 1, 1, 2, 0, -1, // Rank6
+    1, 1, 1, 0, 0, 1, 1, 1, // Rank7
+    0, 0, 0, 0, 0, 0, 0, 0, // Rank8
+];
 
 pub const WHITE_KNIGHT_HEURISTICS: [i32; 64] = [
     -10, -7, -5, -2, -2, -5, -7, -10, // Rank1

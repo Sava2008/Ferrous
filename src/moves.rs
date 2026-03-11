@@ -17,11 +17,26 @@ impl MoveList {
 }
 
 impl Board {
+    #[inline(always)]
     pub fn knight_moves(&self, color: u32, moves: &mut MoveList) -> () {
-        let (mut knights_bitboard, excluded_occupancy, moving_piece): (u64, u64, u32) = match color
-        {
-            8 => (self.white_knights, !self.white_occupancy, WHITE_KNIGHT_U32),
-            16 => (self.black_knights, !self.black_occupancy, BLACK_KNIGHT_U32),
+        let (mut knights_bitboard, excluded_occupancy, moving_piece, enemy_bitboard): (
+            u64,
+            u64,
+            u32,
+            &u64,
+        ) = match color {
+            8 => (
+                self.white_knights,
+                !self.white_occupancy,
+                WHITE_KNIGHT_U32,
+                &self.black_occupancy,
+            ),
+            16 => (
+                self.black_knights,
+                !self.black_occupancy,
+                BLACK_KNIGHT_U32,
+                &self.white_occupancy,
+            ),
             _ => unreachable!(),
         };
 
@@ -35,8 +50,9 @@ impl Board {
                 let mut pseudo_move: u32 = initial_pos
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-                if let Some(p) = self.piece_at(final_pos) {
-                    pseudo_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+                if enemy_bitboard & (1 << final_pos) != 0 {
+                    pseudo_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                        << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(pseudo_move);
 
@@ -46,14 +62,32 @@ impl Board {
         }
     }
 
+    #[inline(always)]
     pub fn pawn_moves(&self, state: &GameState, color: u32, moves: &mut MoveList) -> () {
-        let (mut pawns_bitboard, mut enemy_occupancy, moving_piece): (u64, u64, u32) = match color {
-            8 => (self.white_pawns, self.black_occupancy, WHITE_PAWN_U32),
-            16 => (self.black_pawns, self.white_occupancy, BLACK_PAWN_U32),
+        let (mut pawns_bitboard, enemy_occupancy, moving_piece, promo_rank, e_p_rank): (
+            u64,
+            u64,
+            u32,
+            &u64,
+            &u64,
+        ) = match color {
+            8 => (
+                self.white_pawns,
+                self.black_occupancy,
+                WHITE_PAWN_U32,
+                &RANK_8,
+                &RANK_5,
+            ),
+            16 => (
+                self.black_pawns,
+                self.white_occupancy,
+                BLACK_PAWN_U32,
+                &RANK_1,
+                &RANK_4,
+            ),
             _ => unreachable!(),
         };
         let en_passant: u32 = if let Some(e_p) = state.en_passant_target {
-            enemy_occupancy |= 1 << e_p;
             e_p as u32
         } else {
             64
@@ -72,6 +106,9 @@ impl Board {
                 _ => unreachable!(),
             };
             let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
+            if en_passant < 64 && (1 << initial_pos) & e_p_rank != 0 {
+                dest_bitboard |= 1 << en_passant;
+            }
 
             if forward_square < 64 && (self.total_occupancy >> forward_square) & 1 == 0 {
                 dest_bitboard |= 1 << forward_square;
@@ -94,13 +131,14 @@ impl Board {
                 let mut piece_move: u32 = initial_pos
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-                if let Some(p) = self.piece_at(final_pos) {
-                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
-                }
                 if final_pos == en_passant {
                     piece_move |= 1 << EN_PASSANT_SHIFT;
                 }
-                if final_pos > 55 || final_pos < 8 {
+                if enemy_occupancy & (1 << final_pos) != 0 {
+                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                        << CAPTURED_PIECE_TYPE_SHIFT;
+                }
+                if promo_rank & (1 << final_pos) != 0 {
                     moves.push(piece_move | (0b001 << PROMOTION_SHIFT));
                     moves.push(piece_move | (0b010 << PROMOTION_SHIFT));
                     moves.push(piece_move | (0b011 << PROMOTION_SHIFT));
@@ -179,12 +217,24 @@ impl Board {
         return false;
     }
 
+    #[inline(always)]
     pub fn king_moves(&self, state: &GameState, color: u32, moves: &mut MoveList) -> () {
-        let (initial_pos, opposite_color, moving_piece): (u32, u32, u32) = match color {
-            8 => (self.white_king_square as u32, 16, WHITE_KING_U32),
-            16 => (self.black_king_square as u32, 8, BLACK_KING_U32),
-            _ => unreachable!(),
-        };
+        let (initial_pos, opposite_color, moving_piece, enemy_occupancy): (u32, u32, u32, &u64) =
+            match color {
+                8 => (
+                    self.white_king_square as u32,
+                    16,
+                    WHITE_KING_U32,
+                    &self.black_occupancy,
+                ),
+                16 => (
+                    self.black_king_square as u32,
+                    8,
+                    BLACK_KING_U32,
+                    &self.white_occupancy,
+                ),
+                _ => unreachable!(),
+            };
         let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
             & !match color {
                 8 => self.white_occupancy,
@@ -196,8 +246,9 @@ impl Board {
             let final_pos: u32 = dest_bitboard.trailing_zeros();
             let mut piece_move: u32 =
                 initial_pos | (final_pos << TO_SHIFT) | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-            if let Some(p) = self.piece_at(final_pos) {
-                piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+            if enemy_occupancy & (1 << final_pos) != 0 {
+                piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                    << CAPTURED_PIECE_TYPE_SHIFT;
             }
             moves.push(piece_move);
             dest_bitboard &= dest_bitboard - 1;
@@ -297,10 +348,26 @@ impl Board {
         }
     }
 
+    #[inline(always)]
     pub fn rook_moves(&self, color: u32, moves: &mut MoveList) -> () {
-        let (mut rooks_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
-            8 => (self.white_rooks, self.white_occupancy, WHITE_ROOK_U32),
-            16 => (self.black_rooks, self.black_occupancy, BLACK_ROOK_U32),
+        let (mut rooks_bitboard, friendly_occupancy, moving_piece, enemy_occupancy): (
+            u64,
+            u64,
+            u32,
+            &u64,
+        ) = match color {
+            8 => (
+                self.white_rooks,
+                self.white_occupancy,
+                WHITE_ROOK_U32,
+                &self.black_occupancy,
+            ),
+            16 => (
+                self.black_rooks,
+                self.black_occupancy,
+                BLACK_ROOK_U32,
+                &self.white_occupancy,
+            ),
             _ => unreachable!(),
         };
 
@@ -313,8 +380,9 @@ impl Board {
                 let mut piece_move: u32 = initial_pos
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-                if let Some(p) = self.piece_at(final_pos) {
-                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+                if enemy_occupancy & (1 << final_pos) != 0 {
+                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                        << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
 
@@ -325,11 +393,26 @@ impl Board {
         }
     }
 
+    #[inline(always)]
     pub fn bishop_moves(&self, color: u32, moves: &mut MoveList) -> () {
-        let (mut bishops_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color
-        {
-            8 => (self.white_bishops, self.white_occupancy, WHITE_BISHOP_U32),
-            16 => (self.black_bishops, self.black_occupancy, BLACK_BISHOP_U32),
+        let (mut bishops_bitboard, friendly_occupancy, moving_piece, enemy_occupancy): (
+            u64,
+            u64,
+            u32,
+            &u64,
+        ) = match color {
+            8 => (
+                self.white_bishops,
+                self.white_occupancy,
+                WHITE_BISHOP_U32,
+                &self.black_occupancy,
+            ),
+            16 => (
+                self.black_bishops,
+                self.black_occupancy,
+                BLACK_BISHOP_U32,
+                &self.white_occupancy,
+            ),
             _ => unreachable!(),
         };
         let occupancy: Bitboard = self.total_occupancy;
@@ -344,8 +427,9 @@ impl Board {
                 let mut piece_move: u32 = initial_pos
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-                if let Some(p) = self.piece_at(final_pos) {
-                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+                if enemy_occupancy & (1 << final_pos) != 0 {
+                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                        << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;
@@ -355,10 +439,26 @@ impl Board {
         }
     }
 
+    #[inline(always)]
     pub fn queen_moves(&self, color: u32, moves: &mut MoveList) -> () {
-        let (mut queens_bitboard, friendly_occupancy, moving_piece): (u64, u64, u32) = match color {
-            8 => (self.white_queens, self.white_occupancy, WHITE_QUEEN_U32),
-            16 => (self.black_queens, self.black_occupancy, BLACK_QUEEN_U32),
+        let (mut queens_bitboard, friendly_occupancy, moving_piece, enemy_occupancy): (
+            u64,
+            u64,
+            u32,
+            &u64,
+        ) = match color {
+            8 => (
+                self.white_queens,
+                self.white_occupancy,
+                WHITE_QUEEN_U32,
+                &self.black_occupancy,
+            ),
+            16 => (
+                self.black_queens,
+                self.black_occupancy,
+                BLACK_QUEEN_U32,
+                &self.white_occupancy,
+            ),
             _ => unreachable!(),
         };
 
@@ -376,8 +476,9 @@ impl Board {
                 let mut piece_move: u32 = initial_pos
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
-                if let Some(p) = self.piece_at(final_pos) {
-                    piece_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
+                if enemy_occupancy & (1 << final_pos) != 0 {
+                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
+                        << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;

@@ -45,7 +45,7 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
     return row_col[1] * 8 + row_col[0];
 }
 
-/*pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String {
+pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String {
     let mut fen: String = String::with_capacity(100);
     for rank in (0..8).rev() {
         let mut empty_counter: u8 = 0;
@@ -96,9 +96,15 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
     });
 
     let castling_rights: [bool; 4] = match state.castling_rights {
+        3 => [true, true, false, false],
+        7 => [true, true, true, false],
+        11 => [true, true, false, true],
+        12 => [false, false, true, true],
+        13 => [true, false, true, true],
+        14 => [false, true, true, true],
         15 => [true; 4],
-
-         [false; 4];
+        _ => [false; 4],
+    };
     let mut castling_str: String = String::new();
 
     if castling_rights[0] {
@@ -132,7 +138,7 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
     ));
 
     return fen;
-}*/
+}
 
 pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     let mut board: Board = Board {

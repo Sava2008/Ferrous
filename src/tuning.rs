@@ -22,7 +22,7 @@ impl Engine {
             priority_key -= unsafe { MVV_LVA[victim_value][attacker_value] };
         }
         if self.killer_moves[depth][0] == Some(*m) || self.killer_moves[depth][1] == Some(*m) {
-            priority_key -= 100;
+            priority_key -= 5;
         }
         if Self::does_improve_piece(*m, initial_pos) {
             priority_key -= 5;
