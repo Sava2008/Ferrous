@@ -4,7 +4,7 @@ use crate::{
     board_geometry_templates::{
         CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING, EN_PASSANT_SHIFT, FROM_MASK,
         MOVING_PIECE_TYPE_SHIFT, NO_PIECE_BLACK, NO_PIECE_WHITE, PROMOTION_SHIFT, TO_MASK,
-        TO_SHIFT, moving_piece_type,
+        TO_SHIFT, moving_piece_type, promotion,
     },
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
@@ -14,10 +14,7 @@ use crate::{
     gamestate::GameState,
     moves::MoveList,
 };
-use std::{
-    io::{self, Write},
-    time::Instant,
-};
+use std::io::{self, Write};
 pub mod alpha_beta_pruning;
 pub mod board;
 pub mod board_geometry_templates;
@@ -47,8 +44,6 @@ fn main() -> () {
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
-    //measure_time();
-    //panic!();
 
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);
@@ -78,7 +73,7 @@ fn main() -> () {
         move_scores: [[0; 192]; 16],
     };
     if engine.side == 16 {
-        engine.depth -= 1;
+        engine.depth += 1;
     }
 
     game_control(&mut state, &mut board, &mut engine).unwrap();
@@ -93,31 +88,45 @@ fn game_control(
     board: &mut Board,
     engine: &mut Engine,
 ) -> Result<(), io::Error> {
-    loop {
+    'outer: loop {
         match engine.side {
             8 => {
-                match make_engine_move(engine, board, state, engine.side) {
-                    MoveResult::Draw | MoveResult::Win => break,
-                    MoveResult::None => (),
-                    _ => unreachable!(),
-                };
-                match make_player_move(board, state, NO_PIECE_BLACK) {
-                    MoveResult::Continue => continue,
-                    MoveResult::Draw | MoveResult::Win => break,
-                    MoveResult::None => (),
-                };
+                if state.whose_turn == 8 {
+                    match make_engine_move(engine, board, state, engine.side) {
+                        MoveResult::Draw | MoveResult::Win => break 'outer,
+                        MoveResult::None => (),
+                        _ => unreachable!(),
+                    };
+                    state.whose_turn = 16;
+                } else {
+                    loop {
+                        match make_player_move(board, state, NO_PIECE_BLACK) {
+                            MoveResult::Continue => continue,
+                            MoveResult::Draw | MoveResult::Win => break 'outer,
+                            MoveResult::None => break,
+                        };
+                    }
+                    state.whose_turn = 8;
+                }
             }
             16 => {
-                match make_player_move(board, state, NO_PIECE_WHITE) {
-                    MoveResult::Continue => continue,
-                    MoveResult::Draw | MoveResult::Win => break,
-                    MoveResult::None => (),
-                };
-                match make_engine_move(engine, board, state, engine.side) {
-                    MoveResult::Draw | MoveResult::Win => break,
-                    MoveResult::None => (),
-                    _ => unreachable!(),
-                };
+                if state.whose_turn == 8 {
+                    loop {
+                        match make_player_move(board, state, NO_PIECE_WHITE) {
+                            MoveResult::Continue => continue,
+                            MoveResult::Draw | MoveResult::Win => break 'outer,
+                            MoveResult::None => break,
+                        };
+                    }
+                    state.whose_turn = 16;
+                } else {
+                    match make_engine_move(engine, board, state, engine.side) {
+                        MoveResult::Draw | MoveResult::Win => break,
+                        MoveResult::None => (),
+                        _ => unreachable!(),
+                    };
+                    state.whose_turn = 8;
+                }
             }
             _ => unreachable!(),
         }
@@ -133,17 +142,23 @@ fn make_engine_move(
 ) -> MoveResult {
     board.total_occupancy();
 
-    let time: Instant = Instant::now();
     let engine_move: Option<u32> = engine.find_best_move(&board, state);
-    println!("time elapsed: {:.6?}", time.elapsed());
     if let Some(m) = engine_move {
         board.perform_move(m, state, color, &mut engine.evaluation);
         println!(
-            "Ferrous's move: {:?} {:?}",
+            "Ferrous's move: {:?} {:?} {}",
             INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
             INDICES_TO_COORDS
                 .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
                 .unwrap(),
+            match promotion(m) {
+                0 => "",
+                1 => "n",
+                2 => "b",
+                3 => "r",
+                4 => "q",
+                _ => unreachable!(),
+            }
         );
     } else {
         if board.is_square_attacked(board.black_king_square, 8)
@@ -167,6 +182,29 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         first_not_occupied: 0,
     };
     board.total_occupancy();
+    board.knight_moves(player_color, &mut legal_moves);
+    board.bishop_moves(player_color, &mut legal_moves);
+    board.rook_moves(player_color, &mut legal_moves);
+    board.pawn_moves(&state, player_color, &mut legal_moves);
+    board.queen_moves(player_color, &mut legal_moves);
+    board.king_moves(&state, player_color, &mut legal_moves);
+    if legal_moves.pseudo_moves.iter().all(|m| *m == 0) {
+        if board.is_square_attacked(board.black_king_square, 8)
+            || board.is_square_attacked(board.white_king_square, 16)
+        {
+            state.result = if player_color == NO_PIECE_WHITE {
+                GameResult::BlackWins
+            } else {
+                GameResult::WhiteWins
+            };
+            println!("You are checkmated");
+            return MoveResult::Win;
+        } else {
+            state.result = GameResult::Draw;
+            println!("Stalemate");
+            return MoveResult::Draw;
+        }
+    }
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
     let mut user_move = String::new();
@@ -224,42 +262,14 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         parsed_move |= promo_piece << PROMOTION_SHIFT;
     }
 
-    board.knight_moves(player_color, &mut legal_moves);
-    board.bishop_moves(player_color, &mut legal_moves);
-    board.rook_moves(player_color, &mut legal_moves);
-    board.pawn_moves(&state, player_color, &mut legal_moves);
-    board.queen_moves(player_color, &mut legal_moves);
-    board.king_moves(&state, player_color, &mut legal_moves);
-
-    if legal_moves.pseudo_moves.iter().all(|m| *m == 0) {
-        if board.is_square_attacked(board.black_king_square, 8)
-            || board.is_square_attacked(board.white_king_square, 16)
-        {
-            state.result = if player_color == NO_PIECE_WHITE {
-                GameResult::BlackWins
-            } else {
-                GameResult::WhiteWins
-            };
-            println!("You are checkmated");
-            return MoveResult::Win;
-        } else {
-            state.result = GameResult::Draw;
-            println!("Stalemate");
-            return MoveResult::Draw;
-        }
-    }
-
-    if legal_moves.pseudo_moves.iter().any(|&mv| mv == parsed_move) {
+    if legal_moves.pseudo_moves.iter().any(|&mv| {
+        mv & FROM_MASK == parsed_move & FROM_MASK
+            && (mv & TO_MASK) >> TO_SHIFT == (parsed_move & TO_MASK) >> TO_SHIFT
+    }) {
         board.perform_move(parsed_move, state, player_color, &mut 0);
-        if board.is_square_attacked(board.black_king_square, 8)
-            || board.is_square_attacked(board.white_king_square, 16)
-        {
-            println!("Illegal move");
-            return MoveResult::Continue;
-        }
         return MoveResult::None;
     } else {
-        println!("Illegal move");
+        println!("Illegal move, not in pseudo legal moves");
         return MoveResult::Continue;
     }
 }

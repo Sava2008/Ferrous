@@ -154,17 +154,11 @@ fn checkmate_in_four_test1() -> () {
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 18);
     assert_eq!(to, 20);
-    println!("{from}: {to}");
 
     board.perform_move(engine_move, &mut state, 16, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
     board.perform_move(response, &mut state, 8, &mut 0);
-    println!(
-        "response {}: {}",
-        response & FROM_MASK,
-        (response & TO_MASK) >> TO_SHIFT
-    );
 
     let engine_move2: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -173,7 +167,6 @@ fn checkmate_in_four_test1() -> () {
     );
     assert_eq!(from, 20);
     assert_eq!(to, 21);
-    println!("{from}: {to}");
     board.perform_move(engine_move2, &mut state, 16, &mut 0);
 
     let response = 5
@@ -181,11 +174,6 @@ fn checkmate_in_four_test1() -> () {
         | (BLACK_QUEEN_U32 << CAPTURED_PIECE_TYPE_SHIFT)
         | (WHITE_ROOK_U32 << MOVING_PIECE_TYPE_SHIFT);
     board.perform_move(response, &mut state, 8, &mut 0);
-    println!(
-        "response {}: {}",
-        response & FROM_MASK,
-        (response & TO_MASK) >> TO_SHIFT
-    );
 
     let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -194,16 +182,10 @@ fn checkmate_in_four_test1() -> () {
     );
     assert_eq!(from, 12);
     assert_eq!(to, 4);
-    println!("{from}: {to}");
     board.perform_move(engine_move3, &mut state, 16, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
     board.perform_move(response, &mut state, 8, &mut 0);
-    println!(
-        "response {}: {}",
-        response & FROM_MASK,
-        (response & TO_MASK) >> TO_SHIFT
-    );
 
     let engine_move4: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -212,7 +194,6 @@ fn checkmate_in_four_test1() -> () {
     );
     assert_eq!(from, 4);
     assert_eq!(to, 5);
-    println!("{from}: {to}");
 }
 #[test]
 fn checkmate_in_five_test1() -> () {
@@ -241,5 +222,4 @@ fn checkmate_in_five_test1() -> () {
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 37);
     assert_eq!(to, 47);
-    println!("{from}: {to}");
 }

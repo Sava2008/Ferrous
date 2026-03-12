@@ -139,10 +139,10 @@ impl Board {
                         << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 if promo_rank & (1 << final_pos) != 0 {
-                    moves.push(piece_move | (0b001 << PROMOTION_SHIFT));
-                    moves.push(piece_move | (0b010 << PROMOTION_SHIFT));
-                    moves.push(piece_move | (0b011 << PROMOTION_SHIFT));
                     moves.push(piece_move | (0b100 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b011 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b010 << PROMOTION_SHIFT));
+                    moves.push(piece_move | (0b001 << PROMOTION_SHIFT));
                 } else {
                     moves.push(piece_move);
                 }

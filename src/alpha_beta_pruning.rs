@@ -135,9 +135,7 @@ impl Engine {
         beta: i32,
         maximizing: bool,
         state: &mut GameState,
-        nodes: &mut u64,
     ) -> i32 {
-        *nodes += 1;
         if depth == 0 {
             return self.evaluation;
         }
@@ -176,15 +174,7 @@ impl Engine {
                 }
 
                 best_score = max(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        current_alpha,
-                        beta,
-                        false,
-                        state,
-                        nodes,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, current_alpha, beta, false, state),
                     best_score,
                 );
                 board.cancel_move(state, 8, &mut self.evaluation);
@@ -237,15 +227,7 @@ impl Engine {
                 }
 
                 best_score = min(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        alpha,
-                        current_beta,
-                        true,
-                        state,
-                        nodes,
-                    ),
+                    self.alpha_beta_pruning(board, depth - 1, alpha, current_beta, true, state),
                     best_score,
                 );
                 board.cancel_move(state, 16, &mut self.evaluation);
@@ -270,7 +252,6 @@ impl Engine {
 
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<u32> {
         self.evaluate(board);
-        let mut nodes: u64 = 0;
         self.killer_moves = [[None; 2]; 16];
         self.move_lists = [MoveList {
             pseudo_moves: [0; 192],
@@ -286,7 +267,7 @@ impl Engine {
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
         let depth_as_index: usize = self.depth as usize;
-        let opponent_color = if self.side == 8 { 16 } else { 8 };
+        let opponent_color: u32 = if self.side == 8 { 16 } else { 8 };
 
         copied_state.whose_turn = self.side.clone() as u32;
         self.generate_pseudo_legal_moves(self.side, board, &copied_state, depth_as_index);
@@ -330,25 +311,8 @@ impl Engine {
                 i32::MAX,
                 maximizing,
                 &mut copied_state,
-                &mut nodes,
-            );
-            println!(
-                "from: {}, to: {}, capture: {}, promotion {}, castling {} ||| score {score}",
-                allegedly_best_move & FROM_MASK,
-                (allegedly_best_move & TO_MASK) >> TO_SHIFT,
-                captured_piece(allegedly_best_move),
-                promotion(allegedly_best_move),
-                castling(allegedly_best_move),
             );
             copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
-            /*if score
-                == match self.side {
-                    8 => i32::MAX,
-                    _ => i32::MIN,
-                }
-            {
-                return Some(allegedly_best_move);
-            }*/
 
             if match self.side {
                 8 => score > best_score || (best_score == i32::MIN && score == best_score),
@@ -359,7 +323,6 @@ impl Engine {
                 best_move = Some(self.move_lists[depth_as_index].pseudo_moves[i]);
             }
         }
-        println!("nodes: {nodes}");
         return best_move;
     }
 }

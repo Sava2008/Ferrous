@@ -294,8 +294,8 @@ impl Board {
 
     fn en_passant(&mut self, e_p: u8, previous_move: &mut PreviousMove, color: u32) -> () {
         let (pawns, occupancy, captured_pawn_square) = match color {
-            8 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
-            16 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            8 => (&mut self.black_pawns, &mut self.black_occupancy, e_p - 8),
+            16 => (&mut self.white_pawns, &mut self.white_occupancy, e_p + 8),
             _ => unreachable!(),
         };
         self.cached_pieces[captured_pawn_square as usize] = None;

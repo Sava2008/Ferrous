@@ -47,14 +47,7 @@ fn pawn_moves_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 11);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..11 {
-        let m = legal_moves.pseudo_moves[i];
-        println!(
-            "from {}, to {}, capture {}, promotion: {}",
-            m & FROM_MASK,
-            (m & TO_MASK) >> TO_SHIFT,
-            captured_piece(m),
-            promotion(m)
-        );
+        let m: u32 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0);
         assert_eq!(board, copied_board);
@@ -108,14 +101,7 @@ fn castling_short_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 5);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..5 {
-        let m = legal_moves.pseudo_moves[i];
-        println!(
-            "from {}, to {}, capture {}, castling: {}",
-            m & FROM_MASK,
-            (m & TO_MASK) >> TO_SHIFT,
-            captured_piece(m),
-            castling(m)
-        );
+        let m: u32 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0);
         assert_eq!(board, copied_board);
@@ -141,14 +127,7 @@ fn castling_long_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 7);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..7 {
-        let m = legal_moves.pseudo_moves[i];
-        println!(
-            "from {}, to {}, capture {}, castling: {}",
-            m & FROM_MASK,
-            (m & TO_MASK) >> TO_SHIFT,
-            captured_piece(m),
-            castling(m)
-        );
+        let m: u32 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0);
         assert_eq!(board, copied_board);
@@ -163,14 +142,7 @@ fn castling_long_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 5);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..5 {
-        let m = legal_moves.pseudo_moves[i];
-        println!(
-            "from {}, to {}, capture {}, castling: {}",
-            m & FROM_MASK,
-            (m & TO_MASK) >> TO_SHIFT,
-            captured_piece(m),
-            castling(m)
-        );
+        let m: u32 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 16, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0);
         assert_eq!(board, copied_board);
@@ -195,14 +167,7 @@ fn knight_moves_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 4);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..4 {
-        let m = legal_moves.pseudo_moves[i];
-        println!(
-            "from {}, to {}, capture {}, castling: {}",
-            m & FROM_MASK,
-            (m & TO_MASK) >> TO_SHIFT,
-            captured_piece(m),
-            castling(m)
-        );
+        let m: u32 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 16, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0);
         assert_eq!(board, copied_board);
