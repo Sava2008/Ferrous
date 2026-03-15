@@ -1,4 +1,4 @@
-use crate::{alpha_beta_pruning::Engine, board::Board, gamestate::GameState};
+use crate::{board::Board, gamestate::GameState, search::Engine};
 
 impl Engine {
     pub fn generate_captures(_board: &Board, _state: &GameState) -> Vec<u16> {

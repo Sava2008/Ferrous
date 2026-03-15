@@ -1,7 +1,7 @@
 #[allow(unused)]
 use crate::{
-    alpha_beta_pruning::Engine, board_geometry_templates::*, constants::attacks::*,
-    converters::fen_converter::fen_to_board, moves::MoveList,
+    board_geometry_templates::*, constants::attacks::*, converters::fen_converter::fen_to_board,
+    moves::MoveList, search::Engine,
 };
 
 #[test]
@@ -19,23 +19,23 @@ fn checkmate_in_two_test1() -> () {
         side: 16,
         depth: 8,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
         depth: 7,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -69,23 +69,23 @@ fn checkmate_in_three_test1() -> () {
         side: 16,
         depth: 8,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
         depth: 7,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -132,23 +132,23 @@ fn checkmate_in_four_test1() -> () {
         side: 16,
         depth: 8,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
         depth: 7,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -211,12 +211,12 @@ fn checkmate_in_five_test1() -> () {
         side: 8,
         depth: 10,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);

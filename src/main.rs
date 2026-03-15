@@ -1,5 +1,4 @@
 use crate::{
-    alpha_beta_pruning::Engine,
     board::Board,
     board_geometry_templates::{
         CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING, EN_PASSANT_SHIFT, FROM_MASK,
@@ -13,9 +12,12 @@ use crate::{
     enums::GameResult,
     gamestate::GameState,
     moves::MoveList,
+    search::Engine,
 };
-use std::io::{self, Write};
-pub mod alpha_beta_pruning;
+use std::{
+    io::{self, Write},
+    time::Instant,
+};
 pub mod board;
 pub mod board_geometry_templates;
 pub mod constants;
@@ -24,6 +26,7 @@ pub mod enums;
 pub mod gamestate;
 pub mod move_generation;
 pub mod moves;
+pub mod search;
 pub mod tests;
 pub mod tuning;
 
@@ -63,18 +66,15 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 8,
+        depth: 6,
         evaluation: 0,
-        killer_moves: [[None; 2]; 16],
+        killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 16],
-        move_scores: [[0; 192]; 16],
+        }; 32],
+        move_scores: [[0; 192]; 32],
     };
-    if engine.side == 16 {
-        engine.depth += 1;
-    }
 
     game_control(&mut state, &mut board, &mut engine).unwrap();
 
@@ -142,7 +142,9 @@ fn make_engine_move(
 ) -> MoveResult {
     board.total_occupancy();
 
+    let t: Instant = Instant::now();
     let engine_move: Option<u32> = engine.find_best_move(&board, state);
+    println!("time: {:.3?}", t.elapsed());
     if let Some(m) = engine_move {
         board.perform_move(m, state, color, &mut engine.evaluation);
         println!(
@@ -182,12 +184,12 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         first_not_occupied: 0,
     };
     board.total_occupancy();
-    board.knight_moves(player_color, &mut legal_moves);
-    board.bishop_moves(player_color, &mut legal_moves);
-    board.rook_moves(player_color, &mut legal_moves);
-    board.pawn_moves(&state, player_color, &mut legal_moves);
-    board.queen_moves(player_color, &mut legal_moves);
-    board.king_moves(&state, player_color, &mut legal_moves);
+    board.knight_moves(player_color, &mut legal_moves, false);
+    board.bishop_moves(player_color, &mut legal_moves, false);
+    board.rook_moves(player_color, &mut legal_moves, false);
+    board.pawn_moves(&state, player_color, &mut legal_moves, false);
+    board.queen_moves(player_color, &mut legal_moves, false);
+    board.king_moves(&state, player_color, &mut legal_moves, false);
     if legal_moves.pseudo_moves.iter().all(|m| *m == 0) {
         if board.is_square_attacked(board.black_king_square, 8)
             || board.is_square_attacked(board.white_king_square, 16)

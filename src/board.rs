@@ -177,6 +177,7 @@ impl Board {
         color: u32,
         m: &u32,
         evaluation: &mut i32,
+        caller: &std::panic::Location<'_>,
     ) -> () {
         let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = if color == 16 {
             match enemy {
@@ -210,7 +211,14 @@ impl Board {
                     (&mut self.white_rooks, &mut self.white_occupancy)
                 }
                 WHITE_KING_U32 => {
-                    panic!("attemped to capture white king. state: {state:?}, board: {self:?}")
+                    panic!(
+                        "attemped to capture white king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}, at {} {}",
+                        m & FROM_MASK,
+                        (m & TO_MASK) >> TO_SHIFT,
+                        moving_piece(*m),
+                        caller.line(),
+                        caller.file()
+                    )
                 }
                 _ => unreachable!("piece {enemy}, board: {self:?}"),
             }
@@ -307,6 +315,7 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
+    #[track_caller]
     pub fn perform_move(
         &mut self,
         piece_move: u32,
@@ -314,6 +323,7 @@ impl Board {
         color: u32,
         evaluation: &mut i32,
     ) -> () {
+        let c: &std::panic::Location<'_> = std::panic::Location::caller();
         let evaluation_before: i32 = evaluation.clone();
         let (from_sq, to_sq): (u32, u32) =
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
@@ -340,6 +350,7 @@ impl Board {
                 color,
                 &piece_move,
                 evaluation,
+                c,
             );
         }
 
