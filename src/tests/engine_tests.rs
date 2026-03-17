@@ -25,6 +25,7 @@ fn checkmate_in_two_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -36,6 +37,7 @@ fn checkmate_in_two_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -75,6 +77,7 @@ fn checkmate_in_three_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -86,6 +89,7 @@ fn checkmate_in_three_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -138,6 +142,7 @@ fn checkmate_in_four_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -149,6 +154,7 @@ fn checkmate_in_four_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -217,9 +223,43 @@ fn checkmate_in_five_test1() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 37);
     assert_eq!(to, 47);
+}
+
+#[test]
+fn avoiding_trapped_bishop_test() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("r1bqkbnr/1p1npppp/p2p4/1Bp5/4P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 5");
+    board.total_occupancy();
+    board.update_full_cache();
+    let mut engine: Engine = Engine {
+        side: 8,
+        depth: 10,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 32],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 32],
+        move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
+    };
+
+    let engine_move: u32 = engine.find_best_move(&board, &mut state).unwrap();
+    let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
+    println!("move: {} {}", from, to);
+
+    assert_eq!(from, 33);
+    assert_ne!(to, 24);
+    assert_ne!(to, 42);
 }

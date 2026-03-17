@@ -66,7 +66,7 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 6,
+        depth: 10,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
@@ -74,7 +74,11 @@ fn main() -> () {
             first_not_occupied: 0,
         }; 32],
         move_scores: [[0; 192]; 32],
+        quiescence_limitation: 9,
     };
+    if (engine.side == 16 && engine.depth % 2 == 1) || (engine.side == 8 && engine.depth % 2 == 0) {
+        engine.quiescence_limitation -= 1;
+    }
 
     game_control(&mut state, &mut board, &mut engine).unwrap();
 

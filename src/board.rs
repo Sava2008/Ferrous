@@ -179,26 +179,32 @@ impl Board {
         evaluation: &mut i32,
         caller: &std::panic::Location<'_>,
     ) -> () {
+        let to_sq_as_index: usize = to_sq as usize;
         let (bitboard_for_capture, occupancy): (&mut Bitboard, &mut Bitboard) = if color == 16 {
             match enemy {
                 WHITE_BISHOP_U32 => {
                     *evaluation -= BISHOP_VALUE;
+                    *evaluation -= WHITE_BISHOP_HEURISTICS[to_sq_as_index];
                     (&mut self.white_bishops, &mut self.white_occupancy)
                 }
                 WHITE_KNIGHT_U32 => {
                     *evaluation -= KNIGHT_VALUE;
+                    *evaluation -= WHITE_KNIGHT_HEURISTICS[to_sq_as_index];
                     (&mut self.white_knights, &mut self.white_occupancy)
                 }
                 WHITE_PAWN_U32 => {
                     *evaluation -= PAWN_VALUE;
+                    *evaluation -= WHITE_PAWN_HEURISTICS[to_sq_as_index];
                     (&mut self.white_pawns, &mut self.white_occupancy)
                 }
                 WHITE_QUEEN_U32 => {
                     *evaluation -= QUEEN_VALUE;
+                    *evaluation -= WHITE_QUEEN_HEURISTICS[to_sq_as_index];
                     (&mut self.white_queens, &mut self.white_occupancy)
                 }
                 WHITE_ROOK_U32 => {
                     *evaluation -= ROOK_VALUE;
+                    *evaluation -= WHITE_ROOK_HEURISTICS[to_sq_as_index];
                     if to_sq == 7 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
@@ -226,22 +232,27 @@ impl Board {
             match enemy {
                 BLACK_BISHOP_U32 => {
                     *evaluation += BISHOP_VALUE;
+                    *evaluation += BLACK_BISHOP_HEURISTICS[to_sq_as_index];
                     (&mut self.black_bishops, &mut self.black_occupancy)
                 }
                 BLACK_KNIGHT_U32 => {
                     *evaluation += KNIGHT_VALUE;
+                    *evaluation += BLACK_KNIGHT_HEURISTICS[to_sq_as_index];
                     (&mut self.black_knights, &mut self.black_occupancy)
                 }
                 BLACK_PAWN_U32 => {
                     *evaluation += PAWN_VALUE;
+                    *evaluation += BLACK_PAWN_HEURISTICS[to_sq_as_index];
                     (&mut self.black_pawns, &mut self.black_occupancy)
                 }
                 BLACK_QUEEN_U32 => {
                     *evaluation += QUEEN_VALUE;
+                    *evaluation += BLACK_QUEEN_HEURISTICS[to_sq_as_index];
                     (&mut self.black_queens, &mut self.black_occupancy)
                 }
                 BLACK_ROOK_U32 => {
                     *evaluation += ROOK_VALUE;
+                    *evaluation += BLACK_ROOK_HEURISTICS[to_sq_as_index];
                     if to_sq == 63 {
                         previous_move.previous_castling_rights =
                             Some(state.castling_rights.clone());
@@ -256,10 +267,12 @@ impl Board {
                 }
                 BLACK_KING_U32 => {
                     panic!(
-                        "attemped to capture black king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}",
+                        "attemped to capture black king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}, caller {} {}",
                         m & FROM_MASK,
                         (m & TO_MASK) >> TO_SHIFT,
-                        moving_piece(*m)
+                        moving_piece(*m),
+                        caller.line(),
+                        caller.file(),
                     )
                 }
                 _ => unreachable!("piece: {enemy}, color {color}"),
@@ -429,6 +442,7 @@ impl Board {
                                 if to_sq_u8 == e_p {
                                     self.en_passant(e_p, &mut previous_move, color);
                                     *evaluation += PAWN_VALUE;
+                                    *evaluation += WHITE_PAWN_HEURISTICS[to_sq as usize];
                                 }
                             }
                             state.en_passant_target = None;
@@ -527,6 +541,7 @@ impl Board {
                                 if to_sq_u8 == e_p {
                                     self.en_passant(e_p, &mut previous_move, color);
                                     *evaluation -= PAWN_VALUE;
+                                    *evaluation -= BLACK_PAWN_HEURISTICS[to_sq as usize];
                                 }
                             }
                             state.en_passant_target = None;
@@ -633,8 +648,10 @@ impl Board {
         state.moves_history.push(previous_move);
     }
 
+    #[track_caller]
     pub fn cancel_move(&mut self, state: &mut GameState, color: u32, evaluation: &mut i32) -> () {
         if let Some(previous_move) = state.moves_history.pop() {
+            let caller = std::panic::Location::caller();
             *evaluation -= previous_move.material_difference;
 
             let m: u32 = previous_move.moved_piece;
@@ -677,7 +694,11 @@ impl Board {
                             &mut self.black_king
                         }
                         BLACK_ROOK_U32 => &mut self.black_rooks,
-                        other => unreachable!("piece {other}"),
+                        other => unreachable!(
+                            "piece {other}, caller {} {}",
+                            caller.line(),
+                            caller.file()
+                        ),
                     },
                     &mut self.black_occupancy,
                 )

@@ -5,12 +5,20 @@ use crate::{
 };
 
 impl Engine {
-    pub fn score_all_moves(&mut self, depth: usize, last_occupied: usize) -> () {
+    pub fn score_all_moves(
+        &mut self,
+        depth: usize,
+        last_occupied: usize,
+        previous_best_move: &u32,
+    ) -> () {
         for i in 0..last_occupied {
             self.move_scores[depth][i] = self.move_priority(
                 &self.move_lists[depth].pseudo_moves[0..last_occupied][i],
                 depth,
             );
+            if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
+                self.move_scores[depth][i] = -1000;
+            }
         }
     }
     pub fn move_priority(&self, m: &u32, depth: usize) -> i16 {

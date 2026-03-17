@@ -145,8 +145,7 @@ impl Board {
                     piece_move |= 1 << EN_PASSANT_SHIFT;
                 }
                 if enemy_occupancy & (1 << final_pos) != 0 {
-                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                        << CAPTURED_PIECE_TYPE_SHIFT;
+                    piece_move |= self.piece_at(final_pos).unwrap() << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 if promo_rank & (1 << final_pos) != 0 {
                     moves.push(piece_move | (0b100 << PROMOTION_SHIFT));
