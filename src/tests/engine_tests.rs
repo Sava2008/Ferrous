@@ -122,6 +122,62 @@ fn checkmate_in_three_test1() -> () {
 }
 
 #[test]
+fn checkmate_in_three_tricky_test() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) = fen_to_board("1k6/1P5Q/8/7B/8/5K2/8/8 w - - 0 1");
+    board.total_occupancy();
+    board.update_full_cache();
+
+    let mut engine_depth_8: Engine = Engine {
+        side: 8,
+        depth: 8,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 32],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 32],
+        move_scores: [[0; 192]; 32],
+        quiescence_limitation: 20,
+    };
+
+    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    assert_eq!(engine_move & FROM_MASK, 39);
+    assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 60);
+
+    let encoded_response: u32 = 57 | (48 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
+    board.perform_move(engine_move, &mut state, 8, &mut engine_depth_8.evaluation);
+    board.perform_move(
+        encoded_response,
+        &mut state,
+        16,
+        &mut engine_depth_8.evaluation,
+    );
+
+    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    assert_eq!(engine_move & FROM_MASK, 55);
+    assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 50);
+
+    let encoded_response: u32 = 48 | (40 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
+    board.perform_move(engine_move, &mut state, 8, &mut engine_depth_8.evaluation);
+    board.perform_move(
+        encoded_response,
+        &mut state,
+        16,
+        &mut engine_depth_8.evaluation,
+    );
+
+    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    assert_eq!(engine_move & FROM_MASK, 49);
+    assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 57);
+    assert_eq!((engine_move & PROMOTION_MASK) >> PROMOTION_SHIFT, 1);
+}
+
+#[test]
 fn checkmate_in_four_test1() -> () {
     initialize_sliding_attack_tables();
     compute_all_rays();

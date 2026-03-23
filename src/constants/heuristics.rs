@@ -23,7 +23,7 @@ pub const BLACK_PAWN_HEURISTICS: [i32; 64] = [
 pub const WHITE_KNIGHT_HEURISTICS: [i32; 64] = [
     -10, -7, -5, -2, -2, -5, -7, -10, // Rank1
     -7, -3, 2, 3, 3, 2, -3, -7, // Rank2
-    -4, 4, 5, 2, 2, 6, 4, -4, // Rank3
+    -4, 4, 5, 2, 2, 5, 4, -4, // Rank3
     -3, 2, 4, 7, 7, 4, 2, -3, // Rank4
     -3, 1, 2, 3, 3, 2, 1, -3, // Rank5
     -4, 0, 4, 2, 2, 4, 0, -4, // Rank6

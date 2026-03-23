@@ -404,10 +404,10 @@ impl Engine {
 
         copied_state.whose_turn = self.side.clone() as u32;
 
-        let mut window: i32 = 30;
-
         let mut previous_best_move: u32 = 0;
+        let mut previous_score: i32 = 0;
         for d in 2..=self.depth {
+            let mut window: i32 = 30;
             let (mut best_score, maximizing): (i32, bool) = match self.side {
                 8 => (-CHECKMATE_VALUE, false),
                 16 => (CHECKMATE_VALUE, true),
@@ -435,12 +435,18 @@ impl Engine {
             let mut alpha: i32 = -CHECKMATE_VALUE;
             let mut beta: i32 = CHECKMATE_VALUE;
             if d > 2 {
-                (alpha, beta) = (best_score - window, best_score + window);
+                (alpha, beta) = (previous_score - window, previous_score + window);
             }
 
-            let mut depth_best_score: i32 = best_score;
-            // let mut depth_best_move: u32 = previous_best_move;
             loop {
+                let mut depth_best_score: i32 = if self.side == 8 {
+                    -CHECKMATE_VALUE
+                } else {
+                    CHECKMATE_VALUE
+                };
+                let mut depth_best_move: u32 = 0;
+
+                let mut failed_move: u32 = 0;
                 for i in 0..last_occupied {
                     let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                         .iter()
@@ -450,6 +456,7 @@ impl Engine {
                     let true_index: usize = best_move_index + i;
                     let allegedly_best_move: u32 =
                         self.move_lists[depth_as_index].pseudo_moves[true_index];
+                    failed_move = allegedly_best_move;
 
                     self.move_lists[depth_as_index]
                         .pseudo_moves
@@ -480,8 +487,8 @@ impl Engine {
                     let score: i32 = self.alpha_beta_pruning(
                         &mut copied_board,
                         d - 1,
-                        -CHECKMATE_VALUE,
-                        CHECKMATE_VALUE,
+                        alpha,
+                        beta,
                         maximizing,
                         &mut copied_state,
                         &mut node_count,
@@ -499,36 +506,60 @@ impl Engine {
                         8 => score > depth_best_score,
                         16 => score < depth_best_score,
                         _ => unreachable!(),
-                    } || previous_best_move == 0
+                    } || depth_best_move == 0
                     {
                         depth_best_score = score;
-                        previous_best_move = allegedly_best_move;
-
-                        if match self.side {
-                            8 => score > best_score,
-                            16 => score < best_score,
-                            _ => unreachable!(),
-                        } {
-                            best_score = score;
-                        }
+                        depth_best_move = allegedly_best_move;
                     }
                 }
-                if depth_best_score > alpha && depth_best_score < beta {
-                    best_score = depth_best_score;
-                    window = 30;
-                    break;
-                } else if depth_best_score <= alpha {
-                    beta = (alpha + beta) / 2;
-                    alpha = depth_best_score - window;
-                } else if depth_best_score >= beta {
-                    beta = depth_best_score + window;
-                }
-                window *= 2;
+
                 if window > 300 {
                     alpha = -CHECKMATE_VALUE;
                     beta = CHECKMATE_VALUE;
                     window = 30;
                 }
+                if depth_best_score <= alpha {
+                    alpha -= window;
+                    window *= 2;
+                    previous_best_move = depth_best_move;
+                    previous_score = depth_best_score;
+                    continue;
+                } else if depth_best_score >= beta {
+                    println!(
+                        "re-searching the move {} {}",
+                        failed_move & FROM_MASK,
+                        (failed_move & TO_MASK) >> TO_SHIFT,
+                    );
+                    copied_board.perform_move(
+                        failed_move,
+                        &mut copied_state,
+                        self.side,
+                        &mut self.evaluation,
+                    );
+                    let score: i32 = self.alpha_beta_pruning(
+                        &mut copied_board,
+                        d - 1,
+                        -CHECKMATE_VALUE,
+                        CHECKMATE_VALUE,
+                        maximizing,
+                        &mut copied_state,
+                        &mut node_count,
+                    );
+                    copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
+
+                    if match self.side {
+                        8 => score > depth_best_score,
+                        16 => score < depth_best_score,
+                        _ => unreachable!(),
+                    } || depth_best_move == 0
+                    {
+                        depth_best_score = score;
+                        depth_best_move = failed_move;
+                    }
+                    previous_best_move = depth_best_move;
+                    previous_score = depth_best_score;
+                }
+                break;
             }
             if previous_best_move != 0 {
                 best_move = Some(previous_best_move);
