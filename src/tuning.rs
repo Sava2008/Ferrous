@@ -17,7 +17,7 @@ impl Engine {
                 depth,
             );
             if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
-                self.move_scores[depth][i] = -1000;
+                self.move_scores[depth][i] = 10000;
             }
         }
     }
@@ -27,13 +27,13 @@ impl Engine {
         if final_pos != 0 {
             let victim_value: usize = Self::get_piece_value(final_pos) as usize; //
             let attacker_value: usize = Self::get_piece_value(initial_pos) as usize;
-            priority_key -= unsafe { MVV_LVA[victim_value][attacker_value] };
+            priority_key += unsafe { MVV_LVA[victim_value][attacker_value] };
         }
         if self.killer_moves[depth][0] == Some(*m) || self.killer_moves[depth][1] == Some(*m) {
-            priority_key -= 5;
+            priority_key += 5;
         }
         if Self::does_improve_piece(*m, initial_pos) {
-            priority_key -= 5;
+            priority_key += 5;
         }
         return priority_key;
     }

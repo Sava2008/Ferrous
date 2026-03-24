@@ -172,7 +172,7 @@ impl Engine {
                 let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                     .iter()
                     .enumerate()
-                    .min_by_key(|&(_, score)| score)
+                    .max_by_key(|&(_, score)| score)
                     .unwrap();
                 let true_index: usize = best_move_index + i;
                 let allegedly_best_move: u32 =
@@ -235,7 +235,7 @@ impl Engine {
                 let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                     .iter()
                     .enumerate()
-                    .min_by_key(|&(_, score)| score)
+                    .max_by_key(|&(_, score)| score)
                     .unwrap();
                 let true_index: usize = best_move_index + i;
                 let allegedly_best_move: u32 =
@@ -405,12 +405,10 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u32;
 
         let mut previous_best_move: u32 = 0;
-        let mut previous_score: i32 = 0;
         for d in 2..=self.depth {
-            let mut window: i32 = 30;
-            let (mut best_score, maximizing): (i32, bool) = match self.side {
-                8 => (-CHECKMATE_VALUE, false),
-                16 => (CHECKMATE_VALUE, true),
+            let maximizing: bool = match self.side {
+                8 => false,
+                16 => true,
                 _ => unreachable!(),
             };
             let depth_as_index: usize = d as usize;
@@ -423,6 +421,12 @@ impl Engine {
             );
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
             self.score_all_moves(depth_as_index, last_occupied, &previous_best_move);
+            let mut depth_best_score: i32 = if self.side == 8 {
+                -CHECKMATE_VALUE
+            } else {
+                CHECKMATE_VALUE
+            };
+            let mut depth_best_move: u32 = 0;
             if previous_best_move != 0 {
                 if let Some(pos) = self.move_lists[depth_as_index].pseudo_moves[..last_occupied]
                     .iter()
@@ -432,146 +436,82 @@ impl Engine {
                     self.move_scores[depth_as_index].swap(0, pos);
                 }
             }
-            let mut alpha: i32 = -CHECKMATE_VALUE;
-            let mut beta: i32 = CHECKMATE_VALUE;
-            if d > 2 {
-                (alpha, beta) = (previous_score - window, previous_score + window);
-            }
 
-            loop {
-                let mut depth_best_score: i32 = if self.side == 8 {
-                    -CHECKMATE_VALUE
-                } else {
-                    CHECKMATE_VALUE
-                };
-                let mut depth_best_move: u32 = 0;
-
-                let mut failed_move: u32 = 0;
-                for i in 0..last_occupied {
+            for i in 0..last_occupied {
+                if self.move_lists[depth_as_index].pseudo_moves[i] != previous_best_move {
                     let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                         .iter()
                         .enumerate()
-                        .min_by_key(|&(_, score)| score)
+                        .max_by_key(|&(_, score)| score)
                         .unwrap();
                     let true_index: usize = best_move_index + i;
-                    let allegedly_best_move: u32 =
-                        self.move_lists[depth_as_index].pseudo_moves[true_index];
-                    failed_move = allegedly_best_move;
 
                     self.move_lists[depth_as_index]
                         .pseudo_moves
                         .swap(true_index, i);
                     self.move_scores[depth_as_index].swap(true_index, i);
-                    copied_board.perform_move(
-                        allegedly_best_move,
-                        &mut copied_state,
-                        self.side,
-                        &mut self.evaluation,
-                    );
-
-                    let current_king_square: u8 = match self.side {
-                        8 => copied_board.white_king_square,
-                        16 => copied_board.black_king_square,
-                        _ => unreachable!(),
-                    };
-
-                    if copied_board.is_square_attacked(current_king_square, opponent_color) {
-                        copied_board.cancel_move(
-                            &mut copied_state,
-                            self.side,
-                            &mut self.evaluation,
-                        );
-                        continue;
-                    }
-
-                    let score: i32 = self.alpha_beta_pruning(
-                        &mut copied_board,
-                        d - 1,
-                        alpha,
-                        beta,
-                        maximizing,
-                        &mut copied_state,
-                        &mut node_count,
-                    );
-                    println!(
-                        "from: {}, to: {} ||| score: {}",
-                        allegedly_best_move & FROM_MASK,
-                        (allegedly_best_move & TO_MASK) >> TO_SHIFT,
-                        score
-                    );
-
-                    copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
-
-                    if match self.side {
-                        8 => score > depth_best_score,
-                        16 => score < depth_best_score,
-                        _ => unreachable!(),
-                    } || depth_best_move == 0
-                    {
-                        depth_best_score = score;
-                        depth_best_move = allegedly_best_move;
-                    }
                 }
+                let allegedly_best_move: u32 = self.move_lists[depth_as_index].pseudo_moves[i];
 
-                if window > 300 {
-                    alpha = -CHECKMATE_VALUE;
-                    beta = CHECKMATE_VALUE;
-                    window = 30;
-                }
-                if depth_best_score <= alpha {
-                    alpha -= window;
-                    window *= 2;
-                    previous_best_move = depth_best_move;
-                    previous_score = depth_best_score;
-                    continue;
-                } else if depth_best_score >= beta {
-                    println!(
-                        "re-searching the move {} {}",
-                        failed_move & FROM_MASK,
-                        (failed_move & TO_MASK) >> TO_SHIFT,
-                    );
-                    copied_board.perform_move(
-                        failed_move,
-                        &mut copied_state,
-                        self.side,
-                        &mut self.evaluation,
-                    );
-                    let score: i32 = self.alpha_beta_pruning(
-                        &mut copied_board,
-                        d - 1,
-                        -CHECKMATE_VALUE,
-                        CHECKMATE_VALUE,
-                        maximizing,
-                        &mut copied_state,
-                        &mut node_count,
-                    );
-                    copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
-
-                    if match self.side {
-                        8 => score > depth_best_score,
-                        16 => score < depth_best_score,
-                        _ => unreachable!(),
-                    } || depth_best_move == 0
-                    {
-                        depth_best_score = score;
-                        depth_best_move = failed_move;
-                    }
-                    previous_best_move = depth_best_move;
-                    previous_score = depth_best_score;
-                }
-                break;
-            }
-            if previous_best_move != 0 {
-                best_move = Some(previous_best_move);
-                println!(
-                    "best move: {} {}",
-                    previous_best_move & FROM_MASK,
-                    (previous_best_move & TO_MASK) >> TO_SHIFT
+                copied_board.perform_move(
+                    allegedly_best_move,
+                    &mut copied_state,
+                    self.side,
+                    &mut self.evaluation,
                 );
-                println!("previous best move found");
+
+                let current_king_square: u8 = match self.side {
+                    8 => copied_board.white_king_square,
+                    16 => copied_board.black_king_square,
+                    _ => unreachable!(),
+                };
+
+                if copied_board.is_square_attacked(current_king_square, opponent_color) {
+                    copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
+                    continue;
+                }
+
+                let score: i32 = self.alpha_beta_pruning(
+                    &mut copied_board,
+                    d - 1,
+                    -CHECKMATE_VALUE,
+                    CHECKMATE_VALUE,
+                    maximizing,
+                    &mut copied_state,
+                    &mut node_count,
+                );
+                println!(
+                    "from: {}, to: {} ||| score: {}",
+                    allegedly_best_move & FROM_MASK,
+                    (allegedly_best_move & TO_MASK) >> TO_SHIFT,
+                    score
+                );
+
+                copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
+
+                if match self.side {
+                    8 => score > depth_best_score,
+                    16 => score < depth_best_score,
+                    _ => unreachable!(),
+                } || depth_best_move == 0
+                {
+                    depth_best_score = score;
+                    depth_best_move = allegedly_best_move;
+                }
             }
+            previous_best_move = depth_best_move;
             println!("reached depth {d}");
         }
+        if previous_best_move != 0 {
+            best_move = Some(previous_best_move);
+            println!(
+                "best move: {} {}",
+                previous_best_move & FROM_MASK,
+                (previous_best_move & TO_MASK) >> TO_SHIFT
+            );
+            println!("best move found");
+        }
+
         println!("nodes: {node_count}");
         return best_move;
     }
