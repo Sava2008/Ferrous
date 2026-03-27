@@ -42,8 +42,8 @@ impl Board {
 
         while knights_bitboard != 0 {
             let initial_pos: u32 = knights_bitboard.trailing_zeros();
-            let attacks: Bitboard = KNIGHT_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: Bitboard = attacks & excluded_occupancy;
+            let attacks: u64 = KNIGHT_ATTACKS[initial_pos as usize];
+            let mut dest_bitboard: u64 = attacks & excluded_occupancy;
             if captures_only {
                 dest_bitboard &= enemy_bitboard;
             }
@@ -104,12 +104,12 @@ impl Board {
 
         while pawns_bitboard != 0 {
             let initial_pos: u32 = pawns_bitboard.trailing_zeros();
-            let attacks: Bitboard = match color {
+            let attacks: u64 = match color {
                 8 => WHITE_PAWN_ATTACKS[initial_pos as usize],
                 16 => BLACK_PAWN_ATTACKS[initial_pos as usize],
                 _ => unreachable!(),
             };
-            let mut dest_bitboard: Bitboard = attacks & enemy_occupancy;
+            let mut dest_bitboard: u64 = attacks & enemy_occupancy;
             if en_passant < 64 && (1 << initial_pos) & e_p_rank != 0 {
                 dest_bitboard |= 1 << en_passant;
             }
@@ -175,7 +175,7 @@ impl Board {
             return true;
         }
 
-        let pawn_attacks: Bitboard = match by {
+        let pawn_attacks: u64 = match by {
             8 => BLACK_PAWN_ATTACKS[usize_square],
             16 => WHITE_PAWN_ATTACKS[usize_square],
             _ => unreachable!(),
@@ -250,7 +250,7 @@ impl Board {
                 ),
                 _ => unreachable!(),
             };
-        let mut dest_bitboard: Bitboard = KING_ATTACKS[initial_pos as usize]
+        let mut dest_bitboard: u64 = KING_ATTACKS[initial_pos as usize]
             & !match color {
                 8 => self.white_occupancy,
                 16 => self.black_occupancy,
@@ -277,8 +277,8 @@ impl Board {
         }
         let (castling_squares, mut right_path, mut left_path): (
             (Option<u8>, Option<u8>),
-            Bitboard,
-            Bitboard,
+            u64,
+            u64,
         ) = match color {
             8 => match (
                 &state.castling_rights & WHITE_LONG_MASK != 0,
@@ -392,8 +392,8 @@ impl Board {
 
         while rooks_bitboard != 0 {
             let initial_pos: u32 = rooks_bitboard.trailing_zeros();
-            let attacks: Bitboard = rook_attacks(initial_pos as usize, self.total_occupancy);
-            let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            let attacks: u64 = rook_attacks(initial_pos as usize, self.total_occupancy);
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
             if captures_only {
                 dest_bitboard &= enemy_occupancy;
             }
@@ -440,8 +440,8 @@ impl Board {
 
         while bishops_bitboard != 0 {
             let initial_pos: u32 = bishops_bitboard.trailing_zeros();
-            let attacks: Bitboard = bishop_attacks(initial_pos as usize, self.total_occupancy);
-            let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            let attacks: u64 = bishop_attacks(initial_pos as usize, self.total_occupancy);
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
             if captures_only {
                 dest_bitboard &= enemy_occupancy;
             }
@@ -489,10 +489,10 @@ impl Board {
         while queens_bitboard != 0 {
             let initial_pos: u32 = queens_bitboard.trailing_zeros();
             let initial_pos_as_index: usize = initial_pos as usize;
-            let attacks: Bitboard = bishop_attacks(initial_pos_as_index, self.total_occupancy)
+            let attacks: u64 = bishop_attacks(initial_pos_as_index, self.total_occupancy)
                 | rook_attacks(initial_pos_as_index, self.total_occupancy);
 
-            let mut dest_bitboard: Bitboard = attacks & !friendly_occupancy;
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
             if captures_only {
                 dest_bitboard &= enemy_occupancy;
             }

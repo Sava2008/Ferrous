@@ -52,7 +52,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
 
         for file in 0..8 {
             let square: u32 = rank * 8 + file;
-            let mask: Bitboard = 1 << square;
+            let mask: u64 = 1 << square;
 
             if board.total_occupancy & mask == 0 {
                 empty_counter += 1;

@@ -1,11 +1,11 @@
 use crate::board_geometry_templates::{
-    Bitboard, FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, NO_PIECE_BLACK,
-    NO_PIECE_WHITE, RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
+    FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, NO_PIECE_BLACK, NO_PIECE_WHITE,
+    RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
-pub const KNIGHT_ATTACKS: [Bitboard; 64] = knight_attacks();
+pub const KNIGHT_ATTACKS: [u64; 64] = knight_attacks();
 pub const COORDS_TO_INDICES: Lazy<HashMap<String, u8>> = Lazy::new(|| {
     (0..=63)
         .map(|i: u8| {
@@ -34,7 +34,7 @@ pub const INDICES_TO_COORDS: Lazy<HashMap<u8, String>> = Lazy::new(|| {
 });
 
 #[allow(unused)]
-const fn knight_attacks() -> [Bitboard; 64] {
+const fn knight_attacks() -> [u64; 64] {
     let mut table: [u64; 64] = [0; 64];
     const OFFSETS: [(i8, i8); 8] = [
         (-2, -1),
@@ -73,10 +73,10 @@ const fn knight_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-pub const KING_ATTACKS: [Bitboard; 64] = king_attacks();
+pub const KING_ATTACKS: [u64; 64] = king_attacks();
 
 #[allow(unused)]
-const fn king_attacks() -> [Bitboard; 64] {
+const fn king_attacks() -> [u64; 64] {
     let mut table: [u64; 64] = [0; 64];
     const OFFSETS: [(i8, i8); 8] = [
         (-1, -1),
@@ -115,11 +115,11 @@ const fn king_attacks() -> [Bitboard; 64] {
     return table;
 }
 
-pub const WHITE_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_WHITE as u8);
-pub const BLACK_PAWN_ATTACKS: [Bitboard; 64] = pawn_attacks(NO_PIECE_BLACK as u8);
+pub const WHITE_PAWN_ATTACKS: [u64; 64] = pawn_attacks(NO_PIECE_WHITE as u8);
+pub const BLACK_PAWN_ATTACKS: [u64; 64] = pawn_attacks(NO_PIECE_BLACK as u8);
 
 #[allow(unused)]
-const fn pawn_attacks(color: u8) -> [Bitboard; 64] {
+const fn pawn_attacks(color: u8) -> [u64; 64] {
     let mut table: [u64; 64] = [0; 64];
     let mut square: usize = 0;
     while square < 64 {
@@ -150,7 +150,7 @@ const fn pawn_attacks(color: u8) -> [Bitboard; 64] {
 }
 
 // taken from another chess engine's source code
-pub const ROOK_MAGICS: [Bitboard; 64] = [
+pub const ROOK_MAGICS: [u64; 64] = [
     0xA180022080400230,
     0x0040100040022000,
     0x0080088020001002,
@@ -217,7 +217,7 @@ pub const ROOK_MAGICS: [Bitboard; 64] = [
     0x7645FFFECBFEA79E,
 ];
 
-pub const BISHOP_MAGICS: [Bitboard; 64] = [
+pub const BISHOP_MAGICS: [u64; 64] = [
     0xFFEDF9FD7CFCFFFF,
     0xFC0962854A77F576,
     0x5822022042000000,
@@ -295,11 +295,11 @@ pub const BISHOP_SHIFTS: [u32; 64] = [
     59, 59, 59, 59, 59, 59, 59, 59, 58, 59, 59, 59, 59, 59, 59, 58,
 ];
 
-const fn rook_masks() -> [Bitboard; 64] {
-    let mut masks: [Bitboard; 64] = [69; 64];
+const fn rook_masks() -> [u64; 64] {
+    let mut masks: [u64; 64] = [69; 64];
     let mut i: usize = 0;
     while i < 64 {
-        let mut mask: Bitboard = 0;
+        let mut mask: u64 = 0;
         let (rank, file) = (i / 8, i % 8);
 
         let (mut r, mut f) = (1, 1);
@@ -325,11 +325,11 @@ const fn rook_masks() -> [Bitboard; 64] {
     return masks;
 }
 
-const fn bishop_mask() -> [Bitboard; 64] {
-    let mut masks: [Bitboard; 64] = [69; 64];
+const fn bishop_mask() -> [u64; 64] {
+    let mut masks: [u64; 64] = [69; 64];
     let mut i: usize = 0;
     while i < 64 {
-        let mut mask: Bitboard = 0;
+        let mut mask: u64 = 0;
         let (rank, file) = (i / 8, i % 8);
 
         let (mut r, mut f) = (rank, file);
@@ -367,19 +367,19 @@ const fn bishop_mask() -> [Bitboard; 64] {
     return masks;
 }
 
-pub const ROOK_MASKS: [Bitboard; 64] = rook_masks();
-pub const BISHOP_MASKS: [Bitboard; 64] = bishop_mask();
+pub const ROOK_MASKS: [u64; 64] = rook_masks();
+pub const BISHOP_MASKS: [u64; 64] = bishop_mask();
 
-pub fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
+pub fn generate_blockers(mask: u64) -> Vec<u64> {
     let bits: Vec<u32> = (0..64).filter(|&i| (mask >> i) & 1 == 1).collect();
 
     let n: usize = bits.len();
     let total: usize = 1 << n;
 
-    let mut blockers: Vec<Bitboard> = Vec::with_capacity(total);
+    let mut blockers: Vec<u64> = Vec::with_capacity(total);
 
     for i in 0..total {
-        let mut blocker_config: Bitboard = 0;
+        let mut blocker_config: u64 = 0;
         for j in 0..n {
             if (i >> j) & 1 == 1 {
                 blocker_config |= 1 << bits[j];
@@ -390,8 +390,8 @@ pub fn generate_blockers(mask: Bitboard) -> Vec<Bitboard> {
 
     return blockers;
 }
-pub static mut ROOK_ATTACKS: [Bitboard; 64 * 4096] = [0; 64 * 4096];
-pub static mut BISHOP_ATTACKS: [Bitboard; 64 * 512] = [0; 64 * 512];
+pub static mut ROOK_ATTACKS: [u64; 64 * 4096] = [0; 64 * 4096];
+pub static mut BISHOP_ATTACKS: [u64; 64 * 512] = [0; 64 * 512];
 
 pub const ROOK_OFFSETS: [usize; 64] = {
     let mut offsets: [usize; 64] = [0; 64];
@@ -413,7 +413,7 @@ pub const BISHOP_OFFSETS: [usize; 64] = {
     offsets
 };
 
-pub fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
+pub fn rook_attacks_with_blockers(square: usize, blockers: u64) -> u64 {
     let (rank, file) = (square / 8, square % 8);
     let mut attacks: u64 = 0;
 
@@ -460,9 +460,9 @@ pub fn rook_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard
     return attacks;
 }
 
-pub fn bishop_attacks_with_blockers(square: usize, blockers: Bitboard) -> Bitboard {
+pub fn bishop_attacks_with_blockers(square: usize, blockers: u64) -> u64 {
     let (rank, file) = (square / 8, square % 8);
-    let mut attacks: Bitboard = 0;
+    let mut attacks: u64 = 0;
 
     let (mut r, mut f) = (rank as i32 + 1, file as i32 + 1);
     while r < 8 && f < 8 {
@@ -515,10 +515,10 @@ pub fn initialize_sliding_attack_tables() -> () {
     let mut square: usize = 0;
     unsafe {
         while square < 64 {
-            let rook_mask: Bitboard = ROOK_MASKS[square];
+            let rook_mask: u64 = ROOK_MASKS[square];
             let rook_blockers: Vec<u64> = generate_blockers(rook_mask);
 
-            let bishop_mask: Bitboard = BISHOP_MASKS[square];
+            let bishop_mask: u64 = BISHOP_MASKS[square];
             let bishop_blockers: Vec<u64> = generate_blockers(bishop_mask);
 
             let mut blockers_index: usize = 0;
@@ -545,8 +545,8 @@ pub fn initialize_sliding_attack_tables() -> () {
 }
 
 #[inline(always)]
-pub fn rook_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
-    let masked_blockers: Bitboard = occupancy & ROOK_MASKS[initial_pos];
+pub fn rook_attacks(initial_pos: usize, occupancy: u64) -> u64 {
+    let masked_blockers: u64 = occupancy & ROOK_MASKS[initial_pos];
     let idx: usize = ((masked_blockers.wrapping_mul(ROOK_MAGICS[initial_pos]))
         >> ROOK_SHIFTS[initial_pos]) as usize;
     let offset: usize = ROOK_OFFSETS[initial_pos];
@@ -555,8 +555,8 @@ pub fn rook_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
 }
 
 #[inline(always)]
-pub fn bishop_attacks(initial_pos: usize, occupancy: Bitboard) -> Bitboard {
-    let masked_blockers: Bitboard = occupancy & BISHOP_MASKS[initial_pos];
+pub fn bishop_attacks(initial_pos: usize, occupancy: u64) -> u64 {
+    let masked_blockers: u64 = occupancy & BISHOP_MASKS[initial_pos];
     let idx: usize = ((masked_blockers.wrapping_mul(BISHOP_MAGICS[initial_pos]))
         >> BISHOP_SHIFTS[initial_pos]) as usize;
     let offset: usize = BISHOP_OFFSETS[initial_pos];
@@ -678,7 +678,7 @@ fn compute_ray_from(sq1: u8, sq2: u8) -> u64 {
     return ray;
 }
 
-pub static mut TWO_SQUARES_LINE: [[Bitboard; 64]; 64] = [[0; 64]; 64];
+pub static mut TWO_SQUARES_LINE: [[u64; 64]; 64] = [[0; 64]; 64];
 
 pub fn compute_all_lines() -> () {
     let mut lines: [[u64; 64]; 64] = [[0; 64]; 64];
