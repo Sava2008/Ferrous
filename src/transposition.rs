@@ -7,11 +7,13 @@ pub struct TTEntry {
     pub best_move: u32,
 }
 
-pub struct TranspositionTable<const LENGTH: usize> {
-    pub entries: [TTEntry; LENGTH],
+const TT_LEN: usize = 16_777_216;
+
+pub struct TranspositionTable {
+    pub entries: [TTEntry; TT_LEN],
 }
 
-impl<const LENGTH: usize> TranspositionTable<LENGTH> {
+impl TranspositionTable {
     pub fn new() -> Self {
         return Self {
             entries: [TTEntry {
@@ -20,7 +22,11 @@ impl<const LENGTH: usize> TranspositionTable<LENGTH> {
                 depth: 0,
                 flag: 0,
                 best_move: 0,
-            }; LENGTH],
+            }; TT_LEN],
         };
+    }
+
+    pub fn get_entry(&self, hash_num: &u64) -> TTEntry {
+        return self.entries[(*hash_num as usize) & (TT_LEN - 1)];
     }
 }

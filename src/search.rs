@@ -1,7 +1,7 @@
 use crate::{
     board::Board,
     board_geometry_templates::*,
-    constants::{heuristics::*, piece_values::*},
+    constants::{heuristics::*, piece_values::*, zobrist_hashes::ZOBRIST_HASH_TABLE},
     gamestate::GameState,
     moves::MoveList,
 };
@@ -14,6 +14,7 @@ pub struct Engine {
     pub move_lists: [MoveList; 32],
     pub move_scores: [[i16; 192]; 32],
     pub quiescence_limitation: u8,
+    pub current_hash: u64,
 }
 const CHECKMATE_VALUE: i32 = 1_000_000;
 
@@ -82,10 +83,10 @@ impl Engine {
             p &= p - 1;
         }
         for piece in board.cached_pieces {
-            if piece.is_none() {
+            if piece == 0 {
                 continue;
             }
-            self.evaluation += match piece.unwrap() {
+            self.evaluation += match piece {
                 WHITE_PAWN_U32 => PAWN_VALUE,
                 WHITE_BISHOP_U32 => BISHOP_VALUE,
                 WHITE_KNIGHT_U32 => KNIGHT_VALUE,
@@ -182,9 +183,15 @@ impl Engine {
                     .swap(true_index, i);
                 self.move_scores[depth_as_index].swap(true_index, i);
 
-                board.perform_move(allegedly_best_move, state, 8, &mut self.evaluation);
+                board.perform_move(
+                    allegedly_best_move,
+                    state,
+                    8,
+                    &mut self.evaluation,
+                    &mut self.current_hash,
+                );
                 if board.is_square_attacked(board.white_king_square, 16) {
-                    board.cancel_move(state, 8, &mut self.evaluation);
+                    board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
                     legal_moves_amount -= 1;
                     continue;
                 }
@@ -201,7 +208,7 @@ impl Engine {
                     ),
                     best_score,
                 );
-                board.cancel_move(state, 8, &mut self.evaluation);
+                board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
                     if !board.is_capture(allegedly_best_move) && depth < self.depth {
@@ -245,9 +252,15 @@ impl Engine {
                     .swap(true_index, i);
                 self.move_scores[depth_as_index].swap(true_index, i);
 
-                board.perform_move(allegedly_best_move, state, 16, &mut self.evaluation);
+                board.perform_move(
+                    allegedly_best_move,
+                    state,
+                    16,
+                    &mut self.evaluation,
+                    &mut self.current_hash,
+                );
                 if board.is_square_attacked(board.black_king_square, 8) {
-                    board.cancel_move(state, 16, &mut self.evaluation);
+                    board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                     legal_moves_amount -= 1;
                     continue;
                 }
@@ -264,7 +277,7 @@ impl Engine {
                     ),
                     best_score,
                 );
-                board.cancel_move(state, 16, &mut self.evaluation);
+                board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
                     if !board.is_capture(allegedly_best_move) && depth < self.depth {
@@ -333,7 +346,13 @@ impl Engine {
         for i in 0..last_occupied {
             let move_to_search: u32 = self.move_lists[quiescence_depth].pseudo_moves[i];
 
-            board.perform_move(move_to_search, state, color, &mut self.evaluation);
+            board.perform_move(
+                move_to_search,
+                state,
+                color,
+                &mut self.evaluation,
+                &mut self.current_hash,
+            );
             let king_sq: u8 = match color {
                 8 => board.white_king_square,
                 16 => board.black_king_square,
@@ -341,7 +360,7 @@ impl Engine {
             };
 
             if board.is_square_attacked(king_sq, opponent) {
-                board.cancel_move(state, color, &mut self.evaluation);
+                board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
                 legal_moves_count -= 1;
                 continue;
             }
@@ -356,7 +375,7 @@ impl Engine {
                 if color == 8 { 16 } else { 8 },
                 node_count,
             );
-            board.cancel_move(state, color, &mut self.evaluation);
+            board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
 
             if score > best_score {
                 best_score = score;
@@ -396,6 +415,19 @@ impl Engine {
             first_not_occupied: 0,
         }; 32];
         self.move_scores = [[0; 192]; 32];
+        self.current_hash = 0;
+        for (i, piece) in board.cached_pieces.iter().enumerate() {
+            let piece: u32 = *piece;
+            if piece != 0 {
+                let zobrist_index: usize = if piece <= 14 {
+                    piece as usize - 8
+                } else {
+                    piece as usize - 10
+                } * i
+                    - 1;
+                self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
+            }
+        }
 
         let mut best_move: Option<u32> = None;
         let mut copied_board: Board = board.clone();
@@ -458,6 +490,7 @@ impl Engine {
                     &mut copied_state,
                     self.side,
                     &mut self.evaluation,
+                    &mut self.current_hash,
                 );
 
                 let current_king_square: u8 = match self.side {
@@ -467,7 +500,12 @@ impl Engine {
                 };
 
                 if copied_board.is_square_attacked(current_king_square, opponent_color) {
-                    copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
+                    copied_board.cancel_move(
+                        &mut copied_state,
+                        self.side,
+                        &mut self.evaluation,
+                        &mut self.current_hash,
+                    );
                     continue;
                 }
 
@@ -487,7 +525,12 @@ impl Engine {
                     score
                 );
 
-                copied_board.cancel_move(&mut copied_state, self.side, &mut self.evaluation);
+                copied_board.cancel_move(
+                    &mut copied_state,
+                    self.side,
+                    &mut self.evaluation,
+                    &mut self.current_hash,
+                );
 
                 if match self.side {
                     8 => score > depth_best_score,

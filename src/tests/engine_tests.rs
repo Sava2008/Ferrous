@@ -26,6 +26,7 @@ fn checkmate_in_two_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -38,14 +39,15 @@ fn checkmate_in_two_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 14);
     assert_eq!(to, 6);
-    board.perform_move(engine_move, &mut state, 16, &mut 0);
+    board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
     let checkmate_engine_move = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
         checkmate_engine_move & FROM_MASK,
@@ -78,6 +80,7 @@ fn checkmate_in_three_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -90,15 +93,16 @@ fn checkmate_in_three_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 31);
     assert_eq!(to, 7);
-    board.perform_move(engine_move, &mut state, 16, &mut 0);
+    board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move2: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -107,10 +111,10 @@ fn checkmate_in_three_test1() -> () {
     );
     assert_eq!(from, 30);
     assert_eq!(to, 22);
-    board.perform_move(engine_move2, &mut state, 16, &mut 0);
+    board.perform_move(engine_move2, &mut state, 16, &mut 0, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -143,6 +147,7 @@ fn checkmate_in_three_tricky_test() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
 
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
@@ -150,12 +155,19 @@ fn checkmate_in_three_tricky_test() -> () {
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 60);
 
     let encoded_response: u32 = 57 | (48 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
-    board.perform_move(engine_move, &mut state, 8, &mut engine_depth_8.evaluation);
+    board.perform_move(
+        engine_move,
+        &mut state,
+        8,
+        &mut engine_depth_8.evaluation,
+        &mut 0,
+    );
     board.perform_move(
         encoded_response,
         &mut state,
         16,
         &mut engine_depth_8.evaluation,
+        &mut 0,
     );
 
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
@@ -163,12 +175,19 @@ fn checkmate_in_three_tricky_test() -> () {
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 50);
 
     let encoded_response: u32 = 48 | (40 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
-    board.perform_move(engine_move, &mut state, 8, &mut engine_depth_8.evaluation);
+    board.perform_move(
+        engine_move,
+        &mut state,
+        8,
+        &mut engine_depth_8.evaluation,
+        &mut 0,
+    );
     board.perform_move(
         encoded_response,
         &mut state,
         16,
         &mut engine_depth_8.evaluation,
+        &mut 0,
     );
 
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
@@ -199,6 +218,7 @@ fn checkmate_in_four_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -211,16 +231,17 @@ fn checkmate_in_four_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 18);
     assert_eq!(to, 20);
 
-    board.perform_move(engine_move, &mut state, 16, &mut 0);
+    board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move2: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -229,13 +250,13 @@ fn checkmate_in_four_test1() -> () {
     );
     assert_eq!(from, 20);
     assert_eq!(to, 21);
-    board.perform_move(engine_move2, &mut state, 16, &mut 0);
+    board.perform_move(engine_move2, &mut state, 16, &mut 0, &mut 0);
 
     let response = 5
         | (21 << TO_SHIFT)
         | (BLACK_QUEEN_U32 << CAPTURED_PIECE_TYPE_SHIFT)
         | (WHITE_ROOK_U32 << MOVING_PIECE_TYPE_SHIFT);
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -244,10 +265,10 @@ fn checkmate_in_four_test1() -> () {
     );
     assert_eq!(from, 12);
     assert_eq!(to, 4);
-    board.perform_move(engine_move3, &mut state, 16, &mut 0);
+    board.perform_move(engine_move3, &mut state, 16, &mut 0, &mut 0);
 
     let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
-    board.perform_move(response, &mut state, 8, &mut 0);
+    board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move4: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (
@@ -280,6 +301,7 @@ fn checkmate_in_five_test1() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -309,6 +331,7 @@ fn avoiding_trapped_bishop_test() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
+        current_hash: 0,
     };
 
     let engine_move: u32 = engine.find_best_move(&board, &mut state).unwrap();

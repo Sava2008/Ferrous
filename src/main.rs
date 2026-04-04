@@ -77,6 +77,7 @@ fn main() -> () {
         }; 32],
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 9,
+        current_hash: 0,
     };
     if (engine.side == 16 && engine.depth % 2 == 1) || (engine.side == 8 && engine.depth % 2 == 0) {
         engine.quiescence_limitation -= 1;
@@ -152,7 +153,7 @@ fn make_engine_move(
     let engine_move: Option<u32> = engine.find_best_move(&board, state);
     println!("time: {:.3?}", t.elapsed());
     if let Some(m) = engine_move {
-        board.perform_move(m, state, color, &mut engine.evaluation);
+        board.perform_move(m, state, color, &mut engine.evaluation, &mut 0);
         println!(
             "Ferrous's move: {:?} {:?} {}",
             INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
@@ -241,8 +242,9 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
     };
 
     let mut parsed_move: u32 = from_sq | (to_sq << TO_SHIFT);
-    parsed_move |= board.piece_at(from_sq).unwrap() << MOVING_PIECE_TYPE_SHIFT;
-    if let Some(p) = board.piece_at(to_sq) {
+    parsed_move |= board.piece_at(from_sq) << MOVING_PIECE_TYPE_SHIFT;
+    let p: u32 = board.piece_at(to_sq);
+    if p != 0 {
         parsed_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
     }
     if moving_piece_type(parsed_move) == COLORLESS_KING
@@ -274,7 +276,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         mv & FROM_MASK == parsed_move & FROM_MASK
             && (mv & TO_MASK) >> TO_SHIFT == (parsed_move & TO_MASK) >> TO_SHIFT
     }) {
-        board.perform_move(parsed_move, state, player_color, &mut 0);
+        board.perform_move(parsed_move, state, player_color, &mut 0, &mut 0);
         return MoveResult::None;
     } else {
         println!("Illegal move, not in pseudo legal moves");

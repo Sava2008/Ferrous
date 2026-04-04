@@ -768,3 +768,11 @@ pub const ZOBRIST_HASH_TABLE: [u64; 768] = [
     440187985401110200,
     14640148314069826853,
 ];
+/*
+formula to access a hash: piece_type * index_on_board - 1
+piece types:
+WP - 1, WN - 2, WB - 3,
+WR - 4, WQ - 5, WK - 6,
+BP - 7, BN - 8, BB - 9,
+BR - 10, BQ - 11, BK - 12
+*/

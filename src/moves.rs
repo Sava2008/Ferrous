@@ -54,8 +54,7 @@ impl Board {
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
                 if enemy_bitboard & (1 << final_pos) != 0 {
-                    pseudo_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                        << CAPTURED_PIECE_TYPE_SHIFT;
+                    pseudo_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(pseudo_move);
 
@@ -145,7 +144,7 @@ impl Board {
                     piece_move |= 1 << EN_PASSANT_SHIFT;
                 }
                 if enemy_occupancy & (1 << final_pos) != 0 {
-                    piece_move |= self.piece_at(final_pos).unwrap() << CAPTURED_PIECE_TYPE_SHIFT;
+                    piece_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 if promo_rank & (1 << final_pos) != 0 {
                     moves.push(piece_move | (0b100 << PROMOTION_SHIFT));
@@ -265,8 +264,7 @@ impl Board {
             let mut piece_move: u32 =
                 initial_pos | (final_pos << TO_SHIFT) | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
             if enemy_occupancy & (1 << final_pos) != 0 {
-                piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                    << CAPTURED_PIECE_TYPE_SHIFT;
+                piece_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
             }
             moves.push(piece_move);
             dest_bitboard &= dest_bitboard - 1;
@@ -403,8 +401,7 @@ impl Board {
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
                 if enemy_occupancy & (1 << final_pos) != 0 {
-                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                        << CAPTURED_PIECE_TYPE_SHIFT;
+                    piece_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
 
@@ -452,8 +449,7 @@ impl Board {
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
                 if enemy_occupancy & (1 << final_pos) != 0 {
-                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                        << CAPTURED_PIECE_TYPE_SHIFT;
+                    piece_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;
@@ -503,8 +499,7 @@ impl Board {
                     | (final_pos << TO_SHIFT)
                     | (moving_piece << MOVING_PIECE_TYPE_SHIFT);
                 if enemy_occupancy & (1 << final_pos) != 0 {
-                    piece_move |= unsafe { self.piece_at(final_pos).unwrap_unchecked() }
-                        << CAPTURED_PIECE_TYPE_SHIFT;
+                    piece_move |= self.piece_at(final_pos) << CAPTURED_PIECE_TYPE_SHIFT;
                 }
                 moves.push(piece_move);
                 dest_bitboard &= dest_bitboard - 1;

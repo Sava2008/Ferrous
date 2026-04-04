@@ -19,7 +19,7 @@ pub struct Board {
     pub white_occupancy: u64,
     pub black_occupancy: u64,
     pub total_occupancy: u64,
-    pub cached_pieces: [Option<u32>; 64],
+    pub cached_pieces: [u32; 64],
 
     pub white_king_square: u8,
     pub black_king_square: u8,
@@ -44,7 +44,7 @@ impl Board {
             white_occupancy: 0,
             black_occupancy: 0,
             total_occupancy: 0,
-            cached_pieces: [None; 64],
+            cached_pieces: [0; 64],
             white_king_square: 4,
             black_king_square: 60,
         };
@@ -53,35 +53,35 @@ impl Board {
         for square in 0..64 {
             let mask: u64 = BIT_MASKS[square];
             if self.white_pawns & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_PAWN_U32);
+                self.cached_pieces[square] = WHITE_PAWN_U32;
             } else if self.white_knights & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_KNIGHT_U32);
+                self.cached_pieces[square] = WHITE_KNIGHT_U32;
             } else if self.white_bishops & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_BISHOP_U32);
+                self.cached_pieces[square] = WHITE_BISHOP_U32;
             } else if self.white_rooks & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_ROOK_U32);
+                self.cached_pieces[square] = WHITE_ROOK_U32;
             } else if self.white_queens & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_QUEEN_U32);
+                self.cached_pieces[square] = WHITE_QUEEN_U32;
             } else if self.white_king & mask != 0 {
-                self.cached_pieces[square] = Some(WHITE_KING_U32);
+                self.cached_pieces[square] = WHITE_KING_U32;
             } else if self.black_pawns & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_PAWN_U32);
+                self.cached_pieces[square] = BLACK_PAWN_U32;
             } else if self.black_knights & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_KNIGHT_U32);
+                self.cached_pieces[square] = BLACK_KNIGHT_U32;
             } else if self.black_bishops & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_BISHOP_U32);
+                self.cached_pieces[square] = BLACK_BISHOP_U32;
             } else if self.black_rooks & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_ROOK_U32);
+                self.cached_pieces[square] = BLACK_ROOK_U32;
             } else if self.black_queens & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_QUEEN_U32);
+                self.cached_pieces[square] = BLACK_QUEEN_U32;
             } else if self.black_king & mask != 0 {
-                self.cached_pieces[square] = Some(BLACK_KING_U32);
+                self.cached_pieces[square] = BLACK_KING_U32;
             }
         }
     }
 
     #[inline(always)]
-    pub fn piece_at(&self, square: u32) -> Option<u32> {
+    pub fn piece_at(&self, square: u32) -> u32 {
         return unsafe { *self.cached_pieces.get_unchecked(square as usize) };
     }
 

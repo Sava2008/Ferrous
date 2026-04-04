@@ -62,7 +62,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
                     empty_counter = 0;
                 }
 
-                let piece: u32 = board.piece_at(square).unwrap();
+                let piece: u32 = board.piece_at(square);
                 let piece_char: char = match piece {
                     WHITE_KING_U32 => 'K',
                     WHITE_QUEEN_U32 => 'Q',
@@ -157,7 +157,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         white_occupancy: 0,
         black_occupancy: 0,
         total_occupancy: 0,
-        cached_pieces: [None; 64],
+        cached_pieces: [0; 64],
         white_king_square: 0,
         black_king_square: 0,
     };
