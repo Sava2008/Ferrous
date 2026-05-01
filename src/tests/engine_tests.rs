@@ -1,7 +1,7 @@
 #[allow(unused)]
 use crate::{
     board_geometry_templates::*, constants::attacks::*, converters::fen_converter::fen_to_board,
-    moves::MoveList, search::Engine,
+    moves::MoveList, search::Engine, transposition::TranspositionTable,
 };
 
 #[test]
@@ -27,6 +27,7 @@ fn checkmate_in_two_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -40,6 +41,7 @@ fn checkmate_in_two_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -81,6 +83,7 @@ fn checkmate_in_three_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -94,6 +97,7 @@ fn checkmate_in_three_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -148,6 +152,7 @@ fn checkmate_in_three_tricky_test() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
 
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
@@ -219,6 +224,7 @@ fn checkmate_in_four_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let mut opponent_engine: Engine = Engine {
         side: 8,
@@ -232,6 +238,7 @@ fn checkmate_in_four_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -302,6 +309,7 @@ fn checkmate_in_five_test1() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
@@ -332,6 +340,7 @@ fn avoiding_trapped_bishop_test() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 20,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
 
     let engine_move: u32 = engine.find_best_move(&board, &mut state).unwrap();

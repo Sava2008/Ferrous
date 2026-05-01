@@ -13,6 +13,7 @@ use crate::{
     gamestate::GameState,
     moves::MoveList,
     search::Engine,
+    transposition::TranspositionTable,
 };
 use std::{
     io::{self, Write},
@@ -78,6 +79,7 @@ fn main() -> () {
         move_scores: [[0; 192]; 32],
         quiescence_limitation: 9,
         current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
     if (engine.side == 16 && engine.depth % 2 == 1) || (engine.side == 8 && engine.depth % 2 == 0) {
         engine.quiescence_limitation -= 1;

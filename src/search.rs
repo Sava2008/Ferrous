@@ -4,6 +4,7 @@ use crate::{
     constants::{heuristics::*, piece_values::*, zobrist_hashes::ZOBRIST_HASH_TABLE},
     gamestate::GameState,
     moves::MoveList,
+    transposition::{TTEntry, TranspositionTable},
 };
 use std::cmp::{max, min};
 pub struct Engine {
@@ -15,6 +16,7 @@ pub struct Engine {
     pub move_scores: [[i16; 192]; 32],
     pub quiescence_limitation: u8,
     pub current_hash: u64,
+    pub transposition_table: TranspositionTable,
 }
 const CHECKMATE_VALUE: i32 = 1_000_000;
 
@@ -135,13 +137,31 @@ impl Engine {
         &mut self,
         board: &mut Board,
         depth: u8,
-        alpha: i32,
-        beta: i32,
+        mut alpha: i32,
+        mut beta: i32,
         maximizing: bool,
         state: &mut GameState,
         node_count: &mut u64,
     ) -> i32 {
         *node_count += 1;
+        let (original_alpha, original_beta): (i32, i32) = (alpha, beta);
+        let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash);
+        let best_move_transposition: u32 = if let Some(entry) = tt_entry {
+            if entry.depth >= depth {
+                match entry.flag {
+                    0 => return entry.score,
+                    1 => alpha = alpha.max(entry.score),
+                    2 => beta = beta.min(entry.score),
+                    _ => (),
+                }
+                if alpha >= beta {
+                    return entry.score;
+                }
+            }
+            entry.best_move
+        } else {
+            0
+        };
         if depth == 0 {
             /*return self.quiescence_search(
                 board,
@@ -156,17 +176,23 @@ impl Engine {
             return self.evaluation;
         }
         let depth_as_index: usize = depth as usize;
+        let (mut best_score, mut best_move) = (
+            if maximizing {
+                -CHECKMATE_VALUE
+            } else {
+                CHECKMATE_VALUE
+            },
+            0,
+        );
         if maximizing {
             // white's branch
             state.whose_turn = 8;
-
-            let mut best_score: i32 = -CHECKMATE_VALUE;
             let mut current_alpha: i32 = alpha;
 
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &0);
+            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition);
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -196,19 +222,21 @@ impl Engine {
                     continue;
                 }
 
-                best_score = max(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        current_alpha,
-                        beta,
-                        false,
-                        state,
-                        node_count,
-                    ),
-                    best_score,
+                let current_score: i32 = self.alpha_beta_pruning(
+                    board,
+                    depth - 1,
+                    current_alpha,
+                    beta,
+                    false,
+                    state,
+                    node_count,
                 );
+                if current_score > best_score {
+                    best_score = current_score;
+                    best_move = allegedly_best_move;
+                }
                 board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
+
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
                     if !board.is_capture(allegedly_best_move) && depth < self.depth {
@@ -224,18 +252,15 @@ impl Engine {
                     0
                 };
             }
-            return best_score;
         } else {
             // black's branch
             state.whose_turn = 16;
-
-            let mut best_score: i32 = CHECKMATE_VALUE;
             let mut current_beta: i32 = beta;
 
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &0);
+            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition);
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -265,18 +290,20 @@ impl Engine {
                     continue;
                 }
 
-                best_score = min(
-                    self.alpha_beta_pruning(
-                        board,
-                        depth - 1,
-                        alpha,
-                        current_beta,
-                        true,
-                        state,
-                        node_count,
-                    ),
-                    best_score,
+                let current_score: i32 = self.alpha_beta_pruning(
+                    board,
+                    depth - 1,
+                    alpha,
+                    current_beta,
+                    true,
+                    state,
+                    node_count,
                 );
+                if current_score < best_score {
+                    best_score = current_score;
+                    best_move = allegedly_best_move;
+                }
+
                 board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
@@ -293,8 +320,28 @@ impl Engine {
                     0
                 };
             }
-            return best_score;
         }
+
+        if depth >= 1 {
+            let flag: u8 = if best_score >= original_beta {
+                1
+            } else if best_score <= original_alpha {
+                2
+            } else {
+                0
+            };
+            self.transposition_table.record_entry(
+                &self.current_hash,
+                TTEntry {
+                    hash: self.current_hash,
+                    score: best_score,
+                    depth,
+                    flag,
+                    best_move,
+                },
+            );
+        }
+        return best_score;
     }
 
     pub fn quiescence_search(
@@ -416,15 +463,17 @@ impl Engine {
         }; 32];
         self.move_scores = [[0; 192]; 32];
         self.current_hash = 0;
+
+        // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
             let piece: u32 = *piece;
             if piece != 0 {
                 let zobrist_index: usize = if piece <= 14 {
-                    piece as usize - 8
+                    piece as usize - 9
                 } else {
-                    piece as usize - 10
-                } * i
-                    - 1;
+                    piece as usize - 11
+                } * 64
+                    + i;
                 self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
             }
         }
@@ -541,6 +590,12 @@ impl Engine {
                     depth_best_score = score;
                     depth_best_move = allegedly_best_move;
                 }
+                println!(
+                    "occupied: {}, collisions: {}, replacements: {}",
+                    self.transposition_table.occupied,
+                    self.transposition_table.collisions,
+                    self.transposition_table.replacements
+                );
             }
             previous_best_move = depth_best_move;
             println!("reached depth {d}");
