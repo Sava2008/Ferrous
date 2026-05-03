@@ -9,6 +9,7 @@ use crate::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
+    converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
     moves::MoveList,

@@ -14,6 +14,7 @@ pub struct TranspositionTable {
     pub collisions: u64,
     pub replacements: u64,
     pub occupied: u64,
+    pub hits: u64,
 }
 
 impl TranspositionTable {
@@ -33,13 +34,17 @@ impl TranspositionTable {
             collisions: 0,
             replacements: 0,
             occupied: 0,
+            hits: 0,
         };
     }
 
-    pub fn get_entry(&mut self, hash_num: &u64) -> Option<TTEntry> {
+    pub fn get_entry(&mut self, hash_num: &u64, depth: u8) -> Option<TTEntry> {
         let entry: TTEntry = self.entries[(*hash_num as usize) & (TT_LEN - 1)];
 
         if entry.hash == *hash_num {
+            if entry.depth >= depth {
+                self.hits += 1;
+            }
             return Some(entry);
         } else {
             if entry.hash != 0 {
@@ -51,14 +56,17 @@ impl TranspositionTable {
 
     pub fn record_entry(&mut self, hash_num: &u64, entry: TTEntry) -> () {
         let entry_index: usize = (*hash_num as usize) & (TT_LEN - 1);
+        let old_entry: &mut TTEntry = &mut self.entries[entry_index];
         if entry_index < TT_LEN {
-            if self.entries[entry_index].hash == 0 {
+            if old_entry.hash == 0 {
                 self.occupied += 1
             } else {
                 self.replacements += 1;
+                if entry.depth < old_entry.depth {
+                    return ();
+                }
             }
-
-            self.entries[entry_index] = entry;
+            *old_entry = entry;
         }
     }
 }

@@ -6,7 +6,10 @@ use crate::{
     moves::MoveList,
     transposition::{TTEntry, TranspositionTable},
 };
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    //time::{Duration, Instant},
+};
 pub struct Engine {
     pub side: u32, // which color Ferrous plays
     pub depth: u8,
@@ -145,7 +148,9 @@ impl Engine {
     ) -> i32 {
         *node_count += 1;
         let (original_alpha, original_beta): (i32, i32) = (alpha, beta);
-        let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash);
+        let tt_entry: Option<TTEntry> = self
+            .transposition_table
+            .get_entry(&self.current_hash, depth);
         let best_move_transposition: u32 = if let Some(entry) = tt_entry {
             if entry.depth >= depth {
                 match entry.flag {
@@ -464,6 +469,10 @@ impl Engine {
         self.move_scores = [[0; 192]; 32];
         self.current_hash = 0;
 
+        self.transposition_table.hits = 0;
+        self.transposition_table.collisions = 0;
+        self.transposition_table.replacements = 0;
+
         // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
             let piece: u32 = *piece;
@@ -591,10 +600,12 @@ impl Engine {
                     depth_best_move = allegedly_best_move;
                 }
                 println!(
-                    "occupied: {}, collisions: {}, replacements: {}",
+                    "occupied: {}, collisions: {}, replacements: {}, hits: {}, hit rate: {}",
                     self.transposition_table.occupied,
                     self.transposition_table.collisions,
-                    self.transposition_table.replacements
+                    self.transposition_table.replacements,
+                    self.transposition_table.hits,
+                    self.transposition_table.hits as f64 / node_count as f64,
                 );
             }
             previous_best_move = depth_best_move;
