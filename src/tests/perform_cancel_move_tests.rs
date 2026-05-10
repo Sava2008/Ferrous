@@ -338,3 +338,28 @@ fn knight_moves_and_cancel_test() -> () {
     }
     assert_eq!(second_hash, pos_hash);
 }
+
+#[test]
+fn buggy_castling_test() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("r3k1nr/pppqp2p/5ppb/1N6/P7/6Q1/1PPP1PPP/R1B1R1K1 b kq - 2 16");
+    board.total_occupancy();
+    board.update_full_cache();
+    let three_zeros: u32 =
+        60 | (58 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT) | (1 << CASTLING_SHIFT);
+
+    let (board_copy, state_copy) = (board.clone(), state.clone());
+
+    board.perform_move(three_zeros, &mut state, 16, &mut 0, &mut 0);
+    board.cancel_move(&mut state, 16, &mut 0, &mut 0);
+
+    assert_eq!(board_copy, board);
+    assert_eq!(state_copy, state);
+}
+
+// `rn2kbnr/pppbpppp/6q1/8/3P4/2N2B2/PPP2PPP/R1BQK1NR b KQkq - 2 6` played Bc6??, Nc6 was best

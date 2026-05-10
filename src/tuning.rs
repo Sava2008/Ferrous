@@ -12,12 +12,13 @@ impl Engine {
         previous_best_move: &u32,
     ) -> () {
         for i in 0..last_occupied {
-            self.move_scores[depth][i] = self.move_priority(
-                &self.move_lists[depth].pseudo_moves[0..last_occupied][i],
-                depth,
-            );
             if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
                 self.move_scores[depth][i] = i16::MAX;
+            } else {
+                self.move_scores[depth][i] = self.move_priority(
+                    &self.move_lists[depth].pseudo_moves[0..last_occupied][i],
+                    depth,
+                );
             }
         }
     }

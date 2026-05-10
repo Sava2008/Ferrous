@@ -46,12 +46,8 @@ impl Board {
                         *evaluation -= ROOK_VALUE;
                         *evaluation -= WHITE_ROOK_HEURISTICS[to_sq];
                         if to_sq == 7 {
-                            previous_move.previous_castling_rights =
-                                Some(state.castling_rights.clone());
                             state.castling_rights &= !WHITE_SHORT;
                         } else if to_sq == 0 {
-                            previous_move.previous_castling_rights =
-                                Some(state.castling_rights.clone());
                             state.castling_rights &= !WHITE_LONG;
                         }
                         (&mut self.white_rooks, &mut self.white_occupancy, 4)
@@ -92,12 +88,8 @@ impl Board {
                         *evaluation += ROOK_VALUE;
                         *evaluation += BLACK_ROOK_HEURISTICS[to_sq];
                         if to_sq == 63 {
-                            previous_move.previous_castling_rights =
-                                Some(state.castling_rights.clone());
                             state.castling_rights &= !BLACK_SHORT;
                         } else if to_sq == 56 {
-                            previous_move.previous_castling_rights =
-                                Some(state.castling_rights.clone());
                             state.castling_rights &= !BLACK_LONG;
                         }
                         (&mut self.black_rooks, &mut self.black_occupancy, 10)
@@ -253,7 +245,7 @@ impl Board {
         let mut previous_move: PreviousMove = PreviousMove {
             moved_piece: piece_move,
             previous_en_passant: state.en_passant_target,
-            previous_castling_rights: None,
+            previous_castling_rights: state.castling_rights,
             material_difference: 0,
         };
         if captured_piece != 0 {
@@ -316,7 +308,6 @@ impl Board {
                         WHITE_QUEEN_HEURISTICS[to_sq_index],
                     ),
                     WHITE_ROOK_U32 => {
-                        previous_move.previous_castling_rights = Some(state.castling_rights);
                         if from_sq == 0 {
                             state.castling_rights &= !WHITE_LONG_MASK;
                         } else if from_sq == 7 {
@@ -329,7 +320,6 @@ impl Board {
                         )
                     }
                     WHITE_KING_U32 => {
-                        previous_move.previous_castling_rights = Some(state.castling_rights);
                         self.white_king_square = to_sq as u8;
                         state.castling_rights &= !(WHITE_LONG_MASK | WHITE_SHORT_MASK);
                         (
@@ -366,7 +356,6 @@ impl Board {
                         -BLACK_QUEEN_HEURISTICS[to_sq_index],
                     ),
                     BLACK_ROOK_U32 => {
-                        previous_move.previous_castling_rights = Some(state.castling_rights);
                         if from_sq == 56 {
                             state.castling_rights &= !BLACK_LONG_MASK;
                         } else if from_sq == 63 {
@@ -379,7 +368,6 @@ impl Board {
                         )
                     }
                     BLACK_KING_U32 => {
-                        previous_move.previous_castling_rights = Some(state.castling_rights);
                         self.black_king_square = to_sq as u8;
                         state.castling_rights &= !(BLACK_LONG_MASK | BLACK_SHORT_MASK);
                         (
@@ -720,9 +708,7 @@ impl Board {
                 *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_end];
             }
 
-            if let Some(castling_rights) = previous_move.previous_castling_rights {
-                state.castling_rights = castling_rights;
-            }
+            state.castling_rights = previous_move.previous_castling_rights;
             state.en_passant_target = previous_move.previous_en_passant;
         }
     }

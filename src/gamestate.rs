@@ -54,7 +54,7 @@ impl CastlingRights {
 pub struct PreviousMove {
     pub moved_piece: u32,
     pub previous_en_passant: Option<u8>,
-    pub previous_castling_rights: Option<u8>, // if None, not to be restored
+    pub previous_castling_rights: u8,
     pub material_difference: i32,
 }
 
