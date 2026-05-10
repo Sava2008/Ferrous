@@ -69,7 +69,7 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 8,
+        depth: 6,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {

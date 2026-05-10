@@ -8,42 +8,6 @@ use crate::{
 };
 
 impl Board {
-    #[inline(always)]
-    fn reset_bit(
-        &mut self,
-        piece: u32,
-        bit_position1: usize,
-        bit_position2: usize,
-        color: u32,
-    ) -> () {
-        let from_mask: u64 = !BIT_MASKS[bit_position1];
-        let to_mask: u64 = BIT_MASKS[bit_position2];
-        let bitboard_to_mutate: &mut u64 = if color == 8 {
-            match piece {
-                WHITE_PAWN_U32 => &mut self.white_pawns,
-                WHITE_KNIGHT_U32 => &mut self.white_knights,
-                WHITE_BISHOP_U32 => &mut self.white_bishops,
-                WHITE_QUEEN_U32 => &mut self.white_queens,
-                WHITE_KING_U32 => &mut self.white_king,
-                WHITE_ROOK_U32 => &mut self.white_rooks,
-                _ => unreachable!(),
-            }
-        } else {
-            match piece {
-                BLACK_PAWN_U32 => &mut self.black_pawns,
-                BLACK_KNIGHT_U32 => &mut self.black_knights,
-                BLACK_BISHOP_U32 => &mut self.black_bishops,
-                BLACK_QUEEN_U32 => &mut self.black_queens,
-                BLACK_KING_U32 => &mut self.black_king,
-                BLACK_ROOK_U32 => &mut self.black_rooks,
-                _ => unreachable!(),
-            }
-        };
-
-        *bitboard_to_mutate &= from_mask;
-        *bitboard_to_mutate |= to_mask;
-    }
-
     fn perform_capture(
         &mut self,
         state: &mut GameState,
@@ -180,19 +144,19 @@ impl Board {
         self.cached_pieces
             .swap(rook_from as usize, rook_to as usize);
         previous_move.moved_piece |= 1 << CASTLING_SHIFT;
-        self.reset_bit(rook, rook_from, rook_to, color);
 
         let total_occupancy: &mut u64 = &mut self.total_occupancy;
         let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
         *total_occupancy &= start;
         *total_occupancy |= end;
-        let (occupancy, (rook_from_heuristic, rook_to_heuristic)) = match color {
+        let (occupancy, (rook_from_heuristic, rook_to_heuristic), rook_bb) = match color {
             8 => (
                 &mut self.white_occupancy,
                 (
                     -WHITE_ROOK_HEURISTICS[rook_from],
                     WHITE_ROOK_HEURISTICS[rook_to],
                 ),
+                &mut self.white_rooks,
             ),
             16 => (
                 &mut self.black_occupancy,
@@ -200,11 +164,14 @@ impl Board {
                     BLACK_ROOK_HEURISTICS[rook_from],
                     -BLACK_ROOK_HEURISTICS[rook_to],
                 ),
+                &mut self.black_rooks,
             ),
             _ => unreachable!(),
         };
         *occupancy &= start;
         *occupancy |= end;
+        *rook_bb &= start;
+        *rook_bb |= end;
         *eval += rook_from_heuristic + rook_to_heuristic;
 
         let rook_hash: usize = if color == 8 {
