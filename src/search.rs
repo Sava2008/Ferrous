@@ -17,6 +17,7 @@ pub struct Engine {
     pub killer_moves: [[Option<u32>; 2]; 32],
     pub move_lists: [MoveList; 32],
     pub move_scores: [[i16; 192]; 32],
+    pub history_heuristics: [i16; 4096],
     pub quiescence_limitation: u8,
     pub current_hash: u64,
     pub transposition_table: TranspositionTable,
@@ -201,18 +202,39 @@ impl Engine {
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
+                /*let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
                     .iter()
                     .enumerate()
                     .max_by_key(|&(_, score)| score)
                     .unwrap();
                 let true_index: usize = best_move_index + i;
+
                 let allegedly_best_move: u32 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
                 self.move_lists[depth_as_index]
                     .pseudo_moves
                     .swap(true_index, i);
-                self.move_scores[depth_as_index].swap(true_index, i);
+                self.move_scores[depth_as_index].swap(true_index, i);*/
+
+                let true_index: usize = if i < 8 {
+                    let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
+                        .iter()
+                        .enumerate()
+                        .max_by_key(|&(_, score)| score)
+                        .unwrap();
+                    best_move_index + i
+                } else {
+                    i
+                };
+
+                let allegedly_best_move: u32 =
+                    self.move_lists[depth_as_index].pseudo_moves[true_index];
+                if i < 5 {
+                    self.move_lists[depth_as_index]
+                        .pseudo_moves
+                        .swap(true_index, i);
+                    self.move_scores[depth_as_index].swap(true_index, i);
+                }
 
                 board.perform_move(
                     allegedly_best_move,
@@ -244,8 +266,13 @@ impl Engine {
 
                 current_alpha = max(current_alpha, best_score);
                 if current_alpha >= beta {
-                    if !board.is_capture(allegedly_best_move) && depth < self.depth {
+                    if !board.is_capture(allegedly_best_move) {
                         self.add_killer(allegedly_best_move, depth);
+
+                        let history_idx: usize = (((allegedly_best_move & FROM_MASK) as usize)
+                            << 6)
+                            | ((allegedly_best_move & TO_MASK) >> TO_SHIFT) as usize;
+                        self.history_heuristics[history_idx] += (depth * depth) as i16;
                     }
                     break;
                 }
@@ -269,18 +296,25 @@ impl Engine {
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
-                    .iter()
-                    .enumerate()
-                    .max_by_key(|&(_, score)| score)
-                    .unwrap();
-                let true_index: usize = best_move_index + i;
+                let true_index: usize = if i < 8 {
+                    let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
+                        .iter()
+                        .enumerate()
+                        .max_by_key(|&(_, score)| score)
+                        .unwrap();
+                    best_move_index + i
+                } else {
+                    i
+                };
+
                 let allegedly_best_move: u32 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
-                self.move_lists[depth_as_index]
-                    .pseudo_moves
-                    .swap(true_index, i);
-                self.move_scores[depth_as_index].swap(true_index, i);
+                if i < 5 {
+                    self.move_lists[depth_as_index]
+                        .pseudo_moves
+                        .swap(true_index, i);
+                    self.move_scores[depth_as_index].swap(true_index, i);
+                }
 
                 board.perform_move(
                     allegedly_best_move,
@@ -312,8 +346,13 @@ impl Engine {
                 board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                 current_beta = min(current_beta, best_score);
                 if current_beta <= alpha {
-                    if !board.is_capture(allegedly_best_move) && depth < self.depth {
+                    if !board.is_capture(allegedly_best_move) {
                         self.add_killer(allegedly_best_move, depth);
+
+                        let history_idx: usize = (((allegedly_best_move & FROM_MASK) as usize)
+                            << 6)
+                            | ((allegedly_best_move & TO_MASK) >> TO_SHIFT) as usize;
+                        self.history_heuristics[history_idx] += (depth * depth) as i16;
                     }
                     break;
                 }
@@ -460,6 +499,9 @@ impl Engine {
     }
 
     pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<u32> {
+        for i in 0..4096 {
+            self.history_heuristics[i] /= 2;
+        }
         let mut node_count: u64 = 0;
         self.killer_moves = [[None; 2]; 32];
         self.move_lists = [MoveList {
