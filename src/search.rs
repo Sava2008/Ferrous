@@ -28,64 +28,64 @@ impl Engine {
     #[inline(always)]
     pub fn evaluate(&mut self, board: &Board) -> () {
         self.evaluation = 0;
-        let mut p: u64 = board.white_bishops;
+        let mut p: u64 = board.bitboards[2];
         while p != 0 {
             self.evaluation += WHITE_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.white_knights;
+        p = board.bitboards[1];
         while p != 0 {
             self.evaluation += WHITE_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.white_rooks;
+        p = board.bitboards[3];
         while p != 0 {
             self.evaluation += WHITE_ROOK_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.white_pawns;
+        p = board.bitboards[0];
         while p != 0 {
             self.evaluation += WHITE_PAWN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.white_queens;
+        p = board.bitboards[4];
         while p != 0 {
             self.evaluation += WHITE_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.white_king;
+        p = board.bitboards[5];
         while p != 0 {
             self.evaluation += WHITE_KING_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_bishops;
+        p = board.bitboards[8];
         while p != 0 {
-            self.evaluation -= BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_knights;
+        p = board.bitboards[7];
         while p != 0 {
-            self.evaluation -= BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_rooks;
+        p = board.bitboards[9];
         while p != 0 {
-            self.evaluation -= BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_pawns;
+        p = board.bitboards[6];
         while p != 0 {
-            self.evaluation -= BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_queens;
+        p = board.bitboards[10];
         while p != 0 {
-            self.evaluation -= BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
-        p = board.black_king;
+        p = board.bitboards[11];
         while p != 0 {
-            self.evaluation -= BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation += BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         for piece in board.cached_pieces {
@@ -198,7 +198,7 @@ impl Engine {
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition);
+            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition, 8);
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -235,6 +235,12 @@ impl Engine {
                         .swap(true_index, i);
                     self.move_scores[depth_as_index].swap(true_index, i);
                 }
+
+                /*println!(
+                    "from: {}, to: {}",
+                    allegedly_best_move & FROM_MASK,
+                    (allegedly_best_move & TO_MASK) >> TO_SHIFT
+                );*/
 
                 board.perform_move(
                     allegedly_best_move,
@@ -292,7 +298,7 @@ impl Engine {
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition);
+            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition, 16);
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -315,6 +321,11 @@ impl Engine {
                         .swap(true_index, i);
                     self.move_scores[depth_as_index].swap(true_index, i);
                 }
+                /*(
+                    "from: {}, to: {}",
+                    allegedly_best_move & FROM_MASK,
+                    (allegedly_best_move & TO_MASK) >> TO_SHIFT
+                );*/
 
                 board.perform_move(
                     allegedly_best_move,
@@ -511,7 +522,12 @@ impl Engine {
             };
         }
 
-        self.score_all_moves(quiescence_depth, last_occupied, &best_move_transposition);
+        self.score_all_moves(
+            quiescence_depth,
+            last_occupied,
+            &best_move_transposition,
+            color as u8,
+        );
 
         let mut best_score: i32 = if maximizing {
             -CHECKMATE_VALUE
@@ -632,6 +648,8 @@ impl Engine {
         self.transposition_table.collisions = 0;
         self.transposition_table.replacements = 0;
 
+        println!("board: {:?}", board.cached_pieces);
+
         // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
             let piece: u32 = *piece;
@@ -669,7 +687,12 @@ impl Engine {
                 false,
             );
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &previous_best_move);
+            self.score_all_moves(
+                depth_as_index,
+                last_occupied,
+                &previous_best_move,
+                self.side as u8,
+            );
             let mut depth_best_score: i32 = if self.side == 8 {
                 -CHECKMATE_VALUE
             } else {
@@ -690,6 +713,11 @@ impl Engine {
                     .swap(true_index, i);
                 self.move_scores[depth_as_index].swap(true_index, i);
                 let allegedly_best_move: u32 = self.move_lists[depth_as_index].pseudo_moves[i];
+                println!(
+                    "from: {}, to: {}",
+                    allegedly_best_move & FROM_MASK,
+                    (allegedly_best_move & TO_MASK) >> TO_SHIFT,
+                );
 
                 copied_board.perform_move(
                     allegedly_best_move,
@@ -724,12 +752,7 @@ impl Engine {
                     &mut copied_state,
                     &mut node_count,
                 );
-                println!(
-                    "from: {}, to: {} ||| score: {}",
-                    allegedly_best_move & FROM_MASK,
-                    (allegedly_best_move & TO_MASK) >> TO_SHIFT,
-                    score
-                );
+                println!("score: {}", score);
 
                 copied_board.cancel_move(
                     &mut copied_state,

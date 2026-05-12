@@ -22,8 +22,10 @@ START INCLUSIVE, END INCLUSIVE
 bit 0-5: from square
 bit 6-11: to square
 bit 12-14: promotion choice
-bit 15-19: type + color of moving piece
-bit 20-24: type + color of captured piece
+bit 15-17: type of moving piece
+bit 18-20: type of captured piece
+bit 21: e.p. marker
+bit 22: castling marker
  */
 
 pub const TO_SHIFT: u32 = 6;
@@ -37,19 +39,15 @@ pub const PROMOTION_MASK: u32 = 0b0111000000000000; // to access from info of a 
 
 piece color encryption: 1 (0b1) - white, 2 (0b10) - black */
 
-pub const MOVING_PIECE_TYPE_SHIFT: u32 = 15;
-pub const MOVING_PIECE_COLOR_SHIFT: u32 = 18; // `(u32 & PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT` to get the piece color
-pub const CAPTURED_PIECE_TYPE_SHIFT: u32 = 20;
-pub const CAPTURED_PIECE_COLOR_SHIFT: u32 = 23;
-pub const CASTLING_SHIFT: u32 = 26;
-pub const EN_PASSANT_SHIFT: u32 = 25;
+pub const MOVING_PIECE_TYPE_SHIFT: u32 = 15; // `(u32 & PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT` to get the piece color
+pub const CAPTURED_PIECE_TYPE_SHIFT: u32 = 18;
+pub const CASTLING_SHIFT: u32 = 22;
+pub const EN_PASSANT_SHIFT: u32 = 21;
 
 pub const MOVING_PIECE_TYPE_MASK: u32 = 0b111000000000000000;
-pub const MOVING_PIECE_COLOR_MASK: u32 = 0b11000000000000000000;
-pub const CAPTURED_PIECE_TYPE_MASK: u32 = 0b11100000000000000000000;
-pub const CAPTURED_PIECE_COLOR_MASK: u32 = 0b1100000000000000000000000;
-pub const CASTLING_MASK: u32 = 0b100000000000000000000000000;
-pub const EN_PASSANT_MASK: u32 = 0b10000000000000000000000000;
+pub const CAPTURED_PIECE_TYPE_MASK: u32 = 0b111000000000000000000;
+pub const CASTLING_MASK: u32 = 0b10000000000000000000000;
+pub const EN_PASSANT_MASK: u32 = 0b1000000000000000000000;
 
 pub const WHITE_PAWN_U32: u32 = 9;
 pub const WHITE_KNIGHT_U32: u32 = 10;
@@ -64,6 +62,21 @@ pub const BLACK_BISHOP_U32: u32 = 19;
 pub const BLACK_ROOK_U32: u32 = 20;
 pub const BLACK_QUEEN_U32: u32 = 21;
 pub const BLACK_KING_U32: u32 = 22;
+
+pub const U32_PIECES_TABLE: [u32; 12] = [
+    WHITE_PAWN_U32,
+    WHITE_KNIGHT_U32,
+    WHITE_BISHOP_U32,
+    WHITE_ROOK_U32,
+    WHITE_QUEEN_U32,
+    WHITE_KING_U32,
+    BLACK_PAWN_U32,
+    BLACK_KNIGHT_U32,
+    BLACK_BISHOP_U32,
+    BLACK_ROOK_U32,
+    BLACK_QUEEN_U32,
+    BLACK_KING_U32,
+];
 
 pub const NO_PIECE_WHITE: u32 = 8;
 pub const NO_PIECE_BLACK: u32 = 16;
@@ -101,27 +114,12 @@ pub fn promotion(m: u32) -> u8 {
 pub fn moving_piece_type(m: u32) -> u32 {
     return (m & MOVING_PIECE_TYPE_MASK) >> MOVING_PIECE_TYPE_SHIFT;
 }
-#[inline(always)]
-pub fn moving_piece_color(m: u32) -> u8 {
-    return ((m & MOVING_PIECE_COLOR_MASK) >> MOVING_PIECE_COLOR_SHIFT) as u8;
-}
-#[inline(always)]
-pub fn moving_piece(m: u32) -> u32 {
-    return (m & (MOVING_PIECE_TYPE_MASK | MOVING_PIECE_COLOR_MASK)) >> MOVING_PIECE_TYPE_SHIFT;
-}
+
 #[inline(always)]
 pub fn captured_piece_type(m: u32) -> u32 {
     return (m & CAPTURED_PIECE_TYPE_MASK) >> CAPTURED_PIECE_TYPE_SHIFT;
 }
-#[inline(always)]
-pub fn captured_piece_color(m: u32) -> u8 {
-    return ((m & CAPTURED_PIECE_COLOR_MASK) >> CAPTURED_PIECE_COLOR_SHIFT) as u8;
-}
-#[inline(always)]
-pub fn captured_piece(m: u32) -> u32 {
-    return (m & (CAPTURED_PIECE_TYPE_MASK | CAPTURED_PIECE_COLOR_MASK))
-        >> CAPTURED_PIECE_TYPE_SHIFT;
-}
+
 #[inline(always)]
 pub fn castling(m: u32) -> u8 {
     return ((m & CASTLING_MASK) >> CASTLING_SHIFT) as u8;
@@ -129,4 +127,16 @@ pub fn castling(m: u32) -> u8 {
 #[inline(always)]
 pub fn en_passant(m: u32) -> u8 {
     return ((m & EN_PASSANT_MASK) >> EN_PASSANT_SHIFT) as u8;
+}
+
+#[inline(always)]
+pub fn get_bb_index(mut piece_type: u32, color: &u32) -> (usize, usize) {
+    // (bitboard_idx, occupancy_idx)
+    let occupancy_idx: usize = if color == &16 {
+        piece_type += 6;
+        1
+    } else {
+        0
+    };
+    return ((piece_type as usize) - 1, occupancy_idx);
 }

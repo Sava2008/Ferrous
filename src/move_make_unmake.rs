@@ -10,107 +10,21 @@ use crate::{
 impl Board {
     fn perform_capture(
         &mut self,
-        state: &mut GameState,
         enemy: u32,
         previous_move: &mut PreviousMove,
         to_sq: usize,
-        color: u32,
-        m: &u32,
         evaluation: &mut i32,
         current_hash: &mut u64,
+        captured_table_idx: usize,
+        occupancy_idx: usize,
     ) -> () {
-        let (bitboard_for_capture, occupancy, encoded_capture): (&mut u64, &mut u64, usize) =
-            if color == 16 {
-                match enemy {
-                    WHITE_BISHOP_U32 => {
-                        *evaluation -= BISHOP_VALUE;
-                        *evaluation -= WHITE_BISHOP_HEURISTICS[to_sq];
-                        (&mut self.white_bishops, &mut self.white_occupancy, 3)
-                    }
-                    WHITE_KNIGHT_U32 => {
-                        *evaluation -= KNIGHT_VALUE;
-                        *evaluation -= WHITE_KNIGHT_HEURISTICS[to_sq];
-                        (&mut self.white_knights, &mut self.white_occupancy, 2)
-                    }
-                    WHITE_PAWN_U32 => {
-                        *evaluation -= PAWN_VALUE;
-                        *evaluation -= WHITE_PAWN_HEURISTICS[to_sq];
-                        (&mut self.white_pawns, &mut self.white_occupancy, 1)
-                    }
-                    WHITE_QUEEN_U32 => {
-                        *evaluation -= QUEEN_VALUE;
-                        *evaluation -= WHITE_QUEEN_HEURISTICS[to_sq];
-                        (&mut self.white_queens, &mut self.white_occupancy, 5)
-                    }
-                    WHITE_ROOK_U32 => {
-                        *evaluation -= ROOK_VALUE;
-                        *evaluation -= WHITE_ROOK_HEURISTICS[to_sq];
-                        if to_sq == 7 {
-                            state.castling_rights &= !WHITE_SHORT;
-                        } else if to_sq == 0 {
-                            state.castling_rights &= !WHITE_LONG;
-                        }
-                        (&mut self.white_rooks, &mut self.white_occupancy, 4)
-                    }
-                    WHITE_KING_U32 => {
-                        panic!(
-                            "attemped to capture white king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}",
-                            m & FROM_MASK,
-                            (m & TO_MASK) >> TO_SHIFT,
-                            moving_piece(*m),
-                        )
-                    }
-                    _ => unreachable!("piece {enemy}, board: {self:?}"),
-                }
-            } else {
-                match enemy {
-                    BLACK_BISHOP_U32 => {
-                        *evaluation += BISHOP_VALUE;
-                        *evaluation += BLACK_BISHOP_HEURISTICS[to_sq];
-                        (&mut self.black_bishops, &mut self.black_occupancy, 9)
-                    }
-                    BLACK_KNIGHT_U32 => {
-                        *evaluation += KNIGHT_VALUE;
-                        *evaluation += BLACK_KNIGHT_HEURISTICS[to_sq];
-                        (&mut self.black_knights, &mut self.black_occupancy, 8)
-                    }
-                    BLACK_PAWN_U32 => {
-                        *evaluation += PAWN_VALUE;
-                        *evaluation += BLACK_PAWN_HEURISTICS[to_sq];
-                        (&mut self.black_pawns, &mut self.black_occupancy, 7)
-                    }
-                    BLACK_QUEEN_U32 => {
-                        *evaluation += QUEEN_VALUE;
-                        *evaluation += BLACK_QUEEN_HEURISTICS[to_sq];
-                        (&mut self.black_queens, &mut self.black_occupancy, 11)
-                    }
-                    BLACK_ROOK_U32 => {
-                        *evaluation += ROOK_VALUE;
-                        *evaluation += BLACK_ROOK_HEURISTICS[to_sq];
-                        if to_sq == 63 {
-                            state.castling_rights &= !BLACK_SHORT;
-                        } else if to_sq == 56 {
-                            state.castling_rights &= !BLACK_LONG;
-                        }
-                        (&mut self.black_rooks, &mut self.black_occupancy, 10)
-                    }
-                    BLACK_KING_U32 => {
-                        panic!(
-                            "attemped to capture black king. state: {state:?}, board: {self:?}, from: {}, to: {}, attacker: {}",
-                            m & FROM_MASK,
-                            (m & TO_MASK) >> TO_SHIFT,
-                            moving_piece(*m),
-                        )
-                    }
-                    _ => unreachable!("piece: {enemy}, color {color}"),
-                }
-            };
+        *evaluation -= VALUE_TABLE[captured_table_idx];
         previous_move.moved_piece |= enemy << CAPTURED_PIECE_TYPE_SHIFT;
         let to_sq_as_index: usize = to_sq as usize;
         let capture: u64 = !BIT_MASKS[to_sq_as_index];
-        *occupancy &= capture;
-        *bitboard_for_capture &= capture;
-        *current_hash ^= ZOBRIST_HASH_TABLE[(encoded_capture - 1) * 64 + to_sq_as_index];
+        self.bitboards[captured_table_idx] &= capture;
+        self.occupancies[occupancy_idx] &= capture;
+        *current_hash ^= ZOBRIST_HASH_TABLE[captured_table_idx * 64 + to_sq_as_index];
     }
 
     fn castling(
@@ -137,26 +51,25 @@ impl Board {
             .swap(rook_from as usize, rook_to as usize);
         previous_move.moved_piece |= 1 << CASTLING_SHIFT;
 
-        let total_occupancy: &mut u64 = &mut self.total_occupancy;
         let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
-        *total_occupancy &= start;
-        *total_occupancy |= end;
+        self.total_occupancy &= start;
+        self.total_occupancy |= end;
         let (occupancy, (rook_from_heuristic, rook_to_heuristic), rook_bb) = match color {
             8 => (
-                &mut self.white_occupancy,
+                &mut self.occupancies[0],
                 (
                     -WHITE_ROOK_HEURISTICS[rook_from],
                     WHITE_ROOK_HEURISTICS[rook_to],
                 ),
-                &mut self.white_rooks,
+                &mut self.bitboards[3],
             ),
             16 => (
-                &mut self.black_occupancy,
+                &mut self.occupancies[1],
                 (
                     BLACK_ROOK_HEURISTICS[rook_from],
                     -BLACK_ROOK_HEURISTICS[rook_to],
                 ),
-                &mut self.black_rooks,
+                &mut self.bitboards[9],
             ),
             _ => unreachable!(),
         };
@@ -184,14 +97,14 @@ impl Board {
     ) -> () {
         let (pawns, occupancy, captured_pawn_square, material_subtraction) = match color {
             8 => (
-                &mut self.black_pawns,
-                &mut self.black_occupancy,
+                &mut self.bitboards[6],
+                &mut self.occupancies[1],
                 e_p - 8,
                 PAWN_VALUE,
             ),
             16 => (
-                &mut self.white_pawns,
-                &mut self.white_occupancy,
+                &mut self.bitboards[0],
+                &mut self.occupancies[0],
                 e_p + 8,
                 -PAWN_VALUE,
             ),
@@ -202,7 +115,7 @@ impl Board {
         let capture: u64 = !BIT_MASKS[captured_pawn_square as usize];
         *pawns &= capture;
         *occupancy &= capture;
-        *&mut self.total_occupancy &= capture;
+        self.total_occupancy &= capture;
         *eval += material_subtraction;
     }
 
@@ -220,17 +133,21 @@ impl Board {
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
         let (from_sq_index, to_sq_index): (usize, usize) = (from_sq as usize, to_sq as usize);
 
-        let moving_piece: u32 = moving_piece(piece_move);
-        let captured_piece: u32 = captured_piece(piece_move);
+        let moving_piece: u32 = moving_piece_type(piece_move);
+        let captured_piece: u32 = captured_piece_type(piece_move);
 
-        let moving_piece_encoding: usize = if color == 8 {
-            moving_piece as usize - 8
-        } else {
-            moving_piece as usize - 10
-        };
+        let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
+            get_bb_index(moving_piece, &color);
+        let (captured_piece_table_idx, captured_occupancy_idx): (usize, usize) =
+            if captured_piece != 0 {
+                get_bb_index(captured_piece, if color == 8 { &16 } else { &8 })
+            } else {
+                (0, 0)
+            };
+
         let to_sq_index_base_one: usize = to_sq_index + 1;
 
-        let moving_piece_hash: usize = (moving_piece_encoding - 1) * 64;
+        let moving_piece_hash: usize = moving_piece_table_idx * 64;
 
         *current_hash ^= ZOBRIST_HASH_TABLE[moving_piece_hash + from_sq_index];
         *current_hash ^= ZOBRIST_HASH_TABLE[moving_piece_hash + to_sq_index];
@@ -238,10 +155,10 @@ impl Board {
         let e_p: u8 = en_passant(piece_move);
         let castling: u8 = castling(piece_move);
 
-        self.cached_pieces[to_sq as usize] = moving_piece;
+        self.cached_pieces[to_sq as usize] = moving_piece | color;
         self.cached_pieces[from_sq as usize] = 0;
 
-        let promotion_choice: u8 = promotion(piece_move);
+        let promotion_choice: usize = promotion(piece_move) as usize;
         let mut previous_move: PreviousMove = PreviousMove {
             moved_piece: piece_move,
             previous_en_passant: state.en_passant_target,
@@ -250,17 +167,19 @@ impl Board {
         };
         if captured_piece != 0 {
             self.perform_capture(
-                state,
                 captured_piece,
                 &mut previous_move,
                 to_sq_index,
-                color,
-                &piece_move,
                 evaluation,
                 current_hash,
+                captured_piece_table_idx,
+                captured_occupancy_idx,
             );
         }
         if castling != 0 {
+            if moving_piece != 6 {
+                panic!("piece: {moving_piece}, board: {self:?}, from: {from_sq}, to: {to_sq}");
+            }
             self.castling(
                 &mut previous_move,
                 from_sq_index,
@@ -283,103 +202,35 @@ impl Board {
             *current_hash ^= ZOBRIST_HASH_TABLE[en_passant_pawn_type * 64
                 + ((state.en_passant_target.unwrap() as i8 + en_passant_pawn_offset) as usize)]; // removing en passant'ed pawn
         }
-        let (occupancy, (moving_piece_bb, from_heuristic, to_heuristic)) = if color == 8 {
-            (
-                &mut self.white_occupancy,
-                match moving_piece {
-                    WHITE_BISHOP_U32 => (
-                        &mut self.white_bishops,
-                        -WHITE_BISHOP_HEURISTICS[from_sq_index],
-                        WHITE_BISHOP_HEURISTICS[to_sq_index],
-                    ),
-                    WHITE_KNIGHT_U32 => (
-                        &mut self.white_knights,
-                        -WHITE_KNIGHT_HEURISTICS[from_sq_index],
-                        WHITE_KNIGHT_HEURISTICS[to_sq_index],
-                    ),
-                    WHITE_PAWN_U32 => (
-                        &mut self.white_pawns,
-                        -WHITE_PAWN_HEURISTICS[from_sq_index],
-                        WHITE_PAWN_HEURISTICS[to_sq_index],
-                    ),
-                    WHITE_QUEEN_U32 => (
-                        &mut self.white_queens,
-                        -WHITE_QUEEN_HEURISTICS[from_sq_index],
-                        WHITE_QUEEN_HEURISTICS[to_sq_index],
-                    ),
-                    WHITE_ROOK_U32 => {
-                        if from_sq == 0 {
-                            state.castling_rights &= !WHITE_LONG_MASK;
-                        } else if from_sq == 7 {
-                            state.castling_rights &= !WHITE_SHORT_MASK;
-                        }
-                        (
-                            &mut self.white_rooks,
-                            -WHITE_ROOK_HEURISTICS[from_sq_index],
-                            WHITE_ROOK_HEURISTICS[to_sq_index],
-                        )
-                    }
-                    WHITE_KING_U32 => {
-                        self.white_king_square = to_sq as u8;
-                        state.castling_rights &= !(WHITE_LONG_MASK | WHITE_SHORT_MASK);
-                        (
-                            &mut self.white_king,
-                            -WHITE_KING_HEURISTICS[from_sq_index],
-                            WHITE_KING_HEURISTICS[to_sq_index],
-                        )
-                    }
-                    other => unreachable!("piece: {other}"),
-                },
-            )
-        } else {
-            (
-                &mut self.black_occupancy,
-                match moving_piece {
-                    BLACK_BISHOP_U32 => (
-                        &mut self.black_bishops,
-                        BLACK_BISHOP_HEURISTICS[from_sq_index],
-                        -BLACK_BISHOP_HEURISTICS[to_sq_index],
-                    ),
-                    BLACK_KNIGHT_U32 => (
-                        &mut self.black_knights,
-                        BLACK_KNIGHT_HEURISTICS[from_sq_index],
-                        -BLACK_KNIGHT_HEURISTICS[to_sq_index],
-                    ),
-                    BLACK_PAWN_U32 => (
-                        &mut self.black_pawns,
-                        BLACK_PAWN_HEURISTICS[from_sq_index],
-                        -BLACK_PAWN_HEURISTICS[to_sq_index],
-                    ),
-                    BLACK_QUEEN_U32 => (
-                        &mut self.black_queens,
-                        BLACK_QUEEN_HEURISTICS[from_sq_index],
-                        -BLACK_QUEEN_HEURISTICS[to_sq_index],
-                    ),
-                    BLACK_ROOK_U32 => {
-                        if from_sq == 56 {
-                            state.castling_rights &= !BLACK_LONG_MASK;
-                        } else if from_sq == 63 {
-                            state.castling_rights &= !BLACK_SHORT_MASK;
-                        }
-                        (
-                            &mut self.black_rooks,
-                            BLACK_ROOK_HEURISTICS[from_sq_index],
-                            -BLACK_ROOK_HEURISTICS[to_sq_index],
-                        )
-                    }
-                    BLACK_KING_U32 => {
-                        self.black_king_square = to_sq as u8;
-                        state.castling_rights &= !(BLACK_LONG_MASK | BLACK_SHORT_MASK);
-                        (
-                            &mut self.black_king,
-                            BLACK_KING_HEURISTICS[from_sq_index],
-                            -BLACK_KING_HEURISTICS[to_sq_index],
-                        )
-                    }
-                    _ => unreachable!(),
-                },
-            )
+        match moving_piece_table_idx {
+            3 => {
+                if from_sq == 0 {
+                    state.castling_rights &= !WHITE_LONG_MASK;
+                } else if from_sq == 7 {
+                    state.castling_rights &= !WHITE_SHORT_MASK;
+                }
+            }
+            9 => {
+                if from_sq == 56 {
+                    state.castling_rights &= !BLACK_LONG_MASK;
+                } else if from_sq == 63 {
+                    state.castling_rights &= !BLACK_SHORT_MASK;
+                }
+            }
+            5 => {
+                self.white_king_square = to_sq as u8;
+                state.castling_rights &= !(WHITE_LONG_MASK | WHITE_SHORT_MASK);
+            }
+            11 => {
+                self.black_king_square = to_sq as u8;
+                state.castling_rights &= !(BLACK_LONG_MASK | BLACK_SHORT_MASK);
+            }
+            _ => (),
         };
+        let (occupancy, moving_piece_bb) = (
+            &mut self.occupancies[occupancy_idx],
+            &mut self.bitboards[moving_piece_table_idx],
+        );
 
         let (start, end): (u64, u64) = (!BIT_MASKS[from_sq_index], BIT_MASKS[to_sq_index]);
         self.total_occupancy &= start;
@@ -387,77 +238,36 @@ impl Board {
         *occupancy &= start;
         *occupancy |= end;
 
-        *evaluation += from_heuristic + to_heuristic;
+        let (from_heuristic, to_heuristic) = (
+            HEURISTICS_TABLE[moving_piece_table_idx][from_sq_index],
+            HEURISTICS_TABLE[moving_piece_table_idx][to_sq_index],
+        );
+
+        if color == 8 {
+            *evaluation += to_heuristic - from_heuristic;
+        } else {
+            *evaluation -= to_heuristic + from_heuristic;
+        }
 
         let to_sq_index_base_zero: usize = to_sq_index_base_one - 1;
 
-        match promotion_choice {
-            0 => {
-                *moving_piece_bb |= end;
-                *moving_piece_bb &= start;
-            }
-            4 => {
-                if color == 8 {
-                    *&mut self.white_pawns &= start;
-                    *&mut self.white_queens |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[4 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = WHITE_QUEEN_U32;
-                } else {
-                    *&mut self.black_pawns &= start;
-                    *&mut self.black_queens |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[10 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = BLACK_QUEEN_U32;
-                }
-            }
-            3 => {
-                if color == 8 {
-                    *&mut self.white_pawns &= start;
-                    *&mut self.white_rooks |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[3 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = WHITE_ROOK_U32;
-                } else {
-                    *&mut self.black_pawns &= start;
-                    *&mut self.black_rooks |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[9 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = BLACK_ROOK_U32;
-                }
-            }
-            2 => {
-                if color == 8 {
-                    *&mut self.white_pawns &= start;
-                    *&mut self.white_bishops |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[2 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = WHITE_BISHOP_U32;
-                } else {
-                    *&mut self.black_pawns &= start;
-                    *&mut self.black_bishops |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[8 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = BLACK_BISHOP_U32;
-                }
-            }
-            1 => {
-                if color == 8 {
-                    *&mut self.white_pawns &= start;
-                    *&mut self.white_knights |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = WHITE_KNIGHT_U32;
-                } else {
-                    *&mut self.black_pawns &= start;
-                    *&mut self.black_knights |= end;
-                    *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + to_sq_index_base_zero];
-                    *current_hash ^= ZOBRIST_HASH_TABLE[7 * 64 + to_sq_index_base_zero];
-                    self.cached_pieces[to_sq as usize] = BLACK_KNIGHT_U32;
-                }
-            }
-            _ => unreachable!("promotion square is {promotion_choice}, should be 0..=4"),
-        };
+        if promotion_choice != 0 {
+            let promotion_choice_table_idx: usize = if color == 8 {
+                self.bitboards[0] &= start;
+                promotion_choice
+            } else {
+                *&mut self.bitboards[6] &= start;
+                promotion_choice + 6
+            };
+            self.bitboards[promotion_choice_table_idx] |= end;
+            *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
+            *current_hash ^=
+                ZOBRIST_HASH_TABLE[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
+            self.cached_pieces[to_sq as usize] = U32_PIECES_TABLE[promotion_choice_table_idx];
+        } else {
+            *moving_piece_bb |= end;
+            *moving_piece_bb &= start;
+        }
         previous_move.material_difference = *evaluation - evaluation_before;
         if moving_piece == WHITE_PAWN_U32 && from_sq < 16 && to_sq > 23 && to_sq < 32 {
             state.en_passant_target = Some(to_sq as u8 - 8);
@@ -483,119 +293,59 @@ impl Board {
             let (start, end, main_piece, promotion, captured_piece, castling, en_passant) = (
                 from_square(m),
                 to_square(m),
-                moving_piece(m),
+                moving_piece_type(m),
                 promotion(m),
-                captured_piece(m),
+                captured_piece_type(m),
                 castling(m),
                 en_passant(m),
             );
+            let enemy_color: u32 = if color == 8 { 16 } else { 8 };
+            let (
+                (moving_piece_table_idx, moving_piece_occupancy_idx),
+                (captured_piece_table_idx, captured_piece_occupancy_idx),
+            ) = (
+                get_bb_index(main_piece, &color),
+                if captured_piece != 0 {
+                    get_bb_index(captured_piece, &enemy_color)
+                } else {
+                    (0, 0)
+                },
+            );
+            match moving_piece_table_idx {
+                5 => self.white_king_square = start,
+                11 => self.black_king_square = start,
+                _ => (),
+            };
             let (start_index, end_index): (usize, usize) = (start as usize, end as usize);
 
-            let main_piece_encoding: usize = if color == 8 {
-                main_piece as usize - 8
-            } else {
-                main_piece as usize - 10
-            };
-            let main_piece_hash: usize = (main_piece_encoding - 1) * 64;
+            let main_piece_hash: usize = moving_piece_table_idx * 64;
 
             *current_hash ^= ZOBRIST_HASH_TABLE[main_piece_hash + start_index];
             self.cached_pieces[end_index] = 0;
 
-            let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = if color == 8 {
-                (
-                    match main_piece {
-                        WHITE_PAWN_U32 => &mut self.white_pawns,
-                        WHITE_KNIGHT_U32 => &mut self.white_knights,
-                        WHITE_BISHOP_U32 => &mut self.white_bishops,
-                        WHITE_QUEEN_U32 => &mut self.white_queens,
-                        WHITE_KING_U32 => {
-                            self.white_king_square = start;
-                            &mut self.white_king
-                        }
-                        WHITE_ROOK_U32 => &mut self.white_rooks,
-                        other => unreachable!("piece {other}, color {color}"),
-                    },
-                    &mut self.white_occupancy,
-                )
-            } else {
-                (
-                    match main_piece {
-                        BLACK_PAWN_U32 => &mut self.black_pawns,
-                        BLACK_KNIGHT_U32 => &mut self.black_knights,
-                        BLACK_BISHOP_U32 => &mut self.black_bishops,
-                        BLACK_QUEEN_U32 => &mut self.black_queens,
-                        BLACK_KING_U32 => {
-                            self.black_king_square = start;
-                            &mut self.black_king
-                        }
-                        BLACK_ROOK_U32 => &mut self.black_rooks,
-                        other => unreachable!("piece {other}",),
-                    },
-                    &mut self.black_occupancy,
-                )
-            };
+            let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = (
+                &mut self.bitboards[moving_piece_table_idx],
+                &mut self.occupancies[moving_piece_occupancy_idx],
+            );
             let start_bb: u64 = BIT_MASKS[start_index];
             let not_end_bb: u64 = !BIT_MASKS[end_index];
-            self.cached_pieces[start_index] = main_piece;
+            self.cached_pieces[start_index] = main_piece | color;
             *moved_piece_bitboard &= not_end_bb;
             if promotion == 0 {
                 *moved_piece_bitboard |= start_bb;
                 *current_hash ^= ZOBRIST_HASH_TABLE[main_piece_hash + end_index];
             } else {
-                let (pawns, promoted_piece, pawn, promotion_piece_encoding) =
-                    match (color, promotion) {
-                        (8, 1) => (
-                            &mut self.white_pawns,
-                            &mut self.white_knights,
-                            WHITE_PAWN_U32,
-                            1,
-                        ),
-                        (8, 2) => (
-                            &mut self.white_pawns,
-                            &mut self.white_bishops,
-                            WHITE_PAWN_U32,
-                            2,
-                        ),
-                        (8, 3) => (
-                            &mut self.white_pawns,
-                            &mut self.white_rooks,
-                            WHITE_PAWN_U32,
-                            3,
-                        ),
-                        (8, 4) => (
-                            &mut self.white_pawns,
-                            &mut self.white_queens,
-                            WHITE_PAWN_U32,
-                            4,
-                        ),
-                        (16, 1) => (
-                            &mut self.black_pawns,
-                            &mut self.black_knights,
-                            BLACK_PAWN_U32,
-                            7,
-                        ),
-                        (16, 2) => (
-                            &mut self.black_pawns,
-                            &mut self.black_bishops,
-                            BLACK_PAWN_U32,
-                            8,
-                        ),
-                        (16, 3) => (
-                            &mut self.black_pawns,
-                            &mut self.black_rooks,
-                            BLACK_PAWN_U32,
-                            9,
-                        ),
-                        (16, 4) => (
-                            &mut self.black_pawns,
-                            &mut self.black_queens,
-                            BLACK_PAWN_U32,
-                            10,
-                        ),
-                        _ => unreachable!(),
-                    };
+                let (pawns, promotion_piece_encoding, pawn) = if color == 8 {
+                    (&mut self.bitboards[0], promotion as usize, WHITE_PAWN_U32)
+                } else {
+                    (
+                        &mut self.bitboards[6],
+                        promotion as usize + 6,
+                        BLACK_PAWN_U32,
+                    )
+                };
                 *pawns |= start_bb;
-                *promoted_piece &= not_end_bb;
+                self.bitboards[promotion_piece_encoding] &= not_end_bb;
                 self.cached_pieces[start_index] = pawn;
                 *current_hash ^= ZOBRIST_HASH_TABLE[promotion_piece_encoding * 64 + end_index];
             }
@@ -605,33 +355,11 @@ impl Board {
             self.total_occupancy |= start_bb;
             if captured_piece != 0 {
                 let end_bb: u64 = BIT_MASKS[end_index];
-                *if color == 8 {
-                    self.black_occupancy |= end_bb;
-                    *current_hash ^=
-                        ZOBRIST_HASH_TABLE[(captured_piece as usize - 11) * 64 + end_index];
-                    match captured_piece {
-                        BLACK_PAWN_U32 => &mut self.black_pawns,
-                        BLACK_KNIGHT_U32 => &mut self.black_knights,
-                        BLACK_BISHOP_U32 => &mut self.black_bishops,
-                        BLACK_QUEEN_U32 => &mut self.black_queens,
-                        BLACK_ROOK_U32 => &mut self.black_rooks,
-                        _ => unreachable!(),
-                    }
-                } else {
-                    self.white_occupancy |= end_bb;
-                    *current_hash ^=
-                        ZOBRIST_HASH_TABLE[(captured_piece as usize - 9) * 64 + end_index];
-                    match captured_piece {
-                        WHITE_PAWN_U32 => &mut self.white_pawns,
-                        WHITE_KNIGHT_U32 => &mut self.white_knights,
-                        WHITE_BISHOP_U32 => &mut self.white_bishops,
-                        WHITE_QUEEN_U32 => &mut self.white_queens,
-                        WHITE_ROOK_U32 => &mut self.white_rooks,
-                        _ => unreachable!(),
-                    }
-                } |= end_bb;
-                self.cached_pieces[end_index] = captured_piece;
 
+                self.occupancies[captured_piece_occupancy_idx] |= end_bb;
+                *current_hash ^= ZOBRIST_HASH_TABLE[(captured_piece_table_idx) * 64 + end_index];
+                self.bitboards[captured_piece_table_idx] |= end_bb;
+                self.cached_pieces[end_index] = captured_piece | enemy_color;
                 self.total_occupancy |= end_bb;
             } else {
                 self.cached_pieces[end_index] = 0;
@@ -650,8 +378,8 @@ impl Board {
                         *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + (end_index - 8)];
                         (
                             BLACK_PAWN_U32,
-                            &mut self.black_pawns,
-                            &mut self.black_occupancy,
+                            &mut self.bitboards[6],
+                            &mut self.occupancies[1],
                             end_index - 8,
                         )
                     }
@@ -659,8 +387,8 @@ impl Board {
                         *current_hash ^= ZOBRIST_HASH_TABLE[end_index + 8];
                         (
                             WHITE_PAWN_U32,
-                            &mut self.white_pawns,
-                            &mut self.white_occupancy,
+                            &mut self.bitboards[0],
+                            &mut self.occupancies[0],
                             end_index + 8,
                         )
                     }
@@ -675,23 +403,23 @@ impl Board {
 
             if castling != 0 {
                 let (rooks, occupancy, rook_start, rook_end, rook_encoding) = match (start, end) {
-                    (4, 2) => (&mut self.white_rooks, &mut self.white_occupancy, 0, 3, 5),
-                    (4, 6) => (&mut self.white_rooks, &mut self.white_occupancy, 7, 5, 5),
+                    (4, 2) => (&mut self.bitboards[3], &mut self.occupancies[0], 0, 3, 5),
+                    (4, 6) => (&mut self.bitboards[3], &mut self.occupancies[0], 7, 5, 5),
                     (60, 58) => (
-                        &mut self.black_rooks,
-                        &mut self.black_occupancy,
+                        &mut self.bitboards[9],
+                        &mut self.occupancies[1],
                         56 as usize,
                         59 as usize,
                         10,
                     ),
                     (60, 62) => (
-                        &mut self.black_rooks,
-                        &mut self.black_occupancy,
+                        &mut self.bitboards[9],
+                        &mut self.occupancies[1],
                         63 as usize,
                         61 as usize,
                         10,
                     ),
-                    _ => unreachable!("from: {start}, to {end}"),
+                    _ => unreachable!("from: {start}, to {end}, piece: {main_piece}"),
                 };
                 let (rook_start_bb, rook_end_bb): (u64, u64) =
                     (BIT_MASKS[rook_start], !BIT_MASKS[rook_end]);

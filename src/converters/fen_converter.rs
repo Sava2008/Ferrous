@@ -142,20 +142,8 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
 
 pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     let mut board: Board = Board {
-        white_pawns: 0,
-        white_knights: 0,
-        white_bishops: 0,
-        white_queens: 0,
-        white_rooks: 0,
-        white_king: 0,
-        black_pawns: 0,
-        black_knights: 0,
-        black_bishops: 0,
-        black_queens: 0,
-        black_rooks: 0,
-        black_king: 0,
-        white_occupancy: 0,
-        black_occupancy: 0,
+        bitboards: [0; 12],
+        occupancies: [0; 2],
         total_occupancy: 0,
         cached_pieces: [0; 64],
         white_king_square: 0,
@@ -198,18 +186,18 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         } else if c.is_ascii_alphabetic() {
             let mirrored_index: u8 = ((index / 8) * 8 + (8 - (index % 8))) - 1;
             match c {
-                'P' => board.white_pawns |= 1 << mirrored_index,
-                'p' => board.black_pawns |= 1 << mirrored_index,
-                'B' => board.white_bishops |= 1 << mirrored_index,
-                'b' => board.black_bishops |= 1 << mirrored_index,
-                'N' => board.white_knights |= 1 << mirrored_index,
-                'n' => board.black_knights |= 1 << mirrored_index,
-                'R' => board.white_rooks |= 1 << mirrored_index,
-                'r' => board.black_rooks |= 1 << mirrored_index,
-                'Q' => board.white_queens |= 1 << mirrored_index,
-                'q' => board.black_queens |= 1 << mirrored_index,
-                'K' => board.white_king |= 1 << mirrored_index,
-                'k' => board.black_king |= 1 << mirrored_index,
+                'P' => board.bitboards[0] |= 1 << mirrored_index,
+                'p' => board.bitboards[6] |= 1 << mirrored_index,
+                'B' => board.bitboards[2] |= 1 << mirrored_index,
+                'b' => board.bitboards[8] |= 1 << mirrored_index,
+                'N' => board.bitboards[1] |= 1 << mirrored_index,
+                'n' => board.bitboards[7] |= 1 << mirrored_index,
+                'R' => board.bitboards[3] |= 1 << mirrored_index,
+                'r' => board.bitboards[9] |= 1 << mirrored_index,
+                'Q' => board.bitboards[4] |= 1 << mirrored_index,
+                'q' => board.bitboards[10] |= 1 << mirrored_index,
+                'K' => board.bitboards[5] |= 1 << mirrored_index,
+                'k' => board.bitboards[11] |= 1 << mirrored_index,
                 _ => unreachable!(),
             };
             if index == 0 {
@@ -246,8 +234,9 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         (fifty_moves.parse().unwrap(), total_moves.parse().unwrap());
 
     board.total_occupancy();
-    board.white_king_square = board.white_king.trailing_zeros() as u8;
-    board.black_king_square = board.black_king.trailing_zeros() as u8;
+    board.update_full_cache();
+    board.white_king_square = board.bitboards[5].trailing_zeros() as u8;
+    board.black_king_square = board.bitboards[11].trailing_zeros() as u8;
 
     return (board, state);
 }

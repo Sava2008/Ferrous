@@ -69,7 +69,7 @@ fn main() -> () {
             "w" => 16,
             _ => panic!("w or b should be chosen"),
         },
-        depth: 7,
+        depth: 9,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
@@ -85,6 +85,7 @@ fn main() -> () {
     if (engine.side == 16 && engine.depth % 2 == 1) || (engine.side == 8 && engine.depth % 2 == 0) {
         engine.quiescence_limitation -= 1;
     }
+    engine.evaluate(&board);
 
     game_control(&mut state, &mut board, &mut engine).unwrap();
 
@@ -245,7 +246,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
     };
 
     let mut parsed_move: u32 = from_sq | (to_sq << TO_SHIFT);
-    parsed_move |= board.piece_at(from_sq) << MOVING_PIECE_TYPE_SHIFT;
+    parsed_move |= board.colorless_piece_at(from_sq) << MOVING_PIECE_TYPE_SHIFT;
     let p: u32 = board.piece_at(to_sq);
     if p != 0 {
         parsed_move |= p << CAPTURED_PIECE_TYPE_SHIFT;

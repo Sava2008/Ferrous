@@ -2,22 +2,9 @@ use crate::{board_geometry_templates::*, constants::masks::BIT_MASKS};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
-    pub white_pawns: u64,
-    pub white_knights: u64,
-    pub white_bishops: u64,
-    pub white_queens: u64,
-    pub white_rooks: u64,
-    pub white_king: u64,
+    pub bitboards: [u64; 12], // white pawn, white knight, ..., black pawn, black knight, ..., black king (idx 11)
 
-    pub black_pawns: u64,
-    pub black_knights: u64,
-    pub black_bishops: u64,
-    pub black_queens: u64,
-    pub black_rooks: u64,
-    pub black_king: u64,
-
-    pub white_occupancy: u64,
-    pub black_occupancy: u64,
+    pub occupancies: [u64; 2], // [white_occ, black_occ]
     pub total_occupancy: u64,
     pub cached_pieces: [u32; 64],
 
@@ -29,20 +16,21 @@ impl Board {
     // default starting position
     pub fn set() -> Self {
         return Board {
-            white_pawns: 0b0000000000000000000000000000000000000000000000001111111100000000,
-            white_knights: 0b0000000000000000000000000000000000000000000000000000000001000010,
-            white_bishops: 0b0000000000000000000000000000000000000000000000000000000000100100,
-            white_queens: 0b0000000000000000000000000000000000000000000000000000000000001000,
-            white_rooks: 0b0000000000000000000000000000000000000000000000000000000010000001,
-            white_king: 0b0000000000000000000000000000000000000000000000000000000000010000,
-            black_pawns: 0b0000000011111111000000000000000000000000000000000000000000000000,
-            black_knights: 0b0100001000000000000000000000000000000000000000000000000000000000,
-            black_bishops: 0b0010010000000000000000000000000000000000000000000000000000000000,
-            black_queens: 0b0000100000000000000000000000000000000000000000000000000000000000,
-            black_rooks: 0b1000000100000000000000000000000000000000000000000000000000000000,
-            black_king: 0b0001000000000000000000000000000000000000000000000000000000000000,
-            white_occupancy: 0,
-            black_occupancy: 0,
+            bitboards: [
+                0b0000000000000000000000000000000000000000000000001111111100000000,
+                0b0000000000000000000000000000000000000000000000000000000001000010,
+                0b0000000000000000000000000000000000000000000000000000000000100100,
+                0b0000000000000000000000000000000000000000000000000000000000001000,
+                0b0000000000000000000000000000000000000000000000000000000010000001,
+                0b0000000000000000000000000000000000000000000000000000000000010000,
+                0b0000000011111111000000000000000000000000000000000000000000000000,
+                0b0100001000000000000000000000000000000000000000000000000000000000,
+                0b0010010000000000000000000000000000000000000000000000000000000000,
+                0b0000100000000000000000000000000000000000000000000000000000000000,
+                0b1000000100000000000000000000000000000000000000000000000000000000,
+                0b0001000000000000000000000000000000000000000000000000000000000000,
+            ],
+            occupancies: [0, 0],
             total_occupancy: 0,
             cached_pieces: [0; 64],
             white_king_square: 4,
@@ -52,29 +40,29 @@ impl Board {
     pub fn update_full_cache(&mut self) {
         for square in 0..64 {
             let mask: u64 = BIT_MASKS[square];
-            if self.white_pawns & mask != 0 {
+            if self.bitboards[0] & mask != 0 {
                 self.cached_pieces[square] = WHITE_PAWN_U32;
-            } else if self.white_knights & mask != 0 {
+            } else if self.bitboards[1] & mask != 0 {
                 self.cached_pieces[square] = WHITE_KNIGHT_U32;
-            } else if self.white_bishops & mask != 0 {
+            } else if self.bitboards[2] & mask != 0 {
                 self.cached_pieces[square] = WHITE_BISHOP_U32;
-            } else if self.white_rooks & mask != 0 {
+            } else if self.bitboards[3] & mask != 0 {
                 self.cached_pieces[square] = WHITE_ROOK_U32;
-            } else if self.white_queens & mask != 0 {
+            } else if self.bitboards[4] & mask != 0 {
                 self.cached_pieces[square] = WHITE_QUEEN_U32;
-            } else if self.white_king & mask != 0 {
+            } else if self.bitboards[5] & mask != 0 {
                 self.cached_pieces[square] = WHITE_KING_U32;
-            } else if self.black_pawns & mask != 0 {
+            } else if self.bitboards[6] & mask != 0 {
                 self.cached_pieces[square] = BLACK_PAWN_U32;
-            } else if self.black_knights & mask != 0 {
+            } else if self.bitboards[7] & mask != 0 {
                 self.cached_pieces[square] = BLACK_KNIGHT_U32;
-            } else if self.black_bishops & mask != 0 {
+            } else if self.bitboards[8] & mask != 0 {
                 self.cached_pieces[square] = BLACK_BISHOP_U32;
-            } else if self.black_rooks & mask != 0 {
+            } else if self.bitboards[9] & mask != 0 {
                 self.cached_pieces[square] = BLACK_ROOK_U32;
-            } else if self.black_queens & mask != 0 {
+            } else if self.bitboards[10] & mask != 0 {
                 self.cached_pieces[square] = BLACK_QUEEN_U32;
-            } else if self.black_king & mask != 0 {
+            } else if self.bitboards[11] & mask != 0 {
                 self.cached_pieces[square] = BLACK_KING_U32;
             }
         }
@@ -85,28 +73,32 @@ impl Board {
         return unsafe { *self.cached_pieces.get_unchecked(square as usize) };
     }
 
+    #[inline(always)]
+    pub fn colorless_piece_at(&self, square: u32) -> u32 {
+        let piece: u32 = self.piece_at(square);
+        if piece == 0 {
+            return 0;
+        }
+        let color: u32 = piece >> 3;
+        return piece ^ if color == 1 { 8 } else { 16 };
+    }
+
     pub fn white_occupancy(&mut self) -> () {
-        self.white_occupancy = self.white_bishops
-            | self.white_king
-            | self.white_knights
-            | self.white_pawns
-            | self.white_queens
-            | self.white_rooks;
+        for i in 0..6 {
+            self.occupancies[0] |= self.bitboards[i];
+        }
     }
 
     pub fn black_occupancy(&mut self) -> () {
-        self.black_occupancy = self.black_bishops
-            | self.black_king
-            | self.black_knights
-            | self.black_pawns
-            | self.black_queens
-            | self.black_rooks;
+        for i in 6..12 {
+            self.occupancies[1] |= self.bitboards[i];
+        }
     }
 
     pub fn total_occupancy(&mut self) -> () {
         self.white_occupancy();
         self.black_occupancy();
-        self.total_occupancy = self.white_occupancy | self.black_occupancy;
+        self.total_occupancy = self.occupancies[0] | self.occupancies[1];
     }
 
     pub fn bitboard_to_indices(mut bitboard: u64) -> Vec<usize> {
@@ -134,6 +126,6 @@ impl Board {
 
     #[inline(always)]
     pub fn is_capture(&self, m: u32) -> bool {
-        return captured_piece(m) != 0;
+        return captured_piece_type(m) != 0;
     }
 }

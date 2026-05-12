@@ -164,7 +164,7 @@ fn checkmate_in_three_tricky_test() -> () {
     assert_eq!(engine_move & FROM_MASK, 39);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 60);
 
-    let encoded_response: u32 = 57 | (48 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
+    let encoded_response: u32 = 57 | (48 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT);
     board.perform_move(
         engine_move,
         &mut state,
@@ -184,7 +184,7 @@ fn checkmate_in_three_tricky_test() -> () {
     assert_eq!(engine_move & FROM_MASK, 55);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 50);
 
-    let encoded_response: u32 = 48 | (40 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT);
+    let encoded_response: u32 = 48 | (40 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT);
     board.perform_move(
         engine_move,
         &mut state,
@@ -268,8 +268,8 @@ fn checkmate_in_four_test1() -> () {
 
     let response = 5
         | (21 << TO_SHIFT)
-        | (BLACK_QUEEN_U32 << CAPTURED_PIECE_TYPE_SHIFT)
-        | (WHITE_ROOK_U32 << MOVING_PIECE_TYPE_SHIFT);
+        | (COLORLESS_QUEEN << CAPTURED_PIECE_TYPE_SHIFT)
+        | (COLORLESS_ROOK << MOVING_PIECE_TYPE_SHIFT);
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();

@@ -145,7 +145,7 @@ fn en_passant_and_cancel_test() -> () {
     let (copied_board, copied_state) = (board.clone(), state.clone());
 
     board.perform_move(33851937, &mut state, 8, &mut 0, &mut 0);
-    assert_ne!(board.black_pawns, 1 << 32);
+    assert_ne!(board.bitboards[6], 1 << 32);
     board.cancel_move(&mut state, 8, &mut 0, &mut 0);
     assert_eq!(board, copied_board);
     assert_eq!(state, copied_state);
@@ -351,7 +351,7 @@ fn buggy_castling_test() -> () {
     board.total_occupancy();
     board.update_full_cache();
     let three_zeros: u32 =
-        60 | (58 << TO_SHIFT) | (BLACK_KING_U32 << MOVING_PIECE_TYPE_SHIFT) | (1 << CASTLING_SHIFT);
+        60 | (58 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT) | (1 << CASTLING_SHIFT);
 
     let (board_copy, state_copy) = (board.clone(), state.clone());
 
