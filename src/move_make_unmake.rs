@@ -177,9 +177,6 @@ impl Board {
             );
         }
         if castling != 0 {
-            if moving_piece != 6 {
-                panic!("piece: {moving_piece}, board: {self:?}, from: {from_sq}, to: {to_sq}");
-            }
             self.castling(
                 &mut previous_move,
                 from_sq_index,
@@ -269,10 +266,14 @@ impl Board {
             *moving_piece_bb &= start;
         }
         previous_move.material_difference = *evaluation - evaluation_before;
-        if moving_piece == WHITE_PAWN_U32 && from_sq < 16 && to_sq > 23 && to_sq < 32 {
-            state.en_passant_target = Some(to_sq as u8 - 8);
-        } else if moving_piece == BLACK_PAWN_U32 && from_sq > 47 && to_sq > 40 && to_sq < 31 {
-            state.en_passant_target = Some(to_sq as u8 + 8);
+        if moving_piece == COLORLESS_PAWN {
+            if color == 8 && from_sq < 16 && to_sq > 23 && to_sq < 32 {
+                state.en_passant_target = Some(to_sq as u8 - 8);
+            } else if color == 16 && from_sq > 47 && to_sq > 40 && to_sq < 31 {
+                state.en_passant_target = Some(to_sq as u8 + 8);
+            } else {
+                state.en_passant_target = None;
+            }
         } else {
             state.en_passant_target = None;
         }

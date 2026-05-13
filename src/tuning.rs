@@ -58,38 +58,8 @@ impl Engine {
             (m & FROM_MASK) as usize,
             ((m & TO_MASK) >> TO_SHIFT) as usize,
         );
-        return if color == 8 {
-            match t {
-                COLORLESS_BISHOP => {
-                    WHITE_BISHOP_HEURISTICS[to_sq] - WHITE_BISHOP_HEURISTICS[from_sq]
-                }
-                COLORLESS_PAWN => WHITE_PAWN_HEURISTICS[to_sq] - WHITE_PAWN_HEURISTICS[from_sq],
-                COLORLESS_KNIGHT => {
-                    WHITE_KNIGHT_HEURISTICS[to_sq] - WHITE_KNIGHT_HEURISTICS[from_sq]
-                }
-                COLORLESS_QUEEN => WHITE_QUEEN_HEURISTICS[to_sq] - WHITE_QUEEN_HEURISTICS[from_sq],
-                COLORLESS_ROOK => WHITE_ROOK_HEURISTICS[to_sq] - WHITE_ROOK_HEURISTICS[from_sq],
-                COLORLESS_KING => WHITE_KING_HEURISTICS[to_sq] - WHITE_KING_HEURISTICS[from_sq],
-                other => {
-                    unreachable!("bits: {other}, from: {from_sq}, to: {to_sq}, color: {color}")
-                }
-            }
-        } else {
-            match t {
-                COLORLESS_BISHOP => {
-                    BLACK_BISHOP_HEURISTICS[to_sq] - BLACK_BISHOP_HEURISTICS[from_sq]
-                }
-                COLORLESS_PAWN => BLACK_PAWN_HEURISTICS[to_sq] - BLACK_PAWN_HEURISTICS[from_sq],
-                COLORLESS_KNIGHT => {
-                    BLACK_KNIGHT_HEURISTICS[to_sq] - BLACK_KNIGHT_HEURISTICS[from_sq]
-                }
-                COLORLESS_QUEEN => BLACK_QUEEN_HEURISTICS[to_sq] - BLACK_QUEEN_HEURISTICS[from_sq],
-                COLORLESS_ROOK => BLACK_ROOK_HEURISTICS[to_sq] - BLACK_ROOK_HEURISTICS[from_sq],
-                COLORLESS_KING => BLACK_KING_HEURISTICS[to_sq] - BLACK_KING_HEURISTICS[from_sq],
-                other => {
-                    unreachable!("bits: {other}, from: {from_sq}, to: {to_sq}, color: {color}")
-                }
-            }
-        };
+        let piece_table_idx: usize = (if color == 8 { t - 1 } else { t + 5 }) as usize;
+        let heuristics_table: &[i32; 64] = &HEURISTICS_TABLE[piece_table_idx];
+        return heuristics_table[to_sq] - heuristics_table[from_sq];
     }
 }

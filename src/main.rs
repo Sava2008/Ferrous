@@ -1,14 +1,16 @@
 use crate::{
     board::Board,
     board_geometry_templates::{
-        CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING, EN_PASSANT_SHIFT, FROM_MASK,
-        MOVING_PIECE_TYPE_SHIFT, NO_PIECE_BLACK, NO_PIECE_WHITE, PROMOTION_SHIFT, TO_MASK,
-        TO_SHIFT, moving_piece_type, promotion,
+        BLACK_PAWN_U32, CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING,
+        EN_PASSANT_SHIFT, FROM_MASK, MOVING_PIECE_TYPE_SHIFT, NO_PIECE_BLACK, NO_PIECE_WHITE,
+        PROMOTION_SHIFT, TO_MASK, TO_SHIFT, WHITE_PAWN_U32, en_passant, moving_piece_type,
+        promotion,
     },
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
+    converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
     moves::MoveList,
@@ -38,6 +40,48 @@ enum MoveResult {
     Draw,
     Continue,
     None,
+}
+
+#[allow(unused)]
+fn test_speed() -> () {
+    let mut board: Board = Board::set();
+    let mut state: GameState = GameState::new(&board);
+
+    board.total_occupancy();
+    board.update_full_cache();
+
+    let piece_move = 12 | (28 << TO_SHIFT) | (1 << MOVING_PIECE_TYPE_SHIFT);
+    let t = Instant::now();
+    board.perform_move(piece_move, &mut state, 8, &mut 0, &mut 0);
+    println!("perform_move time: {:?}", t.elapsed().as_micros());
+    let t = Instant::now();
+    board.cancel_move(&mut state, 8, &mut 0, &mut 0);
+    println!("cancelation time: {:?}", t.elapsed().as_micros());
+
+    let mut engine: Engine = Engine {
+        side: 8,
+        depth: 11,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 32],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 32],
+        history_heuristics: [0; 4096],
+        move_scores: [[0; 192]; 32],
+        quiescence_limitation: 9,
+        current_hash: 0,
+        transposition_table: TranspositionTable::new(),
+    };
+    let t = Instant::now();
+    engine.alpha_beta_pruning(&mut board, 1, 4, 1, true, &mut state, &mut 0);
+    println!("alpha beta time: {}", t.elapsed().as_micros());
+    let t = Instant::now();
+    engine.score_all_moves(1, 1, &0, 8);
+    println!("scoring time: {}", t.elapsed().as_micros());
+    let t = Instant::now();
+    engine.generate_pseudo_legal_moves(8, &board, &state, 1, false);
+    println!("movegen time: {}", t.elapsed().as_micros());
 }
 
 fn main() -> () {
@@ -220,7 +264,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
     }
     println!("input a move, for example: e2 e4; or with promotion: e7 e8 q");
 
-    let mut user_move = String::new();
+    let mut user_move: String = String::new();
     io::stdin().read_line(&mut user_move).unwrap();
     let parts: Vec<&str> = user_move.trim().split_whitespace().collect();
 
@@ -247,8 +291,9 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
 
     let mut parsed_move: u32 = from_sq | (to_sq << TO_SHIFT);
     parsed_move |= board.colorless_piece_at(from_sq) << MOVING_PIECE_TYPE_SHIFT;
-    let p: u32 = board.piece_at(to_sq);
+    let p: u32 = board.colorless_piece_at(to_sq);
     if p != 0 {
+        println!("move en passant: {}", en_passant(parsed_move));
         parsed_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
     }
     if moving_piece_type(parsed_move) == COLORLESS_KING
@@ -256,7 +301,9 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
     {
         parsed_move |= 1 << CASTLING_SHIFT;
     }
-    if let Some(e_p) = state.en_passant_target {
+    if let Some(e_p) = state.en_passant_target
+        && (p == WHITE_PAWN_U32 || p == BLACK_PAWN_U32)
+    {
         if (e_p as u32) == to_sq {
             parsed_move |= 1 << EN_PASSANT_SHIFT;
         }

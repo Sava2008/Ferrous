@@ -357,6 +357,6 @@ fn avoiding_trapped_bishop_test() -> () {
     println!("move: {} {}", from, to);
 
     assert_eq!(from, 33);
-    assert_ne!(to, 24);
+    assert_ne!(to, 32);
     assert_ne!(to, 42);
 }

@@ -86,7 +86,7 @@ impl Board {
                 _ => unreachable!(),
             };
             let mut dest_bitboard: u64 = attacks & enemy_occupancy;
-            if en_passant < 64 && (1 << initial_pos) & e_p_rank != 0 {
+            if (1 << initial_pos) & e_p_rank != 0 {
                 dest_bitboard |= 1 << en_passant;
             }
             if !captures_only {
@@ -140,67 +140,40 @@ impl Board {
     #[inline(always)]
     pub fn is_square_attacked(&self, square: u8, by: u32) -> bool {
         let usize_square: usize = square as usize;
-        if KNIGHT_ATTACKS[usize_square]
-            & match by {
-                8 => self.bitboards[1],
-                16 => self.bitboards[7],
-                _ => unreachable!(),
-            }
-            != 0
-        {
-            return true;
-        }
-
-        let pawn_attacks: u64 = match by {
-            8 => BLACK_PAWN_ATTACKS[usize_square],
-            16 => WHITE_PAWN_ATTACKS[usize_square],
-            _ => unreachable!(),
-        };
-        if pawn_attacks
-            & match by {
-                8 => self.bitboards[0],
-                16 => self.bitboards[6],
-                _ => unreachable!(),
-            }
-            != 0
-        {
-            return true;
-        }
-
         let (w_q, b_q) = (&self.bitboards[4], &self.bitboards[10]);
-
-        if bishop_attacks(usize_square, self.total_occupancy)
-            & match by {
-                8 => self.bitboards[2] | w_q,
-                16 => self.bitboards[8] | b_q,
-                _ => unreachable!(),
-            }
-            != 0
+        let (
+            attacking_pawns,
+            pawn_attacks,
+            attacking_knights,
+            diagonal_attackers,
+            linear_attackers,
+            attacking_king,
+        ) = match by {
+            8 => (
+                &self.bitboards[0],
+                &BLACK_PAWN_ATTACKS[usize_square],
+                &self.bitboards[1],
+                &(self.bitboards[2] | w_q),
+                &(self.bitboards[3] | w_q),
+                &self.bitboards[5],
+            ),
+            _ => (
+                &self.bitboards[6],
+                &WHITE_PAWN_ATTACKS[usize_square],
+                &self.bitboards[7],
+                &(self.bitboards[8] | b_q),
+                &(self.bitboards[9] | b_q),
+                &self.bitboards[11],
+            ),
+        };
+        if (KNIGHT_ATTACKS[usize_square] & attacking_knights != 0)
+            | (attacking_pawns & pawn_attacks != 0)
+            | (bishop_attacks(usize_square, self.total_occupancy) & diagonal_attackers != 0)
+            | (rook_attacks(usize_square, self.total_occupancy) & linear_attackers != 0)
+            | (KING_ATTACKS[usize_square] & attacking_king != 0)
         {
             return true;
         }
-
-        if rook_attacks(usize_square, self.total_occupancy)
-            & match by {
-                8 => self.bitboards[3] | w_q,
-                16 => self.bitboards[9] | b_q,
-                _ => unreachable!(),
-            }
-            != 0
-        {
-            return true;
-        }
-        if KING_ATTACKS[usize_square]
-            & match by {
-                8 => self.bitboards[5],
-                16 => self.bitboards[11],
-                _ => unreachable!(),
-            }
-            != 0
-        {
-            return true;
-        }
-
         return false;
     }
 

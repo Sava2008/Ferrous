@@ -8,7 +8,7 @@ use crate::{
 };
 use std::{
     cmp::{max, min},
-    //time::{Duration, Instant},
+    time::{Duration, Instant},
 };
 pub struct Engine {
     pub side: u32, // which color Ferrous plays
@@ -411,7 +411,7 @@ impl Engine {
         node_count: &mut u64,
     ) -> i32 {
         quiescence_depth += 1;
-        if quiescence_depth >= 32 {
+        if quiescence_depth >= 24 {
             return self.evaluation;
         }
 
@@ -672,13 +672,21 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u32;
 
         let mut previous_best_move: u32 = 0;
+
+        let time_limit: Duration = Duration::from_secs(2);
+        let timer_start: Instant = Instant::now();
+
         for d in 2..=self.depth {
+            if timer_start.elapsed() >= time_limit {
+                break;
+            }
             let maximizing: bool = match self.side {
                 8 => false,
                 16 => true,
                 _ => unreachable!(),
             };
             let depth_as_index: usize = d as usize;
+
             self.generate_pseudo_legal_moves(
                 self.side,
                 board,
@@ -687,12 +695,26 @@ impl Engine {
                 false,
             );
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+
             self.score_all_moves(
                 depth_as_index,
                 last_occupied,
                 &previous_best_move,
                 self.side as u8,
             );
+            let scores: &mut [i16; 192] = &mut self.move_scores[depth_as_index];
+            let moves: &mut [u32; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
+
+            for i in 0..last_occupied {
+                let (best_move_index_offset, _) = scores[i..last_occupied]
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, score)| **score)
+                    .unwrap();
+                let best_move_index: usize = i + best_move_index_offset;
+                (*scores).swap(i, best_move_index);
+                (*moves).swap(i, best_move_index);
+            }
             let mut depth_best_score: i32 = if self.side == 8 {
                 -CHECKMATE_VALUE
             } else {
@@ -701,17 +723,6 @@ impl Engine {
             let mut depth_best_move: u32 = 0;
 
             for i in 0..last_occupied {
-                let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
-                    .iter()
-                    .enumerate()
-                    .max_by_key(|&(_, score)| score)
-                    .unwrap();
-                let true_index: usize = best_move_index + i;
-
-                self.move_lists[depth_as_index]
-                    .pseudo_moves
-                    .swap(true_index, i);
-                self.move_scores[depth_as_index].swap(true_index, i);
                 let allegedly_best_move: u32 = self.move_lists[depth_as_index].pseudo_moves[i];
                 println!(
                     "from: {}, to: {}",
