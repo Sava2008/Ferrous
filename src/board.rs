@@ -6,7 +6,7 @@ pub struct Board {
 
     pub occupancies: [u64; 2], // [white_occ, black_occ]
     pub total_occupancy: u64,
-    pub cached_pieces: [u32; 64],
+    pub cached_pieces: [u16; 64],
 
     pub white_king_square: u8,
     pub black_king_square: u8,
@@ -20,14 +20,14 @@ impl Board {
                 0b0000000000000000000000000000000000000000000000001111111100000000,
                 0b0000000000000000000000000000000000000000000000000000000001000010,
                 0b0000000000000000000000000000000000000000000000000000000000100100,
-                0b0000000000000000000000000000000000000000000000000000000000001000,
                 0b0000000000000000000000000000000000000000000000000000000010000001,
+                0b0000000000000000000000000000000000000000000000000000000000001000,
                 0b0000000000000000000000000000000000000000000000000000000000010000,
                 0b0000000011111111000000000000000000000000000000000000000000000000,
                 0b0100001000000000000000000000000000000000000000000000000000000000,
                 0b0010010000000000000000000000000000000000000000000000000000000000,
-                0b0000100000000000000000000000000000000000000000000000000000000000,
                 0b1000000100000000000000000000000000000000000000000000000000000000,
+                0b0000100000000000000000000000000000000000000000000000000000000000,
                 0b0001000000000000000000000000000000000000000000000000000000000000,
             ],
             occupancies: [0, 0],
@@ -41,45 +41,45 @@ impl Board {
         for square in 0..64 {
             let mask: u64 = BIT_MASKS[square];
             if self.bitboards[0] & mask != 0 {
-                self.cached_pieces[square] = WHITE_PAWN_U32;
+                self.cached_pieces[square] = WHITE_PAWN_U16;
             } else if self.bitboards[1] & mask != 0 {
-                self.cached_pieces[square] = WHITE_KNIGHT_U32;
+                self.cached_pieces[square] = WHITE_KNIGHT_U16;
             } else if self.bitboards[2] & mask != 0 {
-                self.cached_pieces[square] = WHITE_BISHOP_U32;
+                self.cached_pieces[square] = WHITE_BISHOP_U16;
             } else if self.bitboards[3] & mask != 0 {
-                self.cached_pieces[square] = WHITE_ROOK_U32;
+                self.cached_pieces[square] = WHITE_ROOK_U16;
             } else if self.bitboards[4] & mask != 0 {
-                self.cached_pieces[square] = WHITE_QUEEN_U32;
+                self.cached_pieces[square] = WHITE_QUEEN_U16;
             } else if self.bitboards[5] & mask != 0 {
-                self.cached_pieces[square] = WHITE_KING_U32;
+                self.cached_pieces[square] = WHITE_KING_U16;
             } else if self.bitboards[6] & mask != 0 {
-                self.cached_pieces[square] = BLACK_PAWN_U32;
+                self.cached_pieces[square] = BLACK_PAWN_U16;
             } else if self.bitboards[7] & mask != 0 {
-                self.cached_pieces[square] = BLACK_KNIGHT_U32;
+                self.cached_pieces[square] = BLACK_KNIGHT_U16;
             } else if self.bitboards[8] & mask != 0 {
-                self.cached_pieces[square] = BLACK_BISHOP_U32;
+                self.cached_pieces[square] = BLACK_BISHOP_U16;
             } else if self.bitboards[9] & mask != 0 {
-                self.cached_pieces[square] = BLACK_ROOK_U32;
+                self.cached_pieces[square] = BLACK_ROOK_U16;
             } else if self.bitboards[10] & mask != 0 {
-                self.cached_pieces[square] = BLACK_QUEEN_U32;
+                self.cached_pieces[square] = BLACK_QUEEN_U16;
             } else if self.bitboards[11] & mask != 0 {
-                self.cached_pieces[square] = BLACK_KING_U32;
+                self.cached_pieces[square] = BLACK_KING_U16;
             }
         }
     }
 
     #[inline(always)]
-    pub fn piece_at(&self, square: u32) -> u32 {
+    pub fn piece_at(&self, square: u16) -> u16 {
         return unsafe { *self.cached_pieces.get_unchecked(square as usize) };
     }
 
     #[inline(always)]
-    pub fn colorless_piece_at(&self, square: u32) -> u32 {
-        let piece: u32 = self.piece_at(square);
+    pub fn colorless_piece_at(&self, square: u16) -> u16 {
+        let piece: u16 = self.piece_at(square);
         if piece == 0 {
             return 0;
         }
-        let color: u32 = piece >> 3;
+        let color: u16 = piece >> 3;
         return piece ^ if color == 1 { 8 } else { 16 };
     }
 
@@ -125,7 +125,7 @@ impl Board {
     }
 
     #[inline(always)]
-    pub fn is_capture(&self, m: u32) -> bool {
-        return captured_piece_type(m) != 0;
+    pub fn is_capture(&self, m: u16) -> bool {
+        return self.piece_at(to_square(m)) != 0;
     }
 }

@@ -1,16 +1,10 @@
 use crate::{
     board::Board,
-    board_geometry_templates::{
-        BLACK_PAWN_U32, CAPTURED_PIECE_TYPE_SHIFT, CASTLING_SHIFT, COLORLESS_KING,
-        EN_PASSANT_SHIFT, FROM_MASK, MOVING_PIECE_TYPE_SHIFT, NO_PIECE_BLACK, NO_PIECE_WHITE,
-        PROMOTION_SHIFT, TO_MASK, TO_SHIFT, WHITE_PAWN_U32, en_passant, moving_piece_type,
-        promotion,
-    },
+    board_geometry_templates::*,
     constants::attacks::{
         COORDS_TO_INDICES, INDICES_TO_COORDS, compute_all_lines, compute_all_rays,
         compute_all_rays_from, compute_mvvlva, initialize_sliding_attack_tables,
     },
-    converters::fen_converter::fen_to_board,
     enums::GameResult,
     gamestate::GameState,
     moves::MoveList,
@@ -50,8 +44,8 @@ fn test_speed() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    let piece_move = 12 | (28 << TO_SHIFT) | (1 << MOVING_PIECE_TYPE_SHIFT);
-    let t = Instant::now();
+    let piece_move: u16 = 12 | (28 << TO_SHIFT);
+    let t: Instant = Instant::now();
     board.perform_move(piece_move, &mut state, 8, &mut 0, &mut 0);
     println!("perform_move time: {:?}", t.elapsed().as_micros());
     let t = Instant::now();
@@ -77,7 +71,7 @@ fn test_speed() -> () {
     engine.alpha_beta_pruning(&mut board, 1, 4, 1, true, &mut state, &mut 0);
     println!("alpha beta time: {}", t.elapsed().as_micros());
     let t = Instant::now();
-    engine.score_all_moves(1, 1, &0, 8);
+    engine.score_all_moves(1, 1, &0, &board.cached_pieces);
     println!("scoring time: {}", t.elapsed().as_micros());
     let t = Instant::now();
     engine.generate_pseudo_legal_moves(8, &board, &state, 1, false);
@@ -100,6 +94,7 @@ fn main() -> () {
 
     board.total_occupancy();
     board.update_full_cache();
+    println!("board: {:?}", board.cached_pieces);
 
     print!("choose the color: ");
     io::stdout().flush().unwrap();
@@ -155,7 +150,7 @@ fn game_control(
                     state.whose_turn = 16;
                 } else {
                     loop {
-                        match make_player_move(board, state, NO_PIECE_BLACK) {
+                        match make_player_move(board, state, 16) {
                             MoveResult::Continue => continue,
                             MoveResult::Draw | MoveResult::Win => break 'outer,
                             MoveResult::None => break,
@@ -193,12 +188,12 @@ fn make_engine_move(
     engine: &mut Engine,
     board: &mut Board,
     state: &mut GameState,
-    color: u32,
+    color: u16,
 ) -> MoveResult {
     board.total_occupancy();
 
     let t: Instant = Instant::now();
-    let engine_move: Option<u32> = engine.find_best_move(&board, state);
+    let engine_move: Option<u16> = engine.find_best_move(&board, state, false);
     println!("time: {:.3?}", t.elapsed());
     if let Some(m) = engine_move {
         board.perform_move(m, state, color, &mut engine.evaluation, &mut 0);
@@ -208,12 +203,12 @@ fn make_engine_move(
             INDICES_TO_COORDS
                 .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
                 .unwrap(),
-            match promotion(m) {
-                0 => "",
-                1 => "n",
-                2 => "b",
-                3 => "r",
-                4 => "q",
+            match (m & MARK_MASK) >> MARK_SHIFT {
+                0..3 => "",
+                3 => "n",
+                4 => "b",
+                5 => "r",
+                6 => "q",
                 _ => unreachable!(),
             }
         );
@@ -233,7 +228,7 @@ fn make_engine_move(
     return MoveResult::None;
 }
 
-fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32) -> MoveResult {
+fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16) -> MoveResult {
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -273,54 +268,52 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         return MoveResult::Continue;
     }
 
-    let from_sq: u32 = match COORDS_TO_INDICES.get(parts[0]) {
-        Some(&sq) => sq as u32,
+    let from_sq: u16 = match COORDS_TO_INDICES.get(parts[0]) {
+        Some(&sq) => sq as u16,
         None => {
             println!("Invalid starting square: {}", parts[0]);
             return MoveResult::Continue;
         }
     };
 
-    let to_sq: u32 = match COORDS_TO_INDICES.get(parts[1]) {
-        Some(&sq) => sq as u32,
+    let to_sq: u16 = match COORDS_TO_INDICES.get(parts[1]) {
+        Some(&sq) => sq as u16,
         None => {
             println!("Invalid destination square: {}", parts[1]);
             return MoveResult::Continue;
         }
     };
 
-    let mut parsed_move: u32 = from_sq | (to_sq << TO_SHIFT);
-    parsed_move |= board.colorless_piece_at(from_sq) << MOVING_PIECE_TYPE_SHIFT;
-    let p: u32 = board.colorless_piece_at(to_sq);
-    if p != 0 {
-        println!("move en passant: {}", en_passant(parsed_move));
-        parsed_move |= p << CAPTURED_PIECE_TYPE_SHIFT;
-    }
-    if moving_piece_type(parsed_move) == COLORLESS_KING
-        && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
+    let mut parsed_move: u16 = from_sq | (to_sq << TO_SHIFT);
+
+    let moving_piece = &board.cached_pieces[from_sq as usize];
+
+    if moving_piece == &WHITE_KING_U16
+        || moving_piece == &BLACK_KING_U16
+            && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
     {
-        parsed_move |= 1 << CASTLING_SHIFT;
+        parsed_move |= 1 << MARK_SHIFT;
     }
     if let Some(e_p) = state.en_passant_target
-        && (p == WHITE_PAWN_U32 || p == BLACK_PAWN_U32)
+        && (moving_piece == &WHITE_PAWN_U16 || moving_piece == &BLACK_PAWN_U16)
     {
-        if (e_p as u32) == to_sq {
-            parsed_move |= 1 << EN_PASSANT_SHIFT;
+        if (e_p as u16) == to_sq {
+            parsed_move |= 2 << MARK_SHIFT;
         }
     }
 
     if parts.len() == 3 {
-        let promo_piece: u32 = match parts[2].to_lowercase().as_str() {
-            "q" => 4,
-            "r" => 3,
-            "b" => 2,
-            "n" => 1,
+        let promo_piece: u16 = match parts[2].to_lowercase().as_str() {
+            "q" => 6,
+            "r" => 5,
+            "b" => 4,
+            "n" => 3,
             _ => {
                 println!("Invalid promotion piece. Use q, r, b, or n");
                 return MoveResult::Continue;
             }
         };
-        parsed_move |= promo_piece << PROMOTION_SHIFT;
+        parsed_move |= promo_piece << MARK_SHIFT;
     }
 
     if legal_moves.pseudo_moves.iter().any(|&mv| {
@@ -334,3 +327,12 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u32)
         return MoveResult::Continue;
     }
 }
+/*
+[1, 2, 3, 5, 6, 3, 2, 4,
+1, 1, 1, 0, 1, 1, 1, 1,
+0, 0, 0, 0, 0, 0, 0, 0,
+0, 9, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,
+7, 7, 7, 7, 0, 7, 7, 7,
+10, 8, 9, 11, 12, 0, 8, 10] */

@@ -4,7 +4,7 @@ pub struct TTEntry {
     pub score: i32,
     pub depth: u8,
     pub flag: u8, // 0 = exact score; 1 = good move; 2 = bad move
-    pub best_move: u32,
+    pub best_move: u16,
 }
 
 const TT_LEN: usize = 16_777_216;

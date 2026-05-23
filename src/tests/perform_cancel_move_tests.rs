@@ -18,14 +18,9 @@ fn knight_move_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -43,14 +38,9 @@ fn knight_move_and_cancel_test() -> () {
     }
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -70,14 +60,9 @@ fn pawn_moves_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -89,22 +74,20 @@ fn pawn_moves_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 11);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..11 {
-        let m: u32 = legal_moves.pseudo_moves[i];
+        let m: u16 = legal_moves.pseudo_moves[i];
+        let from = from_square(m) as usize;
+        println!("moving piece: {}", board.cached_pieces[from]);
         board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
+        assert!(board.bitboards[5].count_ones() == 1);
         board.cancel_move(&mut state, 8, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
     }
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -124,14 +107,9 @@ fn en_passant_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -144,21 +122,16 @@ fn en_passant_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 6);
     let (copied_board, copied_state) = (board.clone(), state.clone());
 
-    board.perform_move(33851937, &mut state, 8, &mut 0, &mut 0);
+    //board.perform_move(33851937, &mut state, 8, &mut 0, &mut 0);
     assert_ne!(board.bitboards[6], 1 << 32);
     board.cancel_move(&mut state, 8, &mut 0, &mut 0);
     assert_eq!(board, copied_board);
     assert_eq!(state, copied_state);
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -178,14 +151,9 @@ fn castling_short_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -197,7 +165,7 @@ fn castling_short_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 5);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..5 {
-        let m: u32 = legal_moves.pseudo_moves[i];
+        let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
@@ -205,14 +173,9 @@ fn castling_short_and_cancel_test() -> () {
     }
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -231,14 +194,9 @@ fn castling_long_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -250,7 +208,7 @@ fn castling_long_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 7);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..7 {
-        let m: u32 = legal_moves.pseudo_moves[i];
+        let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
@@ -265,7 +223,7 @@ fn castling_long_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 5);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..5 {
-        let m: u32 = legal_moves.pseudo_moves[i];
+        let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
@@ -273,14 +231,9 @@ fn castling_long_and_cancel_test() -> () {
     }
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -298,14 +251,9 @@ fn knight_moves_and_cancel_test() -> () {
     board.update_full_cache();
     let mut pos_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             pos_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -317,7 +265,7 @@ fn knight_moves_and_cancel_test() -> () {
     assert_eq!(legal_moves.first_not_occupied, 4);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..4 {
-        let m: u32 = legal_moves.pseudo_moves[i];
+        let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
@@ -325,14 +273,9 @@ fn knight_moves_and_cancel_test() -> () {
     }
     let mut second_hash: u64 = 0;
     for (i, piece) in board.cached_pieces.iter().enumerate() {
-        let piece: u32 = *piece;
+        let piece: u16 = *piece;
         if piece != 0 {
-            let zobrist_index: usize = if piece <= 14 {
-                piece as usize - 8
-            } else {
-                piece as usize - 10
-            } * (i + 1)
-                - 1;
+            let zobrist_index: usize = (piece as usize - 1) * 64 + i;
             second_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
         }
     }
@@ -350,8 +293,7 @@ fn buggy_castling_test() -> () {
         fen_to_board("r3k1nr/pppqp2p/5ppb/1N6/P7/6Q1/1PPP1PPP/R1B1R1K1 b kq - 2 16");
     board.total_occupancy();
     board.update_full_cache();
-    let three_zeros: u32 =
-        60 | (58 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT) | (1 << CASTLING_SHIFT);
+    let three_zeros: u16 = 60 | (58 << TO_SHIFT) | (1 << MARK_SHIFT);
 
     let (board_copy, state_copy) = (board.clone(), state.clone());
 

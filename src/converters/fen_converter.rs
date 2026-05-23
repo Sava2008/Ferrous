@@ -51,7 +51,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
         let mut empty_counter: u8 = 0;
 
         for file in 0..8 {
-            let square: u32 = rank * 8 + file;
+            let square: u16 = rank * 8 + file;
             let mask: u64 = 1 << square;
 
             if board.total_occupancy & mask == 0 {
@@ -62,19 +62,19 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
                     empty_counter = 0;
                 }
 
-                let piece: u32 = board.piece_at(square);
+                let piece: u16 = board.piece_at(square);
                 let piece_char: char = match piece {
-                    WHITE_KING_U32 => 'K',
-                    WHITE_QUEEN_U32 => 'Q',
-                    WHITE_ROOK_U32 => 'R',
-                    WHITE_BISHOP_U32 => 'B',
-                    WHITE_KNIGHT_U32 => 'N',
-                    WHITE_PAWN_U32 => 'P',
-                    BLACK_KING_U32 => 'k',
-                    BLACK_QUEEN_U32 => 'q',
-                    BLACK_ROOK_U32 => 'r',
-                    BLACK_BISHOP_U32 => 'b',
-                    BLACK_KNIGHT_U32 => 'n',
+                    WHITE_KING_U16 => 'K',
+                    WHITE_QUEEN_U16 => 'Q',
+                    WHITE_ROOK_U16 => 'R',
+                    WHITE_BISHOP_U16 => 'B',
+                    WHITE_KNIGHT_U16 => 'N',
+                    WHITE_PAWN_U16 => 'P',
+                    BLACK_KING_U16 => 'k',
+                    BLACK_QUEEN_U16 => 'q',
+                    BLACK_ROOK_U16 => 'r',
+                    BLACK_BISHOP_U16 => 'b',
+                    BLACK_KNIGHT_U16 => 'n',
                     _ => 'p',
                 };
                 fen.push(piece_char);
@@ -155,7 +155,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         fifty_moves_rule_counter: 0,
         moves_history: Vec::new(),
         total_moves_amount: 0,
-        whose_turn: NO_PIECE_WHITE,
+        whose_turn: 8,
         result: GameResult::Going,
     };
     let mut index: u8 = 63;

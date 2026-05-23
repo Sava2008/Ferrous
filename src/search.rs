@@ -11,10 +11,10 @@ use std::{
     time::{Duration, Instant},
 };
 pub struct Engine {
-    pub side: u32, // which color Ferrous plays
+    pub side: u16, // which color Ferrous plays
     pub depth: u8,
     pub evaluation: i32,
-    pub killer_moves: [[Option<u32>; 2]; 32],
+    pub killer_moves: [[Option<u16>; 2]; 32],
     pub move_lists: [MoveList; 32],
     pub move_scores: [[i16; 192]; 32],
     pub history_heuristics: [i16; 4096],
@@ -93,16 +93,16 @@ impl Engine {
                 continue;
             }
             self.evaluation += match piece {
-                WHITE_PAWN_U32 => PAWN_VALUE,
-                WHITE_BISHOP_U32 => BISHOP_VALUE,
-                WHITE_KNIGHT_U32 => KNIGHT_VALUE,
-                WHITE_QUEEN_U32 => QUEEN_VALUE,
-                WHITE_ROOK_U32 => ROOK_VALUE,
-                BLACK_PAWN_U32 => -PAWN_VALUE,
-                BLACK_BISHOP_U32 => -BISHOP_VALUE,
-                BLACK_KNIGHT_U32 => -KNIGHT_VALUE,
-                BLACK_QUEEN_U32 => -QUEEN_VALUE,
-                BLACK_ROOK_U32 => -ROOK_VALUE,
+                WHITE_PAWN_U16 => PAWN_VALUE,
+                WHITE_BISHOP_U16 => BISHOP_VALUE,
+                WHITE_KNIGHT_U16 => KNIGHT_VALUE,
+                WHITE_QUEEN_U16 => QUEEN_VALUE,
+                WHITE_ROOK_U16 => ROOK_VALUE,
+                BLACK_PAWN_U16 => -PAWN_VALUE,
+                BLACK_BISHOP_U16 => -BISHOP_VALUE,
+                BLACK_KNIGHT_U16 => -KNIGHT_VALUE,
+                BLACK_QUEEN_U16 => -QUEEN_VALUE,
+                BLACK_ROOK_U16 => -ROOK_VALUE,
                 _ => continue,
             }
         }
@@ -111,7 +111,7 @@ impl Engine {
     #[inline(always)]
     pub fn generate_pseudo_legal_moves(
         &mut self,
-        color: u32,
+        color: u16,
         board: &Board,
         state: &GameState,
         depth: usize,
@@ -126,7 +126,7 @@ impl Engine {
         board.king_moves(&state, color, &mut self.move_lists[depth], captures_only);
     }
 
-    fn add_killer(&mut self, killer: u32, depth: u8) {
+    fn add_killer(&mut self, killer: u16, depth: u8) {
         let depth: usize = depth as usize;
 
         if self.killer_moves[depth][0] == Some(killer) {
@@ -152,7 +152,7 @@ impl Engine {
         let tt_entry: Option<TTEntry> = self
             .transposition_table
             .get_entry(&self.current_hash, depth);
-        let best_move_transposition: u32 = if let Some(entry) = tt_entry {
+        let best_move_transposition: u16 = if let Some(entry) = tt_entry {
             if entry.depth >= depth {
                 match entry.flag {
                     0 => return entry.score,
@@ -198,7 +198,12 @@ impl Engine {
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition, 8);
+            self.score_all_moves(
+                depth_as_index,
+                last_occupied,
+                &best_move_transposition,
+                &board.cached_pieces,
+            );
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -227,7 +232,7 @@ impl Engine {
                     i
                 };
 
-                let allegedly_best_move: u32 =
+                let allegedly_best_move: u16 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
                 if i < 8 {
                     self.move_lists[depth_as_index]
@@ -298,7 +303,12 @@ impl Engine {
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
-            self.score_all_moves(depth_as_index, last_occupied, &best_move_transposition, 16);
+            self.score_all_moves(
+                depth_as_index,
+                last_occupied,
+                &best_move_transposition,
+                &board.cached_pieces,
+            );
             let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
@@ -313,7 +323,7 @@ impl Engine {
                     i
                 };
 
-                let allegedly_best_move: u32 =
+                let allegedly_best_move: u16 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
                 if i < 8 {
                     self.move_lists[depth_as_index]
@@ -407,7 +417,7 @@ impl Engine {
         mut beta: i32,
         maximizing: bool,
         mut quiescence_depth: usize,
-        color: u32,
+        color: u16,
         node_count: &mut u64,
     ) -> i32 {
         quiescence_depth += 1;
@@ -418,7 +428,7 @@ impl Engine {
         *node_count += 1;
         let (original_alpha, original_beta): (i32, i32) = (alpha, beta);
         let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash, 0);
-        let best_move_transposition: u32 = if let Some(entry) = tt_entry {
+        let best_move_transposition: u16 = if let Some(entry) = tt_entry {
             match entry.flag {
                 0 => return entry.score,
                 1 => alpha = alpha.max(entry.score),
@@ -526,7 +536,7 @@ impl Engine {
             quiescence_depth,
             last_occupied,
             &best_move_transposition,
-            color as u8,
+            &board.cached_pieces,
         );
 
         let mut best_score: i32 = if maximizing {
@@ -535,12 +545,12 @@ impl Engine {
             CHECKMATE_VALUE
         };
 
-        let mut best_move: u32 = 0;
+        let mut best_move: u16 = 0;
 
-        let opponent: u32 = if color == 8 { 16 } else { 8 };
+        let opponent: u16 = if color == 8 { 16 } else { 8 };
 
         let scores: &mut [i16; 192] = &mut self.move_scores[quiescence_depth];
-        let moves: &mut [u32; 192] = &mut self.move_lists[quiescence_depth].pseudo_moves;
+        let moves: &mut [u16; 192] = &mut self.move_lists[quiescence_depth].pseudo_moves;
 
         for i in 0..last_occupied {
             let (best_move_index_offset, _) = scores[i..last_occupied]
@@ -554,7 +564,7 @@ impl Engine {
         }
 
         for i in 0..last_occupied {
-            let move_to_search: u32 = self.move_lists[quiescence_depth].pseudo_moves[i];
+            let move_to_search: u16 = self.move_lists[quiescence_depth].pseudo_moves[i];
 
             board.perform_move(
                 move_to_search,
@@ -631,7 +641,12 @@ impl Engine {
         return best_score;
     }
 
-    pub fn find_best_move(&mut self, board: &Board, state: &mut GameState) -> Option<u32> {
+    pub fn find_best_move(
+        &mut self,
+        board: &Board,
+        state: &mut GameState,
+        correspondence: bool,
+    ) -> Option<u16> {
         for i in 0..4096 {
             self.history_heuristics[i] /= 100;
         }
@@ -648,36 +663,29 @@ impl Engine {
         self.transposition_table.collisions = 0;
         self.transposition_table.replacements = 0;
 
-        println!("board: {:?}", board.cached_pieces);
-
         // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
-            let piece: u32 = *piece;
+            let piece: u16 = *piece;
             if piece != 0 {
-                let zobrist_index: usize = if piece <= 14 {
-                    piece as usize - 9
-                } else {
-                    piece as usize - 11
-                } * 64
-                    + i;
+                let zobrist_index: usize = (piece as usize - 1) * 64 + i;
                 self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
             }
         }
 
-        let mut best_move: Option<u32> = None;
+        let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
-        let opponent_color: u32 = if self.side == 8 { 16 } else { 8 };
+        let opponent_color: u16 = if self.side == 8 { 16 } else { 8 };
 
-        copied_state.whose_turn = self.side.clone() as u32;
+        copied_state.whose_turn = self.side.clone() as u16;
 
-        let mut previous_best_move: u32 = 0;
+        let mut previous_best_move: u16 = 0;
 
         let time_limit: Duration = Duration::from_secs(2);
         let timer_start: Instant = Instant::now();
 
         for d in 2..=self.depth {
-            if timer_start.elapsed() >= time_limit {
+            if timer_start.elapsed() >= time_limit && !correspondence {
                 break;
             }
             let maximizing: bool = match self.side {
@@ -700,10 +708,10 @@ impl Engine {
                 depth_as_index,
                 last_occupied,
                 &previous_best_move,
-                self.side as u8,
+                &copied_board.cached_pieces,
             );
             let scores: &mut [i16; 192] = &mut self.move_scores[depth_as_index];
-            let moves: &mut [u32; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
+            let moves: &mut [u16; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
 
             for i in 0..last_occupied {
                 let (best_move_index_offset, _) = scores[i..last_occupied]
@@ -720,10 +728,10 @@ impl Engine {
             } else {
                 CHECKMATE_VALUE
             };
-            let mut depth_best_move: u32 = 0;
+            let mut depth_best_move: u16 = 0;
 
             for i in 0..last_occupied {
-                let allegedly_best_move: u32 = self.move_lists[depth_as_index].pseudo_moves[i];
+                let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
                 println!(
                     "from: {}, to: {}",
                     allegedly_best_move & FROM_MASK,

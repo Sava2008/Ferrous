@@ -45,14 +45,20 @@ fn checkmate_in_two_test1() -> () {
         current_hash: 0,
         transposition_table: TranspositionTable::new(),
     };
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 14);
     assert_eq!(to, 6);
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
-    let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
+    let response: u16 = opponent_engine
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
-    let checkmate_engine_move = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let checkmate_engine_move = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         checkmate_engine_move & FROM_MASK,
         (checkmate_engine_move & TO_MASK) >> TO_SHIFT,
@@ -103,16 +109,22 @@ fn checkmate_in_three_test1() -> () {
         current_hash: 0,
         transposition_table: TranspositionTable::new(),
     };
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 31);
     assert_eq!(to, 7);
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
-    let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
+    let response: u16 = opponent_engine
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
-    let engine_move2: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move2: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         engine_move2 & FROM_MASK,
         (engine_move2 & TO_MASK) >> TO_SHIFT,
@@ -121,10 +133,14 @@ fn checkmate_in_three_test1() -> () {
     assert_eq!(to, 22);
     board.perform_move(engine_move2, &mut state, 16, &mut 0, &mut 0);
 
-    let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
+    let response: u16 = opponent_engine
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
-    let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move3: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         engine_move3 & FROM_MASK,
         (engine_move3 & TO_MASK) >> TO_SHIFT,
@@ -160,11 +176,13 @@ fn checkmate_in_three_tricky_test() -> () {
         transposition_table: TranspositionTable::new(),
     };
 
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     assert_eq!(engine_move & FROM_MASK, 39);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 60);
 
-    let encoded_response: u32 = 57 | (48 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT);
+    let encoded_response: u16 = 57 | (48 << TO_SHIFT);
     board.perform_move(
         engine_move,
         &mut state,
@@ -180,11 +198,13 @@ fn checkmate_in_three_tricky_test() -> () {
         &mut 0,
     );
 
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     assert_eq!(engine_move & FROM_MASK, 55);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 50);
 
-    let encoded_response: u32 = 48 | (40 << TO_SHIFT) | (COLORLESS_KING << MOVING_PIECE_TYPE_SHIFT);
+    let encoded_response: u16 = 48 | (40 << TO_SHIFT);
     board.perform_move(
         engine_move,
         &mut state,
@@ -200,10 +220,12 @@ fn checkmate_in_three_tricky_test() -> () {
         &mut 0,
     );
 
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     assert_eq!(engine_move & FROM_MASK, 49);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 57);
-    assert_eq!((engine_move & PROMOTION_MASK) >> PROMOTION_SHIFT, 1);
+    assert_eq!((engine_move & MARK_MASK) >> MARK_SHIFT, 1);
 }
 
 #[test]
@@ -247,17 +269,23 @@ fn checkmate_in_four_test1() -> () {
         current_hash: 0,
         transposition_table: TranspositionTable::new(),
     };
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 18);
     assert_eq!(to, 20);
 
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
-    let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
+    let response: u16 = opponent_engine
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
-    let engine_move2: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move2: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         engine_move2 & FROM_MASK,
         (engine_move2 & TO_MASK) >> TO_SHIFT,
@@ -266,13 +294,12 @@ fn checkmate_in_four_test1() -> () {
     assert_eq!(to, 21);
     board.perform_move(engine_move2, &mut state, 16, &mut 0, &mut 0);
 
-    let response = 5
-        | (21 << TO_SHIFT)
-        | (COLORLESS_QUEEN << CAPTURED_PIECE_TYPE_SHIFT)
-        | (COLORLESS_ROOK << MOVING_PIECE_TYPE_SHIFT);
+    let response = 5 | (21 << TO_SHIFT);
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
-    let engine_move3: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move3: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         engine_move3 & FROM_MASK,
         (engine_move3 & TO_MASK) >> TO_SHIFT,
@@ -281,10 +308,14 @@ fn checkmate_in_four_test1() -> () {
     assert_eq!(to, 4);
     board.perform_move(engine_move3, &mut state, 16, &mut 0, &mut 0);
 
-    let response: u32 = opponent_engine.find_best_move(&board, &mut state).unwrap();
+    let response: u16 = opponent_engine
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
-    let engine_move4: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move4: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (
         engine_move4 & FROM_MASK,
         (engine_move4 & TO_MASK) >> TO_SHIFT,
@@ -319,7 +350,9 @@ fn checkmate_in_five_test1() -> () {
         current_hash: 0,
         transposition_table: TranspositionTable::new(),
     };
-    let engine_move: u32 = engine_depth_8.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine_depth_8
+        .find_best_move(&board, &mut state, true)
+        .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 37);
     assert_eq!(to, 47);
@@ -352,7 +385,7 @@ fn avoiding_trapped_bishop_test() -> () {
         transposition_table: TranspositionTable::new(),
     };
 
-    let engine_move: u32 = engine.find_best_move(&board, &mut state).unwrap();
+    let engine_move: u16 = engine.find_best_move(&board, &mut state, true).unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     println!("move: {} {}", from, to);
 
