@@ -234,18 +234,13 @@ impl Engine {
 
                 let allegedly_best_move: u16 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
+
                 if i < 8 {
                     self.move_lists[depth_as_index]
                         .pseudo_moves
                         .swap(true_index, i);
                     self.move_scores[depth_as_index].swap(true_index, i);
                 }
-
-                /*println!(
-                    "from: {}, to: {}",
-                    allegedly_best_move & FROM_MASK,
-                    (allegedly_best_move & TO_MASK) >> TO_SHIFT
-                );*/
 
                 board.perform_move(
                     allegedly_best_move,
@@ -269,6 +264,7 @@ impl Engine {
                     state,
                     node_count,
                 );
+
                 if current_score > best_score {
                     best_score = current_score;
                     best_move = allegedly_best_move;
@@ -325,17 +321,13 @@ impl Engine {
 
                 let allegedly_best_move: u16 =
                     self.move_lists[depth_as_index].pseudo_moves[true_index];
+
                 if i < 8 {
                     self.move_lists[depth_as_index]
                         .pseudo_moves
                         .swap(true_index, i);
                     self.move_scores[depth_as_index].swap(true_index, i);
                 }
-                /*(
-                    "from: {}, to: {}",
-                    allegedly_best_move & FROM_MASK,
-                    (allegedly_best_move & TO_MASK) >> TO_SHIFT
-                );*/
 
                 board.perform_move(
                     allegedly_best_move,
@@ -344,8 +336,10 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
+
                 if board.is_square_attacked(board.black_king_square, 8) {
                     board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
+
                     legal_moves_amount -= 1;
                     continue;
                 }
@@ -359,6 +353,7 @@ impl Engine {
                     state,
                     node_count,
                 );
+
                 if current_score < best_score {
                     best_score = current_score;
                     best_move = allegedly_best_move;
@@ -445,8 +440,7 @@ impl Engine {
 
         let in_check: bool = match color {
             8 => board.is_square_attacked(board.white_king_square, 16),
-            16 => board.is_square_attacked(board.black_king_square, 8),
-            _ => unreachable!(),
+            _ => board.is_square_attacked(board.black_king_square, 8),
         };
         let stand_pat: i32 = self.evaluation;
 
@@ -575,8 +569,7 @@ impl Engine {
             );
             let king_sq: u8 = match color {
                 8 => board.white_king_square,
-                16 => board.black_king_square,
-                _ => unreachable!(),
+                _ => board.black_king_square,
             };
 
             if board.is_square_attacked(king_sq, opponent) {
@@ -690,8 +683,7 @@ impl Engine {
             }
             let maximizing: bool = match self.side {
                 8 => false,
-                16 => true,
-                _ => unreachable!(),
+                _ => true,
             };
             let depth_as_index: usize = d as usize;
 
@@ -748,8 +740,7 @@ impl Engine {
 
                 let current_king_square: u8 = match self.side {
                     8 => copied_board.white_king_square,
-                    16 => copied_board.black_king_square,
-                    _ => unreachable!(),
+                    _ => copied_board.black_king_square,
                 };
 
                 if copied_board.is_square_attacked(current_king_square, opponent_color) {
@@ -782,8 +773,7 @@ impl Engine {
 
                 if match self.side {
                     8 => score > depth_best_score,
-                    16 => score < depth_best_score,
-                    _ => unreachable!(),
+                    _ => score < depth_best_score,
                 } || depth_best_move == 0
                 {
                     depth_best_score = score;

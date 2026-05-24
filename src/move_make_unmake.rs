@@ -12,6 +12,7 @@ use crate::{
 impl Board {
     fn perform_capture(
         &mut self,
+        state: &mut GameState,
         enemy: u16,
         previous_move: &mut PreviousMove,
         to_sq: usize,
@@ -24,6 +25,19 @@ impl Board {
         previous_move.captured_piece |= enemy;
         let to_sq_as_index: usize = to_sq as usize;
         let capture: u64 = !BIT_MASKS[to_sq_as_index];
+        if enemy == WHITE_ROOK_U16 {
+            if to_sq == 7 {
+                state.castling_rights &= !WHITE_SHORT;
+            } else if to_sq == 0 {
+                state.castling_rights &= !WHITE_LONG;
+            }
+        } else if enemy == BLACK_ROOK_U16 {
+            if to_sq == 63 {
+                state.castling_rights &= !BLACK_SHORT;
+            } else if to_sq == 56 {
+                state.castling_rights &= !BLACK_LONG;
+            }
+        }
         self.bitboards[captured_table_idx] &= capture;
         self.occupancies[occupancy_idx] &= capture;
         *current_hash ^= ZOBRIST_HASH_TABLE[captured_table_idx * 64 + to_sq_as_index];
@@ -49,13 +63,6 @@ impl Board {
                 if to_sq > from_sq { (63, 61) } else { (56, 59) },
             )
         };
-        self.cached_pieces
-            .swap(rook_from as usize, rook_to as usize);
-        previous_move.move_flag = 0b0001;
-
-        let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
-        self.total_occupancy &= start;
-        self.total_occupancy |= end;
         let (occupancy, (rook_from_heuristic, rook_to_heuristic), rook_bb) = match color {
             8 => (
                 &mut self.occupancies[0],
@@ -65,7 +72,7 @@ impl Board {
                 ),
                 &mut self.bitboards[3],
             ),
-            16 => (
+            _ => (
                 &mut self.occupancies[1],
                 (
                     BLACK_ROOK_HEURISTICS[rook_from],
@@ -73,15 +80,22 @@ impl Board {
                 ),
                 &mut self.bitboards[9],
             ),
-            _ => unreachable!(),
         };
+        self.cached_pieces
+            .swap(rook_from as usize, rook_to as usize);
+        previous_move.move_flag = 0b0001;
+
+        let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
+        self.total_occupancy &= start;
+        self.total_occupancy |= end;
+
         *occupancy &= start;
         *occupancy |= end;
         *rook_bb &= start;
         *rook_bb |= end;
         *eval += rook_from_heuristic + rook_to_heuristic;
 
-        let rook_hash: usize = rook as usize * 64;
+        let rook_hash: usize = (rook as usize - 1) * 64;
         *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_from];
         *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_to];
     }
@@ -94,13 +108,12 @@ impl Board {
                 e_p - 8,
                 PAWN_VALUE,
             ),
-            16 => (
+            _ => (
                 &mut self.bitboards[0],
                 &mut self.occupancies[0],
                 e_p + 8,
                 -PAWN_VALUE,
             ),
-            _ => unreachable!(),
         };
         self.cached_pieces[captured_pawn_square as usize] = 0;
         let capture: u64 = !BIT_MASKS[captured_pawn_square as usize];
@@ -162,6 +175,7 @@ impl Board {
         };
         if captured_piece != 0 {
             self.perform_capture(
+                state,
                 captured_piece,
                 &mut previous_move,
                 to_sq_index,
@@ -380,7 +394,7 @@ impl Board {
                             end_index - 8,
                         )
                     }
-                    16 => {
+                    _ => {
                         *current_hash ^= ZOBRIST_HASH_TABLE[end_index + 8];
                         (
                             WHITE_PAWN_U16,
@@ -389,7 +403,6 @@ impl Board {
                             end_index + 8,
                         )
                     }
-                    _ => unreachable!(),
                 };
                 let taken_pawn_square_bb: u64 = BIT_MASKS[taken_pawn_square];
                 *enemy_pawns |= taken_pawn_square_bb;
@@ -400,8 +413,8 @@ impl Board {
 
             if castling != 0 {
                 let (rooks, occupancy, rook_start, rook_end, rook_encoding) = match (start, end) {
-                    (4, 2) => (&mut self.bitboards[3], &mut self.occupancies[0], 0, 3, 5),
-                    (4, 6) => (&mut self.bitboards[3], &mut self.occupancies[0], 7, 5, 5),
+                    (4, 2) => (&mut self.bitboards[3], &mut self.occupancies[0], 0, 3, 4),
+                    (4, 6) => (&mut self.bitboards[3], &mut self.occupancies[0], 7, 5, 4),
                     (60, 58) => (
                         &mut self.bitboards[9],
                         &mut self.occupancies[1],
@@ -420,6 +433,7 @@ impl Board {
                 };
                 let (rook_start_bb, rook_end_bb): (u64, u64) =
                     (BIT_MASKS[rook_start], !BIT_MASKS[rook_end]);
+
                 *rooks |= rook_start_bb;
                 *rooks &= rook_end_bb;
                 *occupancy |= rook_start_bb;

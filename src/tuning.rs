@@ -13,14 +13,11 @@ impl Engine {
         current_board: &[u16; 64],
     ) -> () {
         for i in 0..last_occupied {
+            let mv = self.move_lists[depth].pseudo_moves[0..last_occupied][i];
             if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
                 self.move_scores[depth][i] = i16::MAX;
             } else {
-                self.move_scores[depth][i] = self.move_priority(
-                    &self.move_lists[depth].pseudo_moves[0..last_occupied][i],
-                    depth,
-                    current_board,
-                );
+                self.move_scores[depth][i] = self.move_priority(&mv, depth, current_board);
             }
         }
     }

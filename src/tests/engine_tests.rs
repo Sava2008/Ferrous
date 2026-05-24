@@ -371,7 +371,7 @@ fn avoiding_trapped_bishop_test() -> () {
     board.update_full_cache();
     let mut engine: Engine = Engine {
         side: 8,
-        depth: 10,
+        depth: 8,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
@@ -392,4 +392,7 @@ fn avoiding_trapped_bishop_test() -> () {
     assert_eq!(from, 33);
     assert_ne!(to, 32);
     assert_ne!(to, 42);
+    println!("to: {to}");
 }
+
+// rn1r2k1/ppq1ppbp/6p1/3B4/3PN1b1/5N2/PPP2PPP/R2Q1RK1 w - - 1 11     Bxf7+ is best

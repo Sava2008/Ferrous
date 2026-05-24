@@ -9,10 +9,12 @@ use crate::{
     gamestate::GameState,
     moves::MoveList,
     search::Engine,
+    tests::profiling::engine_speed_test,
     transposition::TranspositionTable,
 };
 use std::{
     io::{self, Write},
+    process::exit,
     time::Instant,
 };
 pub mod board;
@@ -36,48 +38,6 @@ enum MoveResult {
     None,
 }
 
-#[allow(unused)]
-fn test_speed() -> () {
-    let mut board: Board = Board::set();
-    let mut state: GameState = GameState::new(&board);
-
-    board.total_occupancy();
-    board.update_full_cache();
-
-    let piece_move: u16 = 12 | (28 << TO_SHIFT);
-    let t: Instant = Instant::now();
-    board.perform_move(piece_move, &mut state, 8, &mut 0, &mut 0);
-    println!("perform_move time: {:?}", t.elapsed().as_micros());
-    let t = Instant::now();
-    board.cancel_move(&mut state, 8, &mut 0, &mut 0);
-    println!("cancelation time: {:?}", t.elapsed().as_micros());
-
-    let mut engine: Engine = Engine {
-        side: 8,
-        depth: 11,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
-    let t = Instant::now();
-    engine.alpha_beta_pruning(&mut board, 1, 4, 1, true, &mut state, &mut 0);
-    println!("alpha beta time: {}", t.elapsed().as_micros());
-    let t = Instant::now();
-    engine.score_all_moves(1, 1, &0, &board.cached_pieces);
-    println!("scoring time: {}", t.elapsed().as_micros());
-    let t = Instant::now();
-    engine.generate_pseudo_legal_moves(8, &board, &state, 1, false);
-    println!("movegen time: {}", t.elapsed().as_micros());
-}
-
 fn main() -> () {
     /* initialize_sliding_attack_tables(), compute_all_rays(),
     compute_all_lines, compute_mvvlva
@@ -88,6 +48,9 @@ fn main() -> () {
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
+
+    // engine_speed_test();
+    // exit(0);
 
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);

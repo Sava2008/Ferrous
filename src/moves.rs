@@ -26,12 +26,11 @@ impl Board {
                     !self.occupancies[0],
                     &self.occupancies[1],
                 ),
-                16 => (
+                _ => (
                     self.bitboards[7],
                     !self.occupancies[1],
                     &self.occupancies[0],
                 ),
-                _ => unreachable!(),
             };
 
         while knights_bitboard != 0 {
@@ -71,23 +70,22 @@ impl Board {
                     self.bitboards[0],
                     self.occupancies[1],
                     &RANK_8,
-                    if en_passant < 64 { &RANK_5 } else { &RANK_1 },
+                    if en_passant < 64 { &RANK_5 } else { &0 },
                 ),
-                16 => (
+                _ => (
                     self.bitboards[6],
                     self.occupancies[0],
                     &RANK_1,
-                    if en_passant < 64 { &RANK_4 } else { &RANK_8 },
+                    if en_passant < 64 { &RANK_4 } else { &0 },
                 ),
-                _ => unreachable!(),
             };
 
         while pawns_bitboard != 0 {
             let initial_pos: u16 = pawns_bitboard.trailing_zeros() as u16;
+
             let attacks: u64 = match color {
                 8 => WHITE_PAWN_ATTACKS[initial_pos as usize],
-                16 => BLACK_PAWN_ATTACKS[initial_pos as usize],
-                _ => unreachable!(),
+                _ => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
             let mut dest_bitboard: u64 = attacks & enemy_occupancy;
             if (1 << initial_pos) & e_p_rank != 0 {
@@ -96,20 +94,17 @@ impl Board {
             if !captures_only {
                 let forward_square: u16 = match color {
                     8 => initial_pos + 8,
-                    16 => initial_pos - 8,
-                    _ => unreachable!(),
+                    _ => initial_pos - 8,
                 };
                 if forward_square < 64 && (self.total_occupancy >> forward_square) & 1 == 0 {
                     dest_bitboard |= 1 << forward_square;
                     let second_forward_square: u16 = match color {
                         8 => initial_pos + 16,
-                        16 => initial_pos - 16,
-                        _ => unreachable!(),
+                        _ => initial_pos - 16,
                     };
                     if match color {
                         8 => (1 << initial_pos) & RANK_2 != 0,
-                        16 => (1 << initial_pos) & RANK_7 != 0,
-                        _ => unreachable!(),
+                        _ => (1 << initial_pos) & RANK_7 != 0,
                     } && (self.total_occupancy >> second_forward_square) & 1 == 0
                     {
                         dest_bitboard |= 1 << second_forward_square;
@@ -187,14 +182,12 @@ impl Board {
         let (black_occ, white_occ) = (self.occupancies[1], self.occupancies[0]);
         let (initial_pos, opposite_color, enemy_occupancy): (u16, u16, &u64) = match color {
             8 => (self.white_king_square as u16, 16, &black_occ),
-            16 => (self.black_king_square as u16, 8, &white_occ),
-            _ => unreachable!(),
+            _ => (self.black_king_square as u16, 8, &white_occ),
         };
         let mut dest_bitboard: u64 = KING_ATTACKS[initial_pos as usize]
             & !match color {
                 8 => white_occ,
-                16 => black_occ,
-                _ => unreachable!(),
+                _ => black_occ,
             };
         if captures_only {
             dest_bitboard &= enemy_occupancy;
@@ -206,36 +199,36 @@ impl Board {
             dest_bitboard &= dest_bitboard - 1;
         }
 
-        if self.is_square_attacked(initial_pos as u8, opposite_color) | captures_only {
+        if self.is_square_attacked(initial_pos as u8, opposite_color) || captures_only {
             return;
         }
-        let (castling_squares, mut right_path, mut left_path): (
+        let (castling_squares, mut kingside_path, mut queenside_path): (
             (Option<u8>, Option<u8>),
             u64,
             u64,
         ) = match color {
             8 => match (
-                &state.castling_rights & WHITE_LONG_MASK != 0,
                 &state.castling_rights & WHITE_SHORT_MASK != 0,
+                &state.castling_rights & WHITE_LONG_MASK != 0,
             ) {
                 (true, true) => (
-                    (Some(2), Some(6)),
-                    0b0000000000000000000000000000000000000000000000000000000000001110,
+                    (Some(6), Some(2)),
                     0b0000000000000000000000000000000000000000000000000000000001100000,
+                    0b0000000000000000000000000000000000000000000000000000000000001110,
                 ),
                 (false, false) => return,
-                (true, false) => (
-                    (Some(2), None),
-                    0b0000000000000000000000000000000000000000000000000000000000001110,
-                    0,
-                ),
                 (false, true) => (
-                    (None, Some(6)),
+                    (None, Some(2)),
                     0,
+                    0b0000000000000000000000000000000000000000000000000000000000001110,
+                ),
+                (true, false) => (
+                    (Some(6), None),
                     0b0000000000000000000000000000000000000000000000000000000001100000,
+                    0,
                 ),
             },
-            16 => match (
+            _ => match (
                 &state.castling_rights & BLACK_SHORT_MASK != 0,
                 &state.castling_rights & BLACK_LONG_MASK != 0,
             ) {
@@ -256,34 +249,33 @@ impl Board {
                     0b0000111000000000000000000000000000000000000000000000000000000000,
                 ),
             },
-            _ => unreachable!(),
         };
 
-        if left_path != 0 && (left_path & self.total_occupancy == 0) {
+        if queenside_path != 0 && (queenside_path & self.total_occupancy == 0) {
             let mut finished_fully: bool = true;
-            while left_path != 0 {
-                let square: u8 = left_path.trailing_zeros() as u8;
+            while queenside_path != 0 {
+                let square: u8 = queenside_path.trailing_zeros() as u8;
                 if self.is_square_attacked(square, opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
                 }
-                left_path &= left_path - 1;
+                queenside_path &= queenside_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.1 {
                 moves.push(initial_pos | ((sq as u16) << TO_SHIFT) | (0b0001 << MARK_SHIFT));
             }
         }
-        if right_path != 0 && (right_path & self.total_occupancy == 0) {
+        if kingside_path != 0 && (kingside_path & self.total_occupancy == 0) {
             let mut finished_fully: bool = true;
-            while right_path != 0 {
-                let square: u8 = right_path.trailing_zeros() as u8;
+            while kingside_path != 0 {
+                let square: u8 = kingside_path.trailing_zeros() as u8;
                 if self.is_square_attacked(square, opposite_color) && ((1 << square) & FILE_B == 0)
                 {
                     finished_fully = false;
                     break;
                 }
-                right_path &= right_path - 1;
+                kingside_path &= kingside_path - 1;
             }
             if finished_fully && let Some(sq) = castling_squares.0 {
                 moves.push(initial_pos | ((sq as u16) << TO_SHIFT) | (0b0001 << MARK_SHIFT));
@@ -296,8 +288,7 @@ impl Board {
         let (mut rooks_bitboard, friendly_occupancy, enemy_occupancy): (u64, u64, &u64) =
             match color {
                 8 => (self.bitboards[3], self.occupancies[0], &self.occupancies[1]),
-                16 => (self.bitboards[9], self.occupancies[1], &self.occupancies[0]),
-                _ => unreachable!(),
+                _ => (self.bitboards[9], self.occupancies[1], &self.occupancies[0]),
             };
 
         while rooks_bitboard != 0 {
@@ -323,8 +314,7 @@ impl Board {
         let (mut bishops_bitboard, friendly_occupancy, enemy_occupancy): (u64, u64, &u64) =
             match color {
                 8 => (self.bitboards[2], self.occupancies[0], &self.occupancies[1]),
-                16 => (self.bitboards[8], self.occupancies[1], &self.occupancies[0]),
-                _ => unreachable!(),
+                _ => (self.bitboards[8], self.occupancies[1], &self.occupancies[0]),
             };
 
         while bishops_bitboard != 0 {
@@ -350,12 +340,11 @@ impl Board {
         let (mut queens_bitboard, friendly_occupancy, enemy_occupancy): (u64, u64, &u64) =
             match color {
                 8 => (self.bitboards[4], self.occupancies[0], &self.occupancies[1]),
-                16 => (
+                _ => (
                     self.bitboards[10],
                     self.occupancies[1],
                     &self.occupancies[0],
                 ),
-                _ => unreachable!(),
             };
 
         while queens_bitboard != 0 {
