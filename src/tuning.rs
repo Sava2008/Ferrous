@@ -13,7 +13,8 @@ impl Engine {
         current_board: &[u16; 64],
     ) -> () {
         for i in 0..last_occupied {
-            let mv = self.move_lists[depth].pseudo_moves[0..last_occupied][i];
+            let mv: u16 = self.move_lists[depth].pseudo_moves[0..last_occupied][i];
+
             if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
                 self.move_scores[depth][i] = i16::MAX;
             } else {
@@ -35,6 +36,10 @@ impl Engine {
             }
             if attacker_value > 5 {
                 attacker_value -= 6;
+            }
+
+            if attacker_value > 12 {
+                panic!("index: {}", from_square(*m));
             }
             return unsafe { MVV_LVA[victim_value][attacker_value] } * 1000;
         }

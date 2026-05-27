@@ -396,3 +396,4 @@ fn avoiding_trapped_bishop_test() -> () {
 }
 
 // rn1r2k1/ppq1ppbp/6p1/3B4/3PN1b1/5N2/PPP2PPP/R2Q1RK1 w - - 1 11     Bxf7+ is best
+// 2kr1b2/Rpp1p3/1n3np1/2qP4/7Q/4B2P/5PP1/1R4K1 b - - 1 30            Qc4 is best

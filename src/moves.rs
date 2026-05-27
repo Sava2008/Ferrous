@@ -79,6 +79,7 @@ impl Board {
                     if en_passant < 64 { &RANK_4 } else { &0 },
                 ),
             };
+        let e_p_bitboard = if en_passant < 64 { 1 << en_passant } else { 0 };
 
         while pawns_bitboard != 0 {
             let initial_pos: u16 = pawns_bitboard.trailing_zeros() as u16;
@@ -88,8 +89,8 @@ impl Board {
                 _ => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
             let mut dest_bitboard: u64 = attacks & enemy_occupancy;
-            if (1 << initial_pos) & e_p_rank != 0 {
-                dest_bitboard |= 1 << en_passant;
+            if (1 << initial_pos) & e_p_rank != 0 && attacks & e_p_bitboard != 0 {
+                dest_bitboard |= e_p_bitboard;
             }
             if !captures_only {
                 let forward_square: u16 = match color {

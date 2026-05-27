@@ -9,12 +9,10 @@ use crate::{
     gamestate::GameState,
     moves::MoveList,
     search::Engine,
-    tests::profiling::engine_speed_test,
     transposition::TranspositionTable,
 };
 use std::{
     io::{self, Write},
-    process::exit,
     time::Instant,
 };
 pub mod board;
@@ -50,14 +48,13 @@ fn main() -> () {
     compute_mvvlva();
 
     // engine_speed_test();
-    // exit(0);
+    // std::process::exit(0);
 
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);
 
     board.total_occupancy();
     board.update_full_cache();
-    println!("board: {:?}", board.cached_pieces);
 
     print!("choose the color: ");
     io::stdout().flush().unwrap();
@@ -65,7 +62,7 @@ fn main() -> () {
     let mut engine_side: String = String::new();
     io::stdin().read_line(&mut engine_side).unwrap();
 
-    let mut engine: Engine = Engine {
+    /*let mut engine: Engine = Engine {
         side: match engine_side.trim() {
             "b" => 8,
             "w" => 16,
@@ -83,16 +80,73 @@ fn main() -> () {
         quiescence_limitation: 9,
         current_hash: 0,
         transposition_table: TranspositionTable::new(),
+    };*/
+    let mut white_engine: Engine = Engine {
+        side: 8,
+        depth: 6,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 32],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 32],
+        history_heuristics: [0; 4096],
+        move_scores: [[0; 192]; 32],
+        quiescence_limitation: 9,
+        current_hash: 0,
+        transposition_table: TranspositionTable::new(),
     };
-    if (engine.side == 16 && engine.depth % 2 == 1) || (engine.side == 8 && engine.depth % 2 == 0) {
-        engine.quiescence_limitation -= 1;
-    }
-    engine.evaluate(&board);
+    let mut black_engine: Engine = Engine {
+        side: 16,
+        depth: 8,
+        evaluation: 0,
+        killer_moves: [[None; 2]; 32],
+        move_lists: [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 32],
+        history_heuristics: [0; 4096],
+        move_scores: [[0; 192]; 32],
+        quiescence_limitation: 9,
+        current_hash: 0,
+        transposition_table: TranspositionTable::new(),
+    };
 
-    game_control(&mut state, &mut board, &mut engine).unwrap();
+    white_engine.evaluate(&board);
+    black_engine.evaluate(&board);
+
+    //game_control(&mut state, &mut board, &mut engine).unwrap();
+    two_engines_game(&mut white_engine, &mut black_engine, &mut state, &mut board).unwrap();
 
     let mut no_focus_loss: String = String::new();
     io::stdin().read_line(&mut no_focus_loss).unwrap();
+}
+
+fn two_engines_game(
+    engine1: &mut Engine,
+    engine2: &mut Engine,
+    state: &mut GameState,
+    board: &mut Board,
+) -> Result<(), io::Error> {
+    loop {
+        if state.whose_turn == 8 {
+            match make_engine_move(engine1, board, state, 8) {
+                MoveResult::Draw | MoveResult::Win => break,
+                MoveResult::None => (),
+                _ => unreachable!(),
+            };
+            state.whose_turn = 16;
+        } else {
+            match make_engine_move(engine2, board, state, 16) {
+                MoveResult::Draw | MoveResult::Win => break,
+                MoveResult::None => (),
+                _ => unreachable!(),
+            };
+            state.whose_turn = 8;
+        }
+    }
+
+    return Ok(());
 }
 
 // the main loop
@@ -238,6 +292,7 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16)
             return MoveResult::Continue;
         }
     };
+    println!("user's from square {from_sq}");
 
     let to_sq: u16 = match COORDS_TO_INDICES.get(parts[1]) {
         Some(&sq) => sq as u16,
@@ -246,14 +301,14 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16)
             return MoveResult::Continue;
         }
     };
+    println!("user's to square {to_sq}");
 
     let mut parsed_move: u16 = from_sq | (to_sq << TO_SHIFT);
 
-    let moving_piece = &board.cached_pieces[from_sq as usize];
+    let moving_piece: &u16 = &board.cached_pieces[from_sq as usize];
 
-    if moving_piece == &WHITE_KING_U16
-        || moving_piece == &BLACK_KING_U16
-            && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
+    if (moving_piece == &WHITE_KING_U16 || moving_piece == &BLACK_KING_U16)
+        && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
     {
         parsed_move |= 1 << MARK_SHIFT;
     }
@@ -290,12 +345,3 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16)
         return MoveResult::Continue;
     }
 }
-/*
-[1, 2, 3, 5, 6, 3, 2, 4,
-1, 1, 1, 0, 1, 1, 1, 1,
-0, 0, 0, 0, 0, 0, 0, 0,
-0, 9, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, 0,
-7, 7, 7, 7, 0, 7, 7, 7,
-10, 8, 9, 11, 12, 0, 8, 10] */

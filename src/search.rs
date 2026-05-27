@@ -559,6 +559,18 @@ impl Engine {
 
         for i in 0..last_occupied {
             let move_to_search: u16 = self.move_lists[quiescence_depth].pseudo_moves[i];
+            /*if board.cached_pieces[from_square(move_to_search) as usize] == 0 {
+                panic!(
+                    "no piece at starting square, depth: {quiescence_depth}, square: {}\nking square: {}, cached pieces: {:?}",
+                    from_square(move_to_search),
+                    if color == 16 {
+                        board.black_king_square
+                    } else {
+                        board.white_king_square
+                    },
+                    board.cached_pieces
+                );
+            }*/
 
             board.perform_move(
                 move_to_search,
@@ -674,10 +686,10 @@ impl Engine {
 
         let mut previous_best_move: u16 = 0;
 
-        let time_limit: Duration = Duration::from_secs(2);
+        let time_limit: Duration = Duration::from_secs(5);
         let timer_start: Instant = Instant::now();
 
-        for d in 2..=self.depth {
+        for d in 1..=self.depth {
             if timer_start.elapsed() >= time_limit && !correspondence {
                 break;
             }
@@ -724,11 +736,11 @@ impl Engine {
 
             for i in 0..last_occupied {
                 let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
-                println!(
+                /*println!(
                     "from: {}, to: {}",
                     allegedly_best_move & FROM_MASK,
                     (allegedly_best_move & TO_MASK) >> TO_SHIFT,
-                );
+                );*/
 
                 copied_board.perform_move(
                     allegedly_best_move,
@@ -762,7 +774,7 @@ impl Engine {
                     &mut copied_state,
                     &mut node_count,
                 );
-                println!("score: {}", score);
+                // println!("score: {}", score);
 
                 copied_board.cancel_move(
                     &mut copied_state,
@@ -779,27 +791,20 @@ impl Engine {
                     depth_best_score = score;
                     depth_best_move = allegedly_best_move;
                 }
-                println!(
+                /*println!(
                     "occupied: {}, collisions: {}, replacements: {}, hits: {}, hit rate: {}",
                     self.transposition_table.occupied,
                     self.transposition_table.collisions,
                     self.transposition_table.replacements,
                     self.transposition_table.hits,
                     self.transposition_table.hits as f64 / node_count as f64,
-                );
+                );*/
             }
             previous_best_move = depth_best_move;
             println!("reached depth {d}");
-            println!("castling rights: {}", copied_state.castling_rights); // should be 12
         }
         if previous_best_move != 0 {
             best_move = Some(previous_best_move);
-            println!(
-                "best move: {} {}",
-                previous_best_move & FROM_MASK,
-                (previous_best_move & TO_MASK) >> TO_SHIFT
-            );
-            println!("best move found");
         }
 
         println!("nodes: {node_count}");

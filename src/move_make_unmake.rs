@@ -43,6 +43,7 @@ impl Board {
         *current_hash ^= ZOBRIST_HASH_TABLE[captured_table_idx * 64 + to_sq_as_index];
     }
 
+    #[cold]
     fn castling(
         &mut self,
         previous_move: &mut PreviousMove,
@@ -81,8 +82,7 @@ impl Board {
                 &mut self.bitboards[9],
             ),
         };
-        self.cached_pieces
-            .swap(rook_from as usize, rook_to as usize);
+        self.cached_pieces.swap(rook_from, rook_to);
         previous_move.move_flag = 0b0001;
 
         let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
@@ -100,23 +100,24 @@ impl Board {
         *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_to];
     }
 
+    #[cold]
     fn en_passant(&mut self, e_p: u8, color: u16, eval: &mut i32) -> () {
         let (pawns, occupancy, captured_pawn_square, material_subtraction) = match color {
             8 => (
                 &mut self.bitboards[6],
                 &mut self.occupancies[1],
-                e_p - 8,
+                e_p as usize - 8,
                 PAWN_VALUE,
             ),
             _ => (
                 &mut self.bitboards[0],
                 &mut self.occupancies[0],
-                e_p + 8,
+                e_p as usize + 8,
                 -PAWN_VALUE,
             ),
         };
-        self.cached_pieces[captured_pawn_square as usize] = 0;
-        let capture: u64 = !BIT_MASKS[captured_pawn_square as usize];
+        self.cached_pieces[captured_pawn_square] = 0;
+        let capture: u64 = !BIT_MASKS[captured_pawn_square];
         *pawns &= capture;
         *occupancy &= capture;
         self.total_occupancy &= capture;
@@ -132,13 +133,15 @@ impl Board {
         evaluation: &mut i32,
         current_hash: &mut u64,
     ) -> () {
-        let evaluation_before: i32 = evaluation.clone();
+        let evaluation_before: i32 = *evaluation;
         let (from_sq, to_sq): (u16, u16) =
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
         let (from_sq_index, to_sq_index): (usize, usize) = (from_sq as usize, to_sq as usize);
 
-        let moving_piece: u16 = self.cached_pieces[from_sq_index];
-        let captured_piece: u16 = self.cached_pieces[to_sq_index];
+        let (cached_pieces, zobrist_table) = (&self.cached_pieces, &ZOBRIST_HASH_TABLE);
+
+        let moving_piece: u16 = cached_pieces[from_sq_index];
+        let captured_piece: u16 = cached_pieces[to_sq_index];
         let move_flag: u16 = (piece_move & MARK_MASK) >> MARK_SHIFT;
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
@@ -154,11 +157,8 @@ impl Board {
 
         let moving_piece_hash: usize = moving_piece_table_idx * 64;
 
-        *current_hash ^= ZOBRIST_HASH_TABLE[moving_piece_hash + from_sq_index];
-        *current_hash ^= ZOBRIST_HASH_TABLE[moving_piece_hash + to_sq_index];
-
-        self.cached_pieces[to_sq as usize] = moving_piece;
-        self.cached_pieces[from_sq as usize] = 0;
+        *current_hash ^= zobrist_table[moving_piece_hash + from_sq_index];
+        *current_hash ^= zobrist_table[moving_piece_hash + to_sq_index];
 
         let promotion_choice: usize = if move_flag > 2 && move_flag < 7 {
             move_flag as usize - 2
@@ -199,29 +199,34 @@ impl Board {
 
             let (en_passant_pawn_type, en_passant_pawn_offset) =
                 if color == 8 { (0, 8) } else { (6, -8) };
-            *current_hash ^= ZOBRIST_HASH_TABLE[en_passant_pawn_type * 64
+            *current_hash ^= zobrist_table[en_passant_pawn_type * 64
                 + ((state.en_passant_target.unwrap() as i8 + en_passant_pawn_offset) as usize)]; // removing en passant'ed pawn
         }
-        match moving_piece_table_idx {
-            3 => {
+
+        let cached_pieces: &mut [u16; 64] = &mut self.cached_pieces;
+        cached_pieces[to_sq_index] = moving_piece;
+        cached_pieces[from_sq_index] = 0;
+
+        match moving_piece {
+            4 => {
                 if from_sq == 0 {
                     state.castling_rights &= !WHITE_LONG_MASK;
                 } else if from_sq == 7 {
                     state.castling_rights &= !WHITE_SHORT_MASK;
                 }
             }
-            9 => {
+            10 => {
                 if from_sq == 56 {
                     state.castling_rights &= !BLACK_LONG_MASK;
                 } else if from_sq == 63 {
                     state.castling_rights &= !BLACK_SHORT_MASK;
                 }
             }
-            5 => {
+            6 => {
                 self.white_king_square = to_sq as u8;
                 state.castling_rights &= !(WHITE_LONG_MASK | WHITE_SHORT_MASK);
             }
-            11 => {
+            12 => {
                 self.black_king_square = to_sq as u8;
                 state.castling_rights &= !(BLACK_LONG_MASK | BLACK_SHORT_MASK);
             }
@@ -260,10 +265,9 @@ impl Board {
                 promotion_choice + 6
             };
             self.bitboards[promotion_choice_table_idx] |= end;
-            *current_hash ^= ZOBRIST_HASH_TABLE[to_sq_index_base_zero];
-            *current_hash ^=
-                ZOBRIST_HASH_TABLE[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
-            self.cached_pieces[to_sq as usize] = U16_PIECES_TABLE[promotion_choice_table_idx];
+            *current_hash ^= zobrist_table[to_sq_index_base_zero];
+            *current_hash ^= zobrist_table[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
+            cached_pieces[to_sq_index] = U16_PIECES_TABLE[promotion_choice_table_idx];
         } else {
             *moving_piece_bb |= end;
             *moving_piece_bb &= start;
@@ -297,11 +301,13 @@ impl Board {
         if let Some(previous_move) = state.moves_history.pop() {
             *evaluation -= previous_move.material_difference;
 
+            let (cached_pieces, zobrist_table) = (&mut self.cached_pieces, &ZOBRIST_HASH_TABLE);
+
             let m: u16 = previous_move.moved_piece;
             let (start, end, captured_piece) =
                 (from_square(m), to_square(m), previous_move.captured_piece);
             let (start_index, end_index): (usize, usize) = (start as usize, end as usize);
-            let main_piece: u16 = self.cached_pieces[end_index];
+            let main_piece: u16 = cached_pieces[end_index];
             let enemy_color: u16 = if color == 8 { 16 } else { 8 };
             let (
                 (moving_piece_table_idx, moving_piece_occupancy_idx),
@@ -331,8 +337,8 @@ impl Board {
 
             let main_piece_hash: usize = moving_piece_table_idx * 64;
 
-            *current_hash ^= ZOBRIST_HASH_TABLE[main_piece_hash + start_index];
-            self.cached_pieces[end_index] = 0;
+            *current_hash ^= zobrist_table[main_piece_hash + start_index];
+            cached_pieces[end_index] = 0;
 
             let (moved_piece_bitboard, color_occupancy): (&mut u64, &mut u64) = (
                 &mut self.bitboards[moving_piece_table_idx],
@@ -340,25 +346,26 @@ impl Board {
             );
             let start_bb: u64 = BIT_MASKS[start_index];
             let not_end_bb: u64 = !BIT_MASKS[end_index];
-            self.cached_pieces[start_index] = main_piece;
+            cached_pieces[start_index] = main_piece;
             *moved_piece_bitboard &= not_end_bb;
             if promotion == 0 {
                 *moved_piece_bitboard |= start_bb;
-                *current_hash ^= ZOBRIST_HASH_TABLE[main_piece_hash + end_index];
+                *current_hash ^= zobrist_table[main_piece_hash + end_index];
             } else {
+                let promotion_as_index = promotion as usize;
                 let (pawns, promotion_piece_encoding, pawn) = if color == 8 {
-                    (&mut self.bitboards[0], promotion as usize, WHITE_PAWN_U16)
+                    (&mut self.bitboards[0], promotion_as_index, WHITE_PAWN_U16)
                 } else {
                     (
                         &mut self.bitboards[6],
-                        promotion as usize + 6,
+                        promotion_as_index + 6,
                         BLACK_PAWN_U16,
                     )
                 };
                 *pawns |= start_bb;
                 self.bitboards[promotion_piece_encoding] &= not_end_bb;
-                self.cached_pieces[start_index] = pawn;
-                *current_hash ^= ZOBRIST_HASH_TABLE[promotion_piece_encoding * 64 + end_index];
+                cached_pieces[start_index] = pawn;
+                *current_hash ^= zobrist_table[promotion_piece_encoding * 64 + end_index];
             }
 
             *color_occupancy |= start_bb;
@@ -368,12 +375,12 @@ impl Board {
                 let end_bb: u64 = BIT_MASKS[end_index];
 
                 self.occupancies[captured_piece_occupancy_idx] |= end_bb;
-                *current_hash ^= ZOBRIST_HASH_TABLE[captured_piece_table_idx * 64 + end_index];
+                *current_hash ^= zobrist_table[captured_piece_table_idx * 64 + end_index];
                 self.bitboards[captured_piece_table_idx] |= end_bb;
-                self.cached_pieces[end_index] = captured_piece;
+                cached_pieces[end_index] = captured_piece;
                 self.total_occupancy |= end_bb;
             } else {
-                self.cached_pieces[end_index] = 0;
+                cached_pieces[end_index] = 0;
                 self.total_occupancy &= not_end_bb;
             }
 
@@ -386,7 +393,7 @@ impl Board {
                     usize,
                 ) = match color {
                     8 => {
-                        *current_hash ^= ZOBRIST_HASH_TABLE[6 * 64 + (end_index - 8)];
+                        *current_hash ^= zobrist_table[6 * 64 + (end_index - 8)];
                         (
                             BLACK_PAWN_U16,
                             &mut self.bitboards[6],
@@ -395,7 +402,7 @@ impl Board {
                         )
                     }
                     _ => {
-                        *current_hash ^= ZOBRIST_HASH_TABLE[end_index + 8];
+                        *current_hash ^= zobrist_table[end_index + 8];
                         (
                             WHITE_PAWN_U16,
                             &mut self.bitboards[0],
@@ -408,27 +415,15 @@ impl Board {
                 *enemy_pawns |= taken_pawn_square_bb;
                 self.total_occupancy |= taken_pawn_square_bb;
                 *enemy_occupancy |= taken_pawn_square_bb;
-                self.cached_pieces[taken_pawn_square] = pawn;
+                cached_pieces[taken_pawn_square] = pawn;
             }
 
             if castling != 0 {
                 let (rooks, occupancy, rook_start, rook_end, rook_encoding) = match (start, end) {
                     (4, 2) => (&mut self.bitboards[3], &mut self.occupancies[0], 0, 3, 4),
                     (4, 6) => (&mut self.bitboards[3], &mut self.occupancies[0], 7, 5, 4),
-                    (60, 58) => (
-                        &mut self.bitboards[9],
-                        &mut self.occupancies[1],
-                        56 as usize,
-                        59 as usize,
-                        10,
-                    ),
-                    (60, 62) => (
-                        &mut self.bitboards[9],
-                        &mut self.occupancies[1],
-                        63 as usize,
-                        61 as usize,
-                        10,
-                    ),
+                    (60, 58) => (&mut self.bitboards[9], &mut self.occupancies[1], 56, 59, 10),
+                    (60, 62) => (&mut self.bitboards[9], &mut self.occupancies[1], 63, 61, 10),
                     _ => unreachable!("from: {start}, to {end}, piece: {main_piece}"),
                 };
                 let (rook_start_bb, rook_end_bb): (u64, u64) =
@@ -440,11 +435,11 @@ impl Board {
                 *occupancy &= rook_end_bb;
                 self.total_occupancy |= rook_start_bb;
                 self.total_occupancy &= rook_end_bb;
-                self.cached_pieces.swap(rook_end, rook_start);
+                cached_pieces.swap(rook_end, rook_start);
 
                 let rook_hash: usize = (rook_encoding - 1) * 64;
-                *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_start];
-                *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_end];
+                *current_hash ^= zobrist_table[rook_hash + rook_start];
+                *current_hash ^= zobrist_table[rook_hash + rook_end];
             }
 
             state.castling_rights = previous_move.previous_castling_rights;
