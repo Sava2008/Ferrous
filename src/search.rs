@@ -1,7 +1,11 @@
 use crate::{
     board::Board,
     board_geometry_templates::*,
-    constants::{heuristics::*, piece_values::*, zobrist_hashes::ZOBRIST_HASH_TABLE},
+    constants::{
+        heuristics::*,
+        piece_values::*,
+        zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
+    },
     gamestate::GameState,
     moves::MoveList,
     transposition::{TTEntry, TranspositionTable},
@@ -60,51 +64,39 @@ impl Engine {
         }
         p = board.bitboards[8];
         while p != 0 {
-            self.evaluation += BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_BISHOP_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.bitboards[7];
         while p != 0 {
-            self.evaluation += BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_KNIGHT_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.bitboards[9];
         while p != 0 {
-            self.evaluation += BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_ROOK_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.bitboards[6];
         while p != 0 {
-            self.evaluation += BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_PAWN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.bitboards[10];
         while p != 0 {
-            self.evaluation += BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_QUEEN_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         p = board.bitboards[11];
         while p != 0 {
-            self.evaluation += BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
+            self.evaluation -= BLACK_KING_HEURISTICS[p.trailing_zeros() as usize];
             p &= p - 1;
         }
         for piece in board.cached_pieces {
             if piece == 0 {
                 continue;
             }
-            self.evaluation += match piece {
-                WHITE_PAWN_U16 => PAWN_VALUE,
-                WHITE_BISHOP_U16 => BISHOP_VALUE,
-                WHITE_KNIGHT_U16 => KNIGHT_VALUE,
-                WHITE_QUEEN_U16 => QUEEN_VALUE,
-                WHITE_ROOK_U16 => ROOK_VALUE,
-                BLACK_PAWN_U16 => -PAWN_VALUE,
-                BLACK_BISHOP_U16 => -BISHOP_VALUE,
-                BLACK_KNIGHT_U16 => -KNIGHT_VALUE,
-                BLACK_QUEEN_U16 => -QUEEN_VALUE,
-                BLACK_ROOK_U16 => -ROOK_VALUE,
-                _ => continue,
-            }
+            self.evaluation += VALUE_TABLE[piece as usize - 1];
         }
     }
 
@@ -179,7 +171,6 @@ impl Engine {
                 if state.whose_turn == 8 { 16 } else { 8 },
                 node_count,
             );
-            // return self.evaluation;
         }
         let depth_as_index: usize = depth as usize;
         let (mut best_score, mut best_move) = (
@@ -457,7 +448,7 @@ impl Engine {
                             best_move: 0,
                         },
                     );
-                    return beta;
+                    return stand_pat;
                 }
                 if stand_pat > alpha {
                     alpha = stand_pat;
@@ -488,7 +479,7 @@ impl Engine {
                             best_move: 0,
                         },
                     );
-                    return alpha;
+                    return stand_pat;
                 }
                 if stand_pat < beta {
                     beta = stand_pat;
@@ -533,11 +524,7 @@ impl Engine {
             &board.cached_pieces,
         );
 
-        let mut best_score: i32 = if maximizing {
-            -CHECKMATE_VALUE
-        } else {
-            CHECKMATE_VALUE
-        };
+        let mut best_score: i32 = stand_pat;
 
         let mut best_move: u16 = 0;
 
@@ -668,6 +655,12 @@ impl Engine {
         self.transposition_table.collisions = 0;
         self.transposition_table.replacements = 0;
 
+        let mut best_score_eval: i32 = if self.side == 8 {
+            -CHECKMATE_VALUE
+        } else {
+            CHECKMATE_VALUE
+        };
+
         // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
             let piece: u16 = *piece;
@@ -676,6 +669,11 @@ impl Engine {
                 self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
             }
         }
+        self.current_hash ^= if self.side == 8 {
+            WHITE_ZOBRIST_KEY
+        } else {
+            BLACK_ZOBRIST_KEY
+        };
 
         let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
@@ -688,6 +686,9 @@ impl Engine {
 
         let time_limit: Duration = Duration::from_secs(5);
         let timer_start: Instant = Instant::now();
+
+        self.evaluate(board);
+        println!("evaluation at start of find_best_move: {}", self.evaluation);
 
         for d in 1..=self.depth {
             if timer_start.elapsed() >= time_limit && !correspondence {
@@ -736,11 +737,6 @@ impl Engine {
 
             for i in 0..last_occupied {
                 let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
-                /*println!(
-                    "from: {}, to: {}",
-                    allegedly_best_move & FROM_MASK,
-                    (allegedly_best_move & TO_MASK) >> TO_SHIFT,
-                );*/
 
                 copied_board.perform_move(
                     allegedly_best_move,
@@ -791,14 +787,7 @@ impl Engine {
                     depth_best_score = score;
                     depth_best_move = allegedly_best_move;
                 }
-                /*println!(
-                    "occupied: {}, collisions: {}, replacements: {}, hits: {}, hit rate: {}",
-                    self.transposition_table.occupied,
-                    self.transposition_table.collisions,
-                    self.transposition_table.replacements,
-                    self.transposition_table.hits,
-                    self.transposition_table.hits as f64 / node_count as f64,
-                );*/
+                best_score_eval = depth_best_score;
             }
             previous_best_move = depth_best_move;
             println!("reached depth {d}");
@@ -806,8 +795,9 @@ impl Engine {
         if previous_best_move != 0 {
             best_move = Some(previous_best_move);
         }
+        println!("eval: {best_score_eval}");
 
-        println!("nodes: {node_count}");
+        println!("nodes: {node_count}\n");
         return best_move;
     }
 }

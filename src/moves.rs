@@ -95,13 +95,13 @@ impl Board {
             if !captures_only {
                 let forward_square: u16 = match color {
                     8 => initial_pos + 8,
-                    _ => initial_pos - 8,
+                    _ => initial_pos.saturating_sub(8),
                 };
                 if forward_square < 64 && (self.total_occupancy >> forward_square) & 1 == 0 {
                     dest_bitboard |= 1 << forward_square;
                     let second_forward_square: u16 = match color {
                         8 => initial_pos + 16,
-                        _ => initial_pos - 16,
+                        _ => initial_pos.saturating_sub(16),
                     };
                     if match color {
                         8 => (1 << initial_pos) & RANK_2 != 0,

@@ -1,4 +1,5 @@
 mod engine_tests;
+mod evaluation_tests;
 mod perform_cancel_move_tests;
 pub mod perft;
 pub mod profiling;

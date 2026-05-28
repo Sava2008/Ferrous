@@ -47,9 +47,6 @@ fn main() -> () {
     compute_all_lines();
     compute_mvvlva();
 
-    // engine_speed_test();
-    // std::process::exit(0);
-
     let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);
 
@@ -83,7 +80,7 @@ fn main() -> () {
     };*/
     let mut white_engine: Engine = Engine {
         side: 8,
-        depth: 6,
+        depth: 8,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {
@@ -307,10 +304,11 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16)
 
     let moving_piece: &u16 = &board.cached_pieces[from_sq as usize];
 
-    if (moving_piece == &WHITE_KING_U16 || moving_piece == &BLACK_KING_U16)
-        && std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq) > 1
-    {
-        parsed_move |= 1 << MARK_SHIFT;
+    if moving_piece == &WHITE_KING_U16 || moving_piece == &BLACK_KING_U16 {
+        let from_to_diff: u16 = std::cmp::max(from_sq, to_sq) - std::cmp::min(from_sq, to_sq);
+        if from_to_diff > 1 && from_to_diff < 8 {
+            parsed_move |= 1 << MARK_SHIFT;
+        }
     }
     if let Some(e_p) = state.en_passant_target
         && (moving_piece == &WHITE_PAWN_U16 || moving_piece == &BLACK_PAWN_U16)

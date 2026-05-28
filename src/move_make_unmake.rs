@@ -4,7 +4,10 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
-        heuristics::*, masks::BIT_MASKS, piece_values::*, zobrist_hashes::ZOBRIST_HASH_TABLE,
+        heuristics::*,
+        masks::BIT_MASKS,
+        piece_values::*,
+        zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
     gamestate::{GameState, PreviousMove},
 };
@@ -20,11 +23,16 @@ impl Board {
         current_hash: &mut u64,
         captured_table_idx: usize,
         occupancy_idx: usize,
+        color: u16,
     ) -> () {
         *evaluation -= VALUE_TABLE[captured_table_idx];
+        *evaluation -= if color == 8 {
+            -HEURISTICS_TABLE[captured_table_idx][to_sq]
+        } else {
+            HEURISTICS_TABLE[captured_table_idx][to_sq]
+        };
         previous_move.captured_piece |= enemy;
-        let to_sq_as_index: usize = to_sq as usize;
-        let capture: u64 = !BIT_MASKS[to_sq_as_index];
+        let capture: u64 = !BIT_MASKS[to_sq];
         if enemy == WHITE_ROOK_U16 {
             if to_sq == 7 {
                 state.castling_rights &= !WHITE_SHORT;
@@ -40,7 +48,7 @@ impl Board {
         }
         self.bitboards[captured_table_idx] &= capture;
         self.occupancies[occupancy_idx] &= capture;
-        *current_hash ^= ZOBRIST_HASH_TABLE[captured_table_idx * 64 + to_sq_as_index];
+        *current_hash ^= ZOBRIST_HASH_TABLE[captured_table_idx * 64 + to_sq];
     }
 
     #[cold]
@@ -68,7 +76,7 @@ impl Board {
             8 => (
                 &mut self.occupancies[0],
                 (
-                    -WHITE_ROOK_HEURISTICS[rook_from],
+                    WHITE_ROOK_HEURISTICS[rook_from],
                     WHITE_ROOK_HEURISTICS[rook_to],
                 ),
                 &mut self.bitboards[3],
@@ -77,7 +85,7 @@ impl Board {
                 &mut self.occupancies[1],
                 (
                     BLACK_ROOK_HEURISTICS[rook_from],
-                    -BLACK_ROOK_HEURISTICS[rook_to],
+                    BLACK_ROOK_HEURISTICS[rook_to],
                 ),
                 &mut self.bitboards[9],
             ),
@@ -93,7 +101,11 @@ impl Board {
         *occupancy |= end;
         *rook_bb &= start;
         *rook_bb |= end;
-        *eval += rook_from_heuristic + rook_to_heuristic;
+        *eval += if color == 8 {
+            rook_to_heuristic - rook_from_heuristic
+        } else {
+            rook_from_heuristic - rook_to_heuristic
+        };
 
         let rook_hash: usize = (rook as usize - 1) * 64;
         *current_hash ^= ZOBRIST_HASH_TABLE[rook_hash + rook_from];
@@ -102,7 +114,7 @@ impl Board {
 
     #[cold]
     fn en_passant(&mut self, e_p: u8, color: u16, eval: &mut i32) -> () {
-        let (pawns, occupancy, captured_pawn_square, material_subtraction) = match color {
+        let (pawns, occupancy, captured_pawn_square, mut material_subtraction) = match color {
             8 => (
                 &mut self.bitboards[6],
                 &mut self.occupancies[1],
@@ -115,6 +127,11 @@ impl Board {
                 e_p as usize + 8,
                 -PAWN_VALUE,
             ),
+        };
+        material_subtraction -= if color == 8 {
+            -HEURISTICS_TABLE[6][captured_pawn_square]
+        } else {
+            HEURISTICS_TABLE[0][captured_pawn_square]
         };
         self.cached_pieces[captured_pawn_square] = 0;
         let capture: u64 = !BIT_MASKS[captured_pawn_square];
@@ -183,6 +200,7 @@ impl Board {
                 current_hash,
                 captured_piece_table_idx,
                 captured_occupancy_idx,
+                color,
             );
         }
         if move_flag == 1 {
@@ -249,9 +267,11 @@ impl Board {
         );
 
         if color == 8 {
+            *current_hash ^= WHITE_ZOBRIST_KEY;
             *evaluation += to_heuristic - from_heuristic;
         } else {
-            *evaluation -= to_heuristic + from_heuristic;
+            *current_hash ^= BLACK_ZOBRIST_KEY;
+            *evaluation += from_heuristic - to_heuristic;
         }
 
         let to_sq_index_base_zero: usize = to_sq_index_base_one - 1;
@@ -264,6 +284,8 @@ impl Board {
                 *&mut self.bitboards[6] &= start;
                 promotion_choice + 6
             };
+            *evaluation += VALUE_TABLE[promotion_choice_table_idx]
+                + if color == 8 { -PAWN_VALUE } else { PAWN_VALUE };
             self.bitboards[promotion_choice_table_idx] |= end;
             *current_hash ^= zobrist_table[to_sq_index_base_zero];
             *current_hash ^= zobrist_table[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
@@ -308,7 +330,13 @@ impl Board {
                 (from_square(m), to_square(m), previous_move.captured_piece);
             let (start_index, end_index): (usize, usize) = (start as usize, end as usize);
             let main_piece: u16 = cached_pieces[end_index];
-            let enemy_color: u16 = if color == 8 { 16 } else { 8 };
+            let enemy_color: u16 = if color == 8 {
+                *current_hash ^= WHITE_ZOBRIST_KEY;
+                16
+            } else {
+                *current_hash ^= BLACK_ZOBRIST_KEY;
+                8
+            };
             let (
                 (moving_piece_table_idx, moving_piece_occupancy_idx),
                 (captured_piece_table_idx, captured_piece_occupancy_idx),
