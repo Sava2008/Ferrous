@@ -12,6 +12,7 @@ use crate::{
     transposition::TranspositionTable,
 };
 use std::{
+    fs::OpenOptions,
     io::{self, Write},
     time::Instant,
 };
@@ -28,6 +29,7 @@ pub mod search;
 pub mod tests;
 pub mod transposition;
 pub mod tuning;
+pub mod uci;
 
 enum MoveResult {
     Win,
@@ -164,7 +166,7 @@ fn game_control(
                     state.whose_turn = 16;
                 } else {
                     loop {
-                        match make_player_move(board, state, 16) {
+                        match make_player_move(board, state, 16, engine) {
                             MoveResult::Continue => continue,
                             MoveResult::Draw | MoveResult::Win => break 'outer,
                             MoveResult::None => break,
@@ -176,7 +178,7 @@ fn game_control(
             16 => {
                 if state.whose_turn == 8 {
                     loop {
-                        match make_player_move(board, state, NO_PIECE_WHITE) {
+                        match make_player_move(board, state, NO_PIECE_WHITE, engine) {
                             MoveResult::Continue => continue,
                             MoveResult::Draw | MoveResult::Win => break 'outer,
                             MoveResult::None => break,
@@ -209,23 +211,51 @@ fn make_engine_move(
     let t: Instant = Instant::now();
     let engine_move: Option<u16> = engine.find_best_move(&board, state, false);
     println!("time: {:.3?}", t.elapsed());
+
     if let Some(m) = engine_move {
+        let final_square: usize = to_square(m) as usize;
+        let is_capture: bool = if board.cached_pieces[final_square] == 0 {
+            false
+        } else {
+            true
+        };
+        let mut file: std::fs::File = OpenOptions::new().append(true).open("game.txt").unwrap();
+
+        state.fifty_moves_rule_counter += 1;
+        state.irreversible_moves.push(engine.current_hash);
+
         board.perform_move(m, state, color, &mut engine.evaluation, &mut 0);
-        println!(
-            "Ferrous's move: {:?} {:?} {}",
-            INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
-            INDICES_TO_COORDS
-                .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
-                .unwrap(),
-            match (m & MARK_MASK) >> MARK_SHIFT {
-                0..3 => "",
-                3 => "n",
-                4 => "b",
-                5 => "r",
-                6 => "q",
-                _ => unreachable!(),
-            }
-        );
+        file.write(
+            format!(
+                "Ferrous's move: {:?} {:?} {}\n",
+                INDICES_TO_COORDS.get(&((m & FROM_MASK) as u8)).unwrap(),
+                INDICES_TO_COORDS
+                    .get(&(((m & TO_MASK) >> TO_SHIFT) as u8))
+                    .unwrap(),
+                match (m & MARK_MASK) >> MARK_SHIFT {
+                    0..3 => "",
+                    3 => "n",
+                    4 => "b",
+                    5 => "r",
+                    6 => "q",
+                    _ => unreachable!(),
+                },
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        if board.cached_pieces[final_square] == (if engine.side == 8 { 1 } else { 7 }) || is_capture
+        {
+            state.irreversible_moves.clear();
+            state.fifty_moves_rule_counter = 1;
+        } else {
+            state.fifty_moves_rule_counter += 1;
+        }
+        if state.is_repetition(engine.current_hash) || state.fifty_moves_rule_counter >= 50 {
+            state.result = GameResult::Draw;
+            println!("draw");
+            return MoveResult::Draw;
+        }
     } else {
         if board.is_square_attacked(board.black_king_square, 8)
             || board.is_square_attacked(board.white_king_square, 16)
@@ -242,7 +272,12 @@ fn make_engine_move(
     return MoveResult::None;
 }
 
-fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16) -> MoveResult {
+fn make_player_move(
+    board: &mut Board,
+    state: &mut GameState,
+    player_color: u16,
+    engine: &Engine,
+) -> MoveResult {
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -336,6 +371,9 @@ fn make_player_move(board: &mut Board, state: &mut GameState, player_color: u16)
         mv & FROM_MASK == parsed_move & FROM_MASK
             && (mv & TO_MASK) >> TO_SHIFT == (parsed_move & TO_MASK) >> TO_SHIFT
     }) {
+        state.fifty_moves_rule_counter += 1;
+        state.irreversible_moves.push(engine.current_hash);
+
         board.perform_move(parsed_move, state, player_color, &mut 0, &mut 0);
         return MoveResult::None;
     } else {

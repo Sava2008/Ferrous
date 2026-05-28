@@ -21,6 +21,7 @@ pub struct GameState {
     pub total_moves_amount: u16,
     pub whose_turn: u16,
     pub result: GameResult,
+    pub irreversible_moves: Vec<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,11 +72,25 @@ impl GameState {
                 (_, 60) => BLACK_SHORT | BLACK_LONG,
                 (_, _) => 0,
             },
-            fifty_moves_rule_counter: 0,
-            moves_history: Vec::with_capacity(8),
+            fifty_moves_rule_counter: 1,
+            moves_history: Vec::with_capacity(50),
             total_moves_amount: 0,
             whose_turn: 8,
             result: GameResult::Going,
+            irreversible_moves: Vec::new(),
         };
+    }
+
+    pub fn is_repetition(&self, current_hash: u64) -> bool {
+        let mut repetition_counter: u8 = 1;
+        for pos in &self.irreversible_moves {
+            if *pos == current_hash {
+                repetition_counter += 1;
+            }
+        }
+        if repetition_counter > 2 {
+            return true;
+        }
+        return false;
     }
 }

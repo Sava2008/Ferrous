@@ -688,7 +688,6 @@ impl Engine {
         let timer_start: Instant = Instant::now();
 
         self.evaluate(board);
-        println!("evaluation at start of find_best_move: {}", self.evaluation);
 
         for d in 1..=self.depth {
             if timer_start.elapsed() >= time_limit && !correspondence {
@@ -761,6 +760,16 @@ impl Engine {
                     continue;
                 }
 
+                if state.is_repetition(self.current_hash) || state.fifty_moves_rule_counter >= 98 {
+                    copied_board.cancel_move(
+                        &mut copied_state,
+                        self.side,
+                        &mut self.evaluation,
+                        &mut self.current_hash,
+                    );
+                    continue;
+                }
+
                 let score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
                     d - 1,
@@ -770,7 +779,6 @@ impl Engine {
                     &mut copied_state,
                     &mut node_count,
                 );
-                // println!("score: {}", score);
 
                 copied_board.cancel_move(
                     &mut copied_state,
@@ -790,14 +798,14 @@ impl Engine {
                 best_score_eval = depth_best_score;
             }
             previous_best_move = depth_best_move;
-            println!("reached depth {d}");
+            //println!("reached depth {d}");
         }
         if previous_best_move != 0 {
             best_move = Some(previous_best_move);
         }
-        println!("eval: {best_score_eval}");
+        //println!("eval: {best_score_eval}");
 
-        println!("nodes: {node_count}\n");
+        //println!("nodes: {node_count}\n");
         return best_move;
     }
 }
