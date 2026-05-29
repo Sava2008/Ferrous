@@ -655,11 +655,11 @@ impl Engine {
         self.transposition_table.collisions = 0;
         self.transposition_table.replacements = 0;
 
-        let mut best_score_eval: i32 = if self.side == 8 {
+        /*let mut best_score_eval: i32 = if self.side == 8 {
             -CHECKMATE_VALUE
         } else {
             CHECKMATE_VALUE
-        };
+        };*/
 
         // calculate the hash of the position in the beginning
         for (i, piece) in board.cached_pieces.iter().enumerate() {
@@ -683,8 +683,12 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u16;
 
         let mut previous_best_move: u16 = 0;
+        let bad_draw_score = match self.side {
+            8 => -200,
+            _ => 200,
+        };
 
-        let time_limit: Duration = Duration::from_secs(5);
+        let time_limit: Duration = Duration::from_millis(100); // 0.1 sec
         let timer_start: Instant = Instant::now();
 
         self.evaluate(board);
@@ -760,17 +764,7 @@ impl Engine {
                     continue;
                 }
 
-                if state.is_repetition(self.current_hash) || state.fifty_moves_rule_counter >= 98 {
-                    copied_board.cancel_move(
-                        &mut copied_state,
-                        self.side,
-                        &mut self.evaluation,
-                        &mut self.current_hash,
-                    );
-                    continue;
-                }
-
-                let score: i32 = self.alpha_beta_pruning(
+                let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
                     d - 1,
                     -CHECKMATE_VALUE,
@@ -779,6 +773,19 @@ impl Engine {
                     &mut copied_state,
                     &mut node_count,
                 );
+
+                if copied_state.is_repetition(self.current_hash)
+                    || copied_state.fifty_moves_rule_counter >= 98
+                {
+                    score = if match self.side {
+                        8 => score <= bad_draw_score,
+                        _ => score >= bad_draw_score,
+                    } {
+                        0
+                    } else {
+                        bad_draw_score
+                    };
+                }
 
                 copied_board.cancel_move(
                     &mut copied_state,
@@ -795,7 +802,7 @@ impl Engine {
                     depth_best_score = score;
                     depth_best_move = allegedly_best_move;
                 }
-                best_score_eval = depth_best_score;
+                // best_score_eval = depth_best_score;
             }
             previous_best_move = depth_best_move;
             //println!("reached depth {d}");
