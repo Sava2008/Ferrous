@@ -1,9 +1,11 @@
+#[allow(unused)]
 use crate::{
     board::Board, converters::fen_converter::fen_to_board, gamestate::GameState, moves::MoveList,
     search::Engine, transposition::TranspositionTable,
 };
 use std::time::{Duration, Instant};
 
+#[test]
 pub fn engine_speed_test() -> () {
     let mut test_engine: Engine = Engine {
         side: 8,
@@ -101,6 +103,7 @@ pub fn engine_speed_test() -> () {
     is_square_attacked_speed_test(&board5);
 }
 
+#[allow(unused)]
 fn movegen_speed_test(
     movegen_time: &mut Duration,
     make_move_time: &mut Duration,
@@ -126,6 +129,7 @@ fn movegen_speed_test(
     }
 }
 
+#[allow(unused)]
 fn make_unmake_speed_test(
     board: &mut Board,
     state: &mut GameState,
@@ -144,6 +148,7 @@ fn make_unmake_speed_test(
     *unmake_move_time_results += start_timer.elapsed();
 }
 
+#[allow(unused)]
 fn is_square_attacked_speed_test(board: &Board) -> () {
     let mut total_time: Duration = Duration::ZERO;
     for sq in 0..64 {

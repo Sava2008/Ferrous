@@ -637,7 +637,8 @@ impl Engine {
         &mut self,
         board: &Board,
         state: &mut GameState,
-        correspondence: bool,
+        time_contrainsts: Duration,
+        max_depth: u8,
     ) -> Option<u16> {
         for i in 0..4096 {
             self.history_heuristics[i] /= 100;
@@ -683,18 +684,17 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u16;
 
         let mut previous_best_move: u16 = 0;
-        let bad_draw_score = match self.side {
+        let bad_draw_score: i32 = match self.side {
             8 => -200,
             _ => 200,
         };
 
-        let time_limit: Duration = Duration::from_millis(100); // 0.1 sec
         let timer_start: Instant = Instant::now();
 
         self.evaluate(board);
 
-        for d in 1..=self.depth {
-            if timer_start.elapsed() >= time_limit && !correspondence {
+        'outer: for d in 1..=self.depth {
+            if max_depth + 1 == d {
                 break;
             }
             let maximizing: bool = match self.side {
@@ -722,6 +722,9 @@ impl Engine {
             let moves: &mut [u16; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
 
             for i in 0..last_occupied {
+                if timer_start.elapsed() >= time_contrainsts && time_contrainsts != Duration::ZERO {
+                    break 'outer;
+                }
                 let (best_move_index_offset, _) = scores[i..last_occupied]
                     .iter()
                     .enumerate()
@@ -805,14 +808,14 @@ impl Engine {
                 // best_score_eval = depth_best_score;
             }
             previous_best_move = depth_best_move;
-            //println!("reached depth {d}");
+            println!("reached depth {d}");
         }
         if previous_best_move != 0 {
             best_move = Some(previous_best_move);
         }
         //println!("eval: {best_score_eval}");
 
-        //println!("nodes: {node_count}\n");
+        println!("nodes: {node_count}\n");
         return best_move;
     }
 }

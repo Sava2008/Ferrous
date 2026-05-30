@@ -8,6 +8,8 @@ use crate::{
     transposition::TranspositionTable,
 };
 
+#[allow(unused)]
+use std::time::Duration;
 #[test]
 fn evaluation_test_capture() -> () {
     initialize_sliding_attack_tables();
@@ -82,7 +84,7 @@ fn confirm_sane_eval() -> () {
 
     test_engine.evaluate(&board);
     let m: u16 = test_engine
-        .find_best_move(&board, &mut state, false)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     println!("move: {} {}", from_square(m), to_square(m));
 }

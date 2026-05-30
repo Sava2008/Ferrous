@@ -35,7 +35,7 @@ fn main() -> () {
     compute_mvvlva();
     let mut engine: Engine = Engine {
         side: 0,
-        depth: 8,
+        depth: 20,
         evaluation: 0,
         killer_moves: [[None; 2]; 32],
         move_lists: [MoveList {

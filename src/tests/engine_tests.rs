@@ -1,4 +1,7 @@
 #[allow(unused)]
+use std::time::Duration;
+
+#[allow(unused)]
 use crate::{
     board_geometry_templates::*, constants::attacks::*, converters::fen_converter::fen_to_board,
     moves::MoveList, search::Engine, transposition::TranspositionTable,
@@ -46,18 +49,18 @@ fn checkmate_in_two_test1() -> () {
         transposition_table: TranspositionTable::new(),
     };
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 14);
     assert_eq!(to, 6);
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
     let response: u16 = opponent_engine
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
     let checkmate_engine_move = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         checkmate_engine_move & FROM_MASK,
@@ -110,7 +113,7 @@ fn checkmate_in_three_test1() -> () {
         transposition_table: TranspositionTable::new(),
     };
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 31);
@@ -118,12 +121,12 @@ fn checkmate_in_three_test1() -> () {
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
     let response: u16 = opponent_engine
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move2: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         engine_move2 & FROM_MASK,
@@ -134,12 +137,12 @@ fn checkmate_in_three_test1() -> () {
     board.perform_move(engine_move2, &mut state, 16, &mut 0, &mut 0);
 
     let response: u16 = opponent_engine
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move3: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         engine_move3 & FROM_MASK,
@@ -177,7 +180,7 @@ fn checkmate_in_three_tricky_test() -> () {
     };
 
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     assert_eq!(engine_move & FROM_MASK, 39);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 60);
@@ -199,7 +202,7 @@ fn checkmate_in_three_tricky_test() -> () {
     );
 
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     assert_eq!(engine_move & FROM_MASK, 55);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 50);
@@ -221,11 +224,11 @@ fn checkmate_in_three_tricky_test() -> () {
     );
 
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(1), 100)
         .unwrap();
     assert_eq!(engine_move & FROM_MASK, 49);
     assert_eq!((engine_move & TO_MASK) >> TO_SHIFT, 57);
-    assert_eq!((engine_move & MARK_MASK) >> MARK_SHIFT, 1);
+    assert_eq!((engine_move & MARK_MASK) >> MARK_SHIFT, 3);
 }
 
 #[test]
@@ -270,7 +273,7 @@ fn checkmate_in_four_test1() -> () {
         transposition_table: TranspositionTable::new(),
     };
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 18);
@@ -279,12 +282,12 @@ fn checkmate_in_four_test1() -> () {
     board.perform_move(engine_move, &mut state, 16, &mut 0, &mut 0);
 
     let response: u16 = opponent_engine
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move2: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         engine_move2 & FROM_MASK,
@@ -298,7 +301,7 @@ fn checkmate_in_four_test1() -> () {
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move3: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         engine_move3 & FROM_MASK,
@@ -309,12 +312,12 @@ fn checkmate_in_four_test1() -> () {
     board.perform_move(engine_move3, &mut state, 16, &mut 0, &mut 0);
 
     let response: u16 = opponent_engine
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     board.perform_move(response, &mut state, 8, &mut 0, &mut 0);
 
     let engine_move4: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
         .unwrap();
     let (from, to) = (
         engine_move4 & FROM_MASK,
@@ -351,7 +354,7 @@ fn checkmate_in_five_test1() -> () {
         transposition_table: TranspositionTable::new(),
     };
     let engine_move: u16 = engine_depth_8
-        .find_best_move(&board, &mut state, true)
+        .find_best_move(&board, &mut state, Duration::from_secs(40), 100)
         .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     assert_eq!(from, 37);
@@ -385,7 +388,9 @@ fn avoiding_trapped_bishop_test() -> () {
         transposition_table: TranspositionTable::new(),
     };
 
-    let engine_move: u16 = engine.find_best_move(&board, &mut state, true).unwrap();
+    let engine_move: u16 = engine
+        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
+        .unwrap();
     let (from, to) = (engine_move & FROM_MASK, (engine_move & TO_MASK) >> TO_SHIFT);
     println!("move: {} {}", from, to);
 

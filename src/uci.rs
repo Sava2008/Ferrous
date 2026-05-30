@@ -1,4 +1,7 @@
-use std::io::BufRead;
+use std::{
+    io::BufRead,
+    time::{Duration, Instant},
+};
 
 use crate::{
     board::Board,
@@ -40,7 +43,27 @@ pub fn uci_output(engine: &mut Engine) -> () {
                     {
                         b.total_occupancy();
                         b.update_full_cache();
-                        engine.find_best_move(&b, &mut s, false).unwrap()
+                        let mut split_command = command.split_whitespace();
+                        split_command.next();
+                        let (restriction, amount) = (split_command.next(), split_command.next());
+                        let (max_depth, time_constrainst) = if let Some(r) = restriction
+                            && let Some(a) = amount
+                        {
+                            match r {
+                                "depth" => (a.parse().unwrap(), Duration::ZERO),
+                                "movetime" => (100, Duration::from_millis(a.parse().unwrap())),
+                                _ => unimplemented!(),
+                            }
+                        } else {
+                            (10, Duration::from_secs(30))
+                        };
+                        engine.depth = max_depth;
+                        let start_time: Instant = Instant::now();
+                        let engine_move: u16 = engine
+                            .find_best_move(&b, &mut s, time_constrainst, max_depth)
+                            .unwrap();
+                        println!("time spent: {}", start_time.elapsed().as_millis());
+                        engine_move
                     } else {
                         panic!("uninitialized board");
                     };
