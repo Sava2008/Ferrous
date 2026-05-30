@@ -1,8 +1,11 @@
 #[allow(unused)]
 use crate::{
-    board_geometry_templates::*, constants::attacks::*,
-    constants::zobrist_hashes::ZOBRIST_HASH_TABLE, converters::fen_converter::fen_to_board,
+    board_geometry_templates::*,
+    constants::attacks::*,
+    constants::zobrist_hashes::ZOBRIST_HASH_TABLE,
+    converters::fen_converter::fen_to_board,
     moves::MoveList,
+    {search::Engine, transposition::TranspositionTable},
 };
 #[test]
 fn knight_move_and_cancel_test() -> () {
@@ -302,6 +305,56 @@ fn buggy_castling_test() -> () {
 
     assert_eq!(board_copy, board);
     assert_eq!(state_copy, state);
+}
+
+#[test]
+fn pawn_promo_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, state) = fen_to_board("2r5/1P6/K1pp4/8/1R3p1k/8/4P1P1/8 w - - 1 4");
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.pawn_moves(&state, 8, &mut moves, false);
+    assert_eq!(moves.first_not_occupied, 12);
+
+    // promotion to evade a check
+    let (mut board, mut state) = fen_to_board("r7/1P6/K1pp4/8/1R3p1k/8/4P1P1/8 w - - 1 4");
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.pawn_moves(&state, 8, &mut moves, false);
+    let (board_copy, state_copy) = (board.clone(), state.clone());
+    let mut legal_moves: u8 = 0;
+    for i in 0..moves.first_not_occupied {
+        let m: u16 = moves.pseudo_moves[i];
+        board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
+        println!(
+            "from {}, to {}, promotion: {}",
+            from_square(m),
+            to_square(m),
+            (m & MARK_MASK) >> MARK_SHIFT
+        );
+        println!("board afterwards: {:?}", board.cached_pieces);
+        if !board.is_square_attacked(board.white_king_square, 16) {
+            legal_moves += 1;
+        }
+        board.cancel_move(&mut state, 8, &mut 0, &mut 0);
+        assert_eq!(board, board_copy);
+        assert_eq!(state, state_copy);
+    }
+    assert_eq!(legal_moves, 4);
 }
 
 // `rn2kbnr/pppbpppp/6q1/8/3P4/2N2B2/PPP2PPP/R1BQK1NR b KQkq - 2 6` played Bc6??, Nc6 was best

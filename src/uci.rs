@@ -26,36 +26,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
             }
             "isready" => println!("readyok"),
             "quit" => break,
-            "go" => {
-                let engine_move: u16 = if let Some(mut b) = board.clone()
-                    && let Some(mut s) = state.clone()
-                {
-                    b.total_occupancy();
-                    b.update_full_cache();
-                    engine.find_best_move(&b, &mut s, false).unwrap()
-                } else {
-                    panic!("uninitialized board");
-                };
-                let uci_move_string: String = format!(
-                    "{:?}{:?}{}",
-                    INDICES_TO_COORDS
-                        .get(&((engine_move & FROM_MASK) as u8))
-                        .unwrap(),
-                    INDICES_TO_COORDS
-                        .get(&(((engine_move & TO_MASK) >> TO_SHIFT) as u8))
-                        .unwrap(),
-                    match (engine_move & MARK_MASK) >> MARK_SHIFT {
-                        0..3 => "",
-                        3 => "n",
-                        4 => "b",
-                        5 => "r",
-                        6 => "q",
-                        _ => unreachable!(),
-                    },
-                )
-                .replace("\"", "");
-                println!("bestmove {}", uci_move_string.as_str());
-            }
+
             _ => {
                 if command.starts_with("position fen ") {
                     command.split_whitespace().next();
@@ -63,6 +34,35 @@ pub fn uci_output(engine: &mut Engine) -> () {
                     let (raw_board, raw_state) = fen_to_board(fen_position);
                     engine.side = raw_state.whose_turn;
                     (board, state) = (Some(raw_board), Some(raw_state));
+                } else if command.starts_with("go") {
+                    let engine_move: u16 = if let Some(mut b) = board.clone()
+                        && let Some(mut s) = state.clone()
+                    {
+                        b.total_occupancy();
+                        b.update_full_cache();
+                        engine.find_best_move(&b, &mut s, false).unwrap()
+                    } else {
+                        panic!("uninitialized board");
+                    };
+                    let uci_move_string: String = format!(
+                        "{:?}{:?}{}",
+                        INDICES_TO_COORDS
+                            .get(&((engine_move & FROM_MASK) as u8))
+                            .unwrap(),
+                        INDICES_TO_COORDS
+                            .get(&(((engine_move & TO_MASK) >> TO_SHIFT) as u8))
+                            .unwrap(),
+                        match (engine_move & MARK_MASK) >> MARK_SHIFT {
+                            0..3 => "",
+                            3 => "n",
+                            4 => "b",
+                            5 => "r",
+                            6 => "q",
+                            _ => unreachable!(),
+                        },
+                    )
+                    .replace("\"", "");
+                    println!("bestmove {}", uci_move_string.as_str());
                 } else {
                     unimplemented!();
                 }

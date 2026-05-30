@@ -131,7 +131,7 @@ const fn pawn_attacks(color: u8) -> [u64; 64] {
 
         if match color {
             8 => rank < 7,
-            _ => rank > 1,
+            _ => rank > 0,
         } {
             if file > 0 {
                 attacks |= match color {
