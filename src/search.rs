@@ -18,17 +18,42 @@ pub struct Engine {
     pub side: u16, // which color Ferrous plays
     pub depth: u8,
     pub evaluation: i32,
-    pub killer_moves: [[Option<u16>; 2]; 32],
-    pub move_lists: [MoveList; 32],
-    pub move_scores: [[i16; 192]; 32],
+    pub killer_moves: [[Option<u16>; 2]; 64],
+    pub move_lists: [MoveList; 64],
+    pub move_scores: [[i16; 192]; 64],
     pub history_heuristics: [i16; 4096],
-    pub quiescence_limitation: u8,
     pub current_hash: u64,
     pub transposition_table: TranspositionTable,
+    pub nodes_since_last_check: u64,
+    pub how_much_searched: (f32, f32), /* First: how many root move searched,
+                                       second how many root moves to search.
+                                       By applying the formula (how_much_searched.0 / how_much_searched.1)
+                                       the engine can determine whether to end the session or not */
 }
+
 const CHECKMATE_VALUE: i32 = 1_000_000;
+const TIME_CHECK_NODES_OFFSET: u64 = 100000; // how often to check for time
+const TIMEOUT_RETURN: i32 = 2_000_001;
 
 impl Engine {
+    pub fn new(side: u16, depth: u8) -> Self {
+        return Engine {
+            side,
+            depth,
+            evaluation: 0,
+            killer_moves: [[None; 2]; 64],
+            move_lists: [MoveList {
+                pseudo_moves: [0; 192],
+                first_not_occupied: 0,
+            }; 64],
+            history_heuristics: [0; 4096],
+            move_scores: [[0; 192]; 64],
+            current_hash: 0,
+            transposition_table: TranspositionTable::new(),
+            nodes_since_last_check: 0,
+            how_much_searched: (0., 0.),
+        };
+    }
     #[inline(always)]
     pub fn evaluate(&mut self, board: &Board) -> () {
         self.evaluation = 0;
@@ -138,8 +163,20 @@ impl Engine {
         maximizing: bool,
         state: &mut GameState,
         node_count: &mut u64,
+        start_time: &Instant,
+        time_limit_ms: &u128,
     ) -> i32 {
         *node_count += 1;
+
+        let nodes_since_check: &mut u64 = &mut self.nodes_since_last_check;
+        *nodes_since_check += 1;
+        if *nodes_since_check >= TIME_CHECK_NODES_OFFSET {
+            *nodes_since_check = 0;
+            if start_time.elapsed().as_millis() >= *time_limit_ms && !self.proceed_search(depth) {
+                return TIMEOUT_RETURN;
+            }
+        }
+
         let (original_alpha, original_beta): (i32, i32) = (alpha, beta);
         let tt_entry: Option<TTEntry> = self
             .transposition_table
@@ -254,7 +291,12 @@ impl Engine {
                     false,
                     state,
                     node_count,
+                    start_time,
+                    time_limit_ms,
                 );
+                if current_score == TIMEOUT_RETURN {
+                    return current_score;
+                }
 
                 if current_score > best_score {
                     best_score = current_score;
@@ -343,7 +385,12 @@ impl Engine {
                     true,
                     state,
                     node_count,
+                    start_time,
+                    time_limit_ms,
                 );
+                if current_score == TIMEOUT_RETURN {
+                    return current_score;
+                }
 
                 if current_score < best_score {
                     best_score = current_score;
@@ -644,12 +691,12 @@ impl Engine {
             self.history_heuristics[i] /= 100;
         }
         let mut node_count: u64 = 0;
-        self.killer_moves = [[None; 2]; 32];
+        self.killer_moves = [[None; 2]; 64];
         self.move_lists = [MoveList {
             pseudo_moves: [0; 192],
             first_not_occupied: 0,
-        }; 32];
-        self.move_scores = [[0; 192]; 32];
+        }; 64];
+        self.move_scores = [[0; 192]; 64];
         self.current_hash = 0;
 
         self.transposition_table.hits = 0;
@@ -685,13 +732,17 @@ impl Engine {
 
         let mut previous_best_move: u16 = 0;
         let bad_draw_score: i32 = match self.side {
-            8 => -200,
-            _ => 200,
+            8 => -50,
+            _ => 50,
         };
 
-        let timer_start: Instant = Instant::now();
-
         self.evaluate(board);
+
+        let mut time_limit_ms: u128 = time_contrainsts.as_millis();
+        if time_limit_ms == 0 {
+            time_limit_ms = 10000 * 1000; // 10_000 seconds
+        }
+        let timer_start: Instant = Instant::now();
 
         'outer: for d in 1..=self.depth {
             if max_depth + 1 == d {
@@ -711,6 +762,7 @@ impl Engine {
                 false,
             );
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+            self.how_much_searched.1 = last_occupied as f32;
 
             self.score_all_moves(
                 depth_as_index,
@@ -775,7 +827,13 @@ impl Engine {
                     maximizing,
                     &mut copied_state,
                     &mut node_count,
+                    &timer_start,
+                    &time_limit_ms,
                 );
+                self.how_much_searched.0 += 1.;
+                if score == TIMEOUT_RETURN {
+                    break 'outer;
+                }
 
                 if copied_state.is_repetition(self.current_hash)
                     || copied_state.fifty_moves_rule_counter >= 98
@@ -817,5 +875,22 @@ impl Engine {
 
         println!("nodes: {node_count}\n");
         return best_move;
+    }
+    fn proceed_search(&self, depth: u8) -> bool {
+        let depth_percent: f32 = match depth {
+            1..=4 => 0.10,
+            5..=8 => 0.05,
+            _ => 0.02,
+        };
+
+        if self.percent_finished() <= depth_percent {
+            return true;
+        }
+
+        return false;
+    }
+
+    fn percent_finished(&self) -> f32 {
+        return self.how_much_searched.0 / self.how_much_searched.1;
     }
 }

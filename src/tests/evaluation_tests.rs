@@ -23,21 +23,7 @@ fn evaluation_test_capture() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    let mut test_engine: Engine = Engine {
-        side: 8,
-        depth: 8,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
+    let mut test_engine: Engine = Engine::new(8, 8);
 
     test_engine.evaluate(&board);
     let eval: i32 = test_engine.evaluation;
@@ -66,21 +52,7 @@ fn confirm_sane_eval() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    let mut test_engine: Engine = Engine {
-        side: 16,
-        depth: 8,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
+    let mut test_engine: Engine = Engine::new(16, 8);
 
     test_engine.evaluate(&board);
     let m: u16 = test_engine

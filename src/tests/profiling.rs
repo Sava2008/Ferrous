@@ -7,21 +7,7 @@ use std::time::{Duration, Instant};
 
 #[test]
 pub fn engine_speed_test() -> () {
-    let mut test_engine: Engine = Engine {
-        side: 8,
-        depth: 9,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
+    let mut test_engine: Engine = Engine::new(8, 9);
     let (mut board1, mut state1) =
         fen_to_board("r1bq1rk1/pp3ppp/2nbpn2/2pp4/3P4/1P1BPN2/PBPN1PPP/R2QK2R w KQ - 5 8");
     let (mut board2, mut state2) =

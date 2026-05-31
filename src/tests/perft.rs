@@ -202,21 +202,7 @@ fn run_perft() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    let mut engine: Engine = Engine {
-        side: 8,
-        depth: 6,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
+    let mut engine: Engine = Engine::new(8, 6);
 
     engine.evaluate(&board);
     let node_counter: NodeCounter =
@@ -267,21 +253,7 @@ fn run_perft() -> () {
     pos3_board.total_occupancy();
     pos3_board.update_full_cache();
 
-    let mut engine: Engine = Engine {
-        side: 8,
-        depth: 1,
-        evaluation: 0,
-        killer_moves: [[None; 2]; 32],
-        move_lists: [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 32],
-        history_heuristics: [0; 4096],
-        move_scores: [[0; 192]; 32],
-        quiescence_limitation: 9,
-        current_hash: 0,
-        transposition_table: TranspositionTable::new(),
-    };
+    let mut engine: Engine = Engine::new(8, 7);
 
     engine.evaluate(&pos3_board);
 
