@@ -31,7 +31,7 @@ fn knight_move_and_cancel_test() -> () {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
-    board.knight_moves(8, &mut legal_moves, false);
+    board.knight_moves(8, &mut legal_moves, &state, false);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..12 {
         board.perform_move(legal_moves.pseudo_moves[i], &mut state, 8, &mut 0, &mut 0);
@@ -207,10 +207,13 @@ fn castling_long_and_cancel_test() -> () {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
+    println!("before generation");
     board.king_moves(&state, 8, &mut legal_moves, false);
+    println!("movegen passed");
     assert_eq!(legal_moves.first_not_occupied, 7);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..7 {
+        println!("i = {i}");
         let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0, &mut 0);
@@ -222,10 +225,13 @@ fn castling_long_and_cancel_test() -> () {
         first_not_occupied: 0,
     };
 
+    println!("before second movegen");
     board.king_moves(&state, 16, &mut legal_moves, false);
-    assert_eq!(legal_moves.first_not_occupied, 5);
+    println!("after second movegen");
+    assert_eq!(legal_moves.first_not_occupied, 4);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..5 {
+        println!("i = {i}");
         let m: u16 = legal_moves.pseudo_moves[i];
         board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0, &mut 0);
@@ -264,7 +270,7 @@ fn knight_moves_and_cancel_test() -> () {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
-    board.knight_moves(16, &mut legal_moves, false);
+    board.knight_moves(16, &mut legal_moves, &state, false);
     assert_eq!(legal_moves.first_not_occupied, 4);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..4 {

@@ -158,6 +158,8 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         whose_turn: 8,
         result: GameResult::Going,
         irreversible_moves: Vec::new(),
+        white_legal_squares_mask: u64::MAX,
+        black_legal_squares_mask: u64::MAX,
     };
     let mut index: u8 = 63;
     let mut split_fen: std::str::SplitWhitespace<'_> = fen.split_whitespace();

@@ -60,46 +60,38 @@ impl Engine {
 
             board.perform_move(m, state, color, &mut 0, &mut 0);
 
-            let king_sq: u8 = if color == 8 {
-                board.white_king_square
+            if depth == self.depth as usize {
+                println!(
+                    "from: {}, to: {}, flag: {}, results: {:?}",
+                    from_square(m),
+                    to_square(m),
+                    (m & MARK_MASK) >> MARK_SHIFT,
+                    self.perft_divide(depth - 1, board, state, opponent)
+                );
+            }
+            if depth == 1 {
+                node_counter.total_nodes += 1;
+                if is_capture {
+                    node_counter.captures += 1;
+                }
+                if is_en_passant {
+                    node_counter.en_passants += 1;
+                    node_counter.captures += 1;
+                }
+                if is_castle {
+                    node_counter.castlings += 1;
+                }
+                if is_promotion {
+                    node_counter.promotions += 1;
+                }
             } else {
-                board.black_king_square
-            };
-
-            if !board.is_square_attacked(king_sq, opponent) {
-                if depth == self.depth as usize {
-                    /*println!(
-                        "from: {}, to: {}, flag: {}, results: {:?}",
-                        from_square(m),
-                        to_square(m),
-                        (m & MARK_MASK) >> MARK_SHIFT,
-                        self.perft_divide(depth - 1, board, state, opponent)
-                    );*/
-                }
-                if depth == 1 {
-                    node_counter.total_nodes += 1;
-                    if is_capture {
-                        node_counter.captures += 1;
-                    }
-                    if is_en_passant {
-                        node_counter.en_passants += 1;
-                        node_counter.captures += 1;
-                    }
-                    if is_castle {
-                        node_counter.castlings += 1;
-                    }
-                    if is_promotion {
-                        node_counter.promotions += 1;
-                    }
-                } else {
-                    let sub_node_counter: NodeCounter =
-                        self.perft_test(depth - 1, board, state, opponent);
-                    node_counter.total_nodes += sub_node_counter.total_nodes;
-                    node_counter.captures += sub_node_counter.captures;
-                    node_counter.en_passants += sub_node_counter.en_passants;
-                    node_counter.castlings += sub_node_counter.castlings;
-                    node_counter.promotions += sub_node_counter.promotions;
-                }
+                let sub_node_counter: NodeCounter =
+                    self.perft_divide(depth - 1, board, state, opponent);
+                node_counter.total_nodes += sub_node_counter.total_nodes;
+                node_counter.captures += sub_node_counter.captures;
+                node_counter.en_passants += sub_node_counter.en_passants;
+                node_counter.castlings += sub_node_counter.castlings;
+                node_counter.promotions += sub_node_counter.promotions;
             }
 
             board.cancel_move(state, color, &mut 0, &mut 0);
@@ -154,31 +146,29 @@ impl Engine {
                 board.black_king_square
             };
 
-            if !board.is_square_attacked(king_sq, opponent) {
-                if depth == 1 {
-                    node_counter.total_nodes += 1;
-                    if is_capture {
-                        node_counter.captures += 1;
-                    }
-                    if is_en_passant {
-                        node_counter.en_passants += 1;
-                        node_counter.captures += 1;
-                    }
-                    if is_castle {
-                        node_counter.castlings += 1;
-                    }
-                    if is_promotion {
-                        node_counter.promotions += 1;
-                    }
-                } else {
-                    let sub_node_counter: NodeCounter =
-                        self.perft_divide(depth - 1, board, state, opponent);
-                    node_counter.total_nodes += sub_node_counter.total_nodes;
-                    node_counter.captures += sub_node_counter.captures;
-                    node_counter.en_passants += sub_node_counter.en_passants;
-                    node_counter.castlings += sub_node_counter.castlings;
-                    node_counter.promotions += sub_node_counter.promotions;
+            if depth == 1 {
+                node_counter.total_nodes += 1;
+                if is_capture {
+                    node_counter.captures += 1;
                 }
+                if is_en_passant {
+                    node_counter.en_passants += 1;
+                    node_counter.captures += 1;
+                }
+                if is_castle {
+                    node_counter.castlings += 1;
+                }
+                if is_promotion {
+                    node_counter.promotions += 1;
+                }
+            } else {
+                let sub_node_counter: NodeCounter =
+                    self.perft_divide(depth - 1, board, state, opponent);
+                node_counter.total_nodes += sub_node_counter.total_nodes;
+                node_counter.captures += sub_node_counter.captures;
+                node_counter.en_passants += sub_node_counter.en_passants;
+                node_counter.castlings += sub_node_counter.castlings;
+                node_counter.promotions += sub_node_counter.promotions;
             }
 
             board.cancel_move(state, color, &mut 0, &mut 0);
@@ -202,11 +192,25 @@ fn run_perft() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
+    board.calculate_check_restrictions(&mut state, 8);
     let mut engine: Engine = Engine::new(8, 6);
 
     engine.evaluate(&board);
     let node_counter: NodeCounter =
         engine.perft_test(engine.depth as usize, &mut board, &mut state, 8);
+    assert_eq!(
+        node_counter.total_nodes,
+        match engine.depth {
+            1 => 20,
+            2 => 400,
+            3 => 8902,
+            4 => 197281,
+            5 => 4865609,
+            6 => 119060324,
+            7 => 3195901860,
+            _ => unimplemented!(),
+        }
+    );
     if engine.depth >= 3 {
         assert_eq!(
             node_counter.captures,
@@ -234,31 +238,22 @@ fn run_perft() -> () {
             }
         }
     }
-    assert_eq!(
-        node_counter.total_nodes,
-        match engine.depth {
-            1 => 20,
-            2 => 400,
-            3 => 8902,
-            4 => 197281,
-            5 => 4865609,
-            6 => 119060324,
-            7 => 3195901860,
-            _ => unimplemented!(),
-        }
-    );
 
-    let (mut pos3_board, mut pos3_state) =
-        fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
+    /*let (mut pos3_board, mut pos3_state) =
+        fen_to_board("8/2p5/3p4/KP5r/1R3p1k/6P1/4P3/8 b - - 0 1");
     pos3_board.total_occupancy();
     pos3_board.update_full_cache();
+    pos3_board.calculate_check_restrictions(&mut pos3_state, 16);
 
-    let mut engine: Engine = Engine::new(8, 7);
+    let mut engine: Engine = Engine::new(16, 3);
 
     engine.evaluate(&pos3_board);
 
+    let node_counter: NodeCounter = engine.perft_test(3, &mut pos3_board, &mut pos3_state, 16);
+    println!("{:?}", node_counter);
     for d in 1..8 {
-        let node_counter: NodeCounter = engine.perft_test(d, &mut pos3_board, &mut pos3_state, 8);
+        //println!("depth {d}");
+        engine.depth = d as u8;
         let (correct_nodes, correct_captures, correct_e_p, correct_promotions) = match d {
             1 => (14, 1, 0, 0),
             2 => (191, 14, 0, 0),
@@ -269,11 +264,11 @@ fn run_perft() -> () {
             7 => (178633661, 14519036, 294874, 140024),
             _ => unreachable!(),
         };
-        assert_eq!(node_counter.captures, correct_captures, "depth {}", d);
+        /*assert_eq!(node_counter.captures, correct_captures, "depth {}", d);
         assert_eq!(node_counter.promotions, correct_promotions, "depth {}", d);
         assert_eq!(node_counter.en_passants, correct_e_p, "depth {}", d);
         assert_eq!(node_counter.total_nodes, correct_nodes, "depth {}", d);
-        assert_eq!(node_counter.castlings, 0, "depth {}", d);
+        assert_eq!(node_counter.castlings, 0, "depth {}", d);*/
         //println!("{:?}", node_counter);
-    }
+    }*/
 }

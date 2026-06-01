@@ -1,4 +1,14 @@
-use crate::{board_geometry_templates::*, constants::masks::BIT_MASKS};
+use crate::{
+    board_geometry_templates::*,
+    constants::{
+        attacks::{
+            BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, RAYS_BETWEEN, WHITE_PAWN_ATTACKS, bishop_attacks,
+            rook_attacks,
+        },
+        masks::BIT_MASKS,
+    },
+    gamestate::GameState,
+};
 // standard representation: 0b0000000000000000000000000000000000000000000000000000000000000000 (binary)
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
@@ -127,5 +137,75 @@ impl Board {
     #[inline(always)]
     pub fn is_capture(&self, m: u16) -> bool {
         return self.piece_at(to_square(m)) != 0;
+    }
+
+    pub fn calculate_check_restrictions(&self, state: &mut GameState, for_color: u16) -> () {
+        let (king_sq, restriction) = if for_color == 8 {
+            (
+                self.white_king_square as usize,
+                &mut state.white_legal_squares_mask,
+            )
+        } else {
+            (
+                self.black_king_square as usize,
+                &mut state.black_legal_squares_mask,
+            )
+        };
+
+        let occupancy: u64 = self.total_occupancy;
+        let (diagonal_attacks, linear_attacks, knight_attacks) = (
+            bishop_attacks(king_sq, occupancy),
+            rook_attacks(king_sq, occupancy),
+            KNIGHT_ATTACKS[king_sq],
+        );
+        let (pawn_attacks, enemy_queens, enemy_bishops, enemy_knights, enemy_rooks, enemy_pawns) =
+            if for_color == 8 {
+                (
+                    WHITE_PAWN_ATTACKS[king_sq],
+                    self.bitboards[10],
+                    self.bitboards[8],
+                    self.bitboards[7],
+                    self.bitboards[9],
+                    self.bitboards[6],
+                )
+            } else {
+                (
+                    BLACK_PAWN_ATTACKS[king_sq],
+                    self.bitboards[4],
+                    self.bitboards[2],
+                    self.bitboards[1],
+                    self.bitboards[3],
+                    self.bitboards[0],
+                )
+            };
+        let mut how_many_attackers = 0;
+        let attacking_knight: u64 = knight_attacks & enemy_knights;
+        if attacking_knight != 0 {
+            how_many_attackers += 1;
+            *restriction = attacking_knight;
+        }
+        let attacking_pawn: u64 = pawn_attacks & enemy_pawns;
+        if attacking_pawn != 0 {
+            how_many_attackers += 1;
+            *restriction = attacking_pawn;
+        }
+
+        let attacking_diagonal_attacker: u64 = diagonal_attacks & (enemy_bishops | enemy_queens);
+        if attacking_diagonal_attacker != 0 {
+            how_many_attackers += 1;
+            *restriction = unsafe {
+                RAYS_BETWEEN[attacking_diagonal_attacker.trailing_zeros() as usize][king_sq]
+            } | attacking_diagonal_attacker;
+        }
+        let attacking_linear_attacker: u64 = linear_attacks & (enemy_rooks | enemy_queens);
+        if attacking_linear_attacker != 0 {
+            how_many_attackers += 1;
+            *restriction = unsafe {
+                RAYS_BETWEEN[attacking_linear_attacker.trailing_zeros() as usize][king_sq]
+            } | attacking_linear_attacker;
+        }
+        if how_many_attackers == 2 {
+            *restriction = 0;
+        }
     }
 }

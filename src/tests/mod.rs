@@ -1,5 +1,7 @@
 mod engine_tests;
 mod evaluation_tests;
+mod is_check_test;
 mod perform_cancel_move_tests;
-pub mod perft;
-pub mod profiling;
+mod perft;
+mod pin_violation_tests;
+mod profiling;

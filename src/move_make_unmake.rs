@@ -4,11 +4,16 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
+        attacks::{
+            BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, RAYS_BETWEEN, WHITE_PAWN_ATTACKS, bishop_attacks,
+            rook_attacks,
+        },
         heuristics::*,
         masks::BIT_MASKS,
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
+    converters::fen_converter::board_to_fen,
     gamestate::{GameState, PreviousMove},
 };
 
@@ -18,6 +23,7 @@ impl Board {
         state: &mut GameState,
         enemy: u16,
         previous_move: &mut PreviousMove,
+        from: u16,
         to_sq: usize,
         evaluation: &mut i32,
         current_hash: &mut u64,
@@ -25,6 +31,20 @@ impl Board {
         occupancy_idx: usize,
         color: u16,
     ) -> () {
+        assert!(
+            enemy != WHITE_KING_U16,
+            "board: {:?}, from: {}, to: {}",
+            board_to_fen(self, state, &16),
+            from,
+            to_sq,
+        );
+        assert!(
+            enemy != BLACK_KING_U16,
+            "board: {:?}, from: {}, to: {}",
+            board_to_fen(self, state, &8),
+            from,
+            to_sq,
+        );
         *evaluation -= VALUE_TABLE[captured_table_idx];
         *evaluation -= if color == 8 {
             -HEURISTICS_TABLE[captured_table_idx][to_sq]
@@ -141,6 +161,86 @@ impl Board {
         *eval += material_subtraction;
     }
 
+    #[inline(always)]
+    pub fn adjust_move_restriction(
+        &self,
+        state: &mut GameState,
+        from: u16,
+        to: u16,
+        moving_piece: u16,
+        color: u16,
+    ) -> () {
+        let to_sq_bb: u64 = 1 << to;
+        if color == 8 {
+            let king_sq: u8 = self.black_king_square;
+            let king_sq_index: usize = king_sq as usize;
+            let (is_discovery, squares) = self.exposes_king(from, king_sq, 16);
+            let occupancy_no_black_king = self.total_occupancy & !(1 << king_sq);
+            let attacks: u64 = match moving_piece {
+                5 => {
+                    bishop_attacks(king_sq_index, occupancy_no_black_king)
+                        | rook_attacks(king_sq_index, occupancy_no_black_king)
+                }
+                // queen
+                4 => rook_attacks(king_sq_index, occupancy_no_black_king), // rook
+                3 => bishop_attacks(king_sq_index, occupancy_no_black_king), // bishop
+                2 => KNIGHT_ATTACKS[king_sq_index],
+                1 => BLACK_PAWN_ATTACKS[king_sq_index],
+                6 => 0, // king
+                _ => unreachable!(),
+            };
+            let direct_attack: bool = attacks & to_sq_bb != 0;
+            if direct_attack && is_discovery {
+                state.black_legal_squares_mask = 0;
+                return ();
+            }
+            if direct_attack {
+                state.black_legal_squares_mask &=
+                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] } | to_sq_bb;
+                return ();
+            }
+            if is_discovery {
+                state.black_legal_squares_mask = squares;
+                return ();
+            }
+
+            state.black_legal_squares_mask = u64::MAX;
+        } else {
+            let king_sq: u8 = self.white_king_square;
+            let king_sq_index: usize = king_sq as usize;
+            let (is_discovery, squares) = self.exposes_king(from, king_sq, 8);
+            let occupancy_no_white_king: u64 = self.total_occupancy & !(1 << king_sq);
+            let attacks: u64 = match moving_piece {
+                11 => {
+                    bishop_attacks(king_sq_index, occupancy_no_white_king)
+                        | rook_attacks(king_sq_index, occupancy_no_white_king)
+                }
+                // queen
+                10 => rook_attacks(king_sq_index, occupancy_no_white_king), // rook
+                9 => bishop_attacks(king_sq_index, occupancy_no_white_king), // bishop
+                8 => KNIGHT_ATTACKS[king_sq_index],
+                7 => WHITE_PAWN_ATTACKS[king_sq_index],
+                12 => 0, // king
+                _ => unreachable!("moving piece: {moving_piece}, color {color}"),
+            };
+            let direct_attack: bool = attacks & to_sq_bb != 0;
+            if direct_attack && is_discovery {
+                state.white_legal_squares_mask = 0;
+                return ();
+            }
+            if direct_attack {
+                state.white_legal_squares_mask &=
+                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] } | to_sq_bb;
+                return ();
+            }
+            if is_discovery {
+                state.white_legal_squares_mask = squares;
+                return ();
+            }
+            state.white_legal_squares_mask = u64::MAX;
+        }
+    }
+
     // performs verified moves, so there is no need for another verification
     pub fn perform_move(
         &mut self,
@@ -169,7 +269,23 @@ impl Board {
             } else {
                 (0, 0)
             };
+        if moving_piece == WHITE_QUEEN_U16 && to_sq == 62 {
+            println!(
+                "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}",
+                board_to_fen(self, state, &(color as u8)),
+                from_sq,
+                to_sq,
+                state.white_legal_squares_mask,
+                state.black_legal_squares_mask
+            );
+        }
 
+        let check_restrictions: u64 = if color == 8 {
+            state.black_legal_squares_mask
+        } else {
+            state.white_legal_squares_mask
+        };
+        self.adjust_move_restriction(state, from_sq, to_sq, moving_piece, color);
         let to_sq_index_base_one: usize = to_sq_index + 1;
 
         let moving_piece_hash: usize = moving_piece_table_idx * 64;
@@ -189,12 +305,14 @@ impl Board {
             previous_castling_rights: state.castling_rights,
             material_difference: 0,
             move_flag,
+            check_restrictions,
         };
         if captured_piece != 0 {
             self.perform_capture(
                 state,
                 captured_piece,
                 &mut previous_move,
+                from_sq,
                 to_sq_index,
                 evaluation,
                 current_hash,
@@ -311,6 +429,22 @@ impl Board {
             state.en_passant_target = None;
         }
         state.moves_history.push(previous_move);
+        assert!(
+            !self.is_square_attacked(
+                if color == 8 {
+                    self.white_king_square
+                } else {
+                    self.black_king_square
+                },
+                if color == 8 { 16 } else { 8 }
+            ),
+            "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}",
+            board_to_fen(self, state, &if color == 8 { 16 } else { 8 }),
+            from_sq,
+            to_sq,
+            state.white_legal_squares_mask,
+            state.black_legal_squares_mask
+        );
     }
 
     pub fn cancel_move(
@@ -331,9 +465,11 @@ impl Board {
             let (start_index, end_index): (usize, usize) = (start as usize, end as usize);
             let main_piece: u16 = cached_pieces[end_index];
             let enemy_color: u16 = if color == 8 {
+                state.black_legal_squares_mask = previous_move.check_restrictions;
                 *current_hash ^= WHITE_ZOBRIST_KEY;
                 16
             } else {
+                state.white_legal_squares_mask = previous_move.check_restrictions;
                 *current_hash ^= BLACK_ZOBRIST_KEY;
                 8
             };

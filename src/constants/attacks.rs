@@ -433,8 +433,8 @@ pub fn bishop_attacks(initial_pos: usize, occupancy: u64) -> u64 {
     return unsafe { BISHOP_ATTACKS[offset + idx] };
 }
 
-pub static mut RAYS_BETWEEN: [[u64; 64]; 64] = [[0; 64]; 64];
-pub static mut RAYS_FROM: [[u64; 64]; 64] = [[0; 64]; 64];
+pub static mut RAYS_BETWEEN: [[u64; 64]; 64] = [[0; 64]; 64]; // between two squares
+pub static mut RAYS_FROM: [[u64; 64]; 64] = [[0; 64]; 64]; // from the last square to the end of line/diagonal
 
 pub fn compute_all_rays() -> () {
     let mut rays: [[u64; 64]; 64] = [[0u64; 64]; 64];
@@ -547,7 +547,7 @@ fn compute_ray_from(sq1: u8, sq2: u8) -> u64 {
     return ray;
 }
 
-pub static mut TWO_SQUARES_LINE: [[u64; 64]; 64] = [[0; 64]; 64];
+pub static mut TWO_SQUARES_LINE: [[u64; 64]; 64] = [[0; 64]; 64]; // entire line/diagonal that the squares share
 
 pub fn compute_all_lines() -> () {
     let mut lines: [[u64; 64]; 64] = [[0; 64]; 64];

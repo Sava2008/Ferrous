@@ -136,10 +136,10 @@ impl Engine {
     ) -> () {
         self.move_lists[depth].first_not_occupied = 0;
         board.pawn_moves(&state, color, &mut self.move_lists[depth], captures_only);
-        board.knight_moves(color, &mut self.move_lists[depth], captures_only);
-        board.bishop_moves(color, &mut self.move_lists[depth], captures_only);
-        board.queen_moves(color, &mut self.move_lists[depth], captures_only);
-        board.rook_moves(color, &mut self.move_lists[depth], captures_only);
+        board.knight_moves(color, &mut self.move_lists[depth], &state, captures_only);
+        board.bishop_moves(color, &mut self.move_lists[depth], &state, captures_only);
+        board.queen_moves(color, &mut self.move_lists[depth], &state, captures_only);
+        board.rook_moves(color, &mut self.move_lists[depth], &state, captures_only);
         board.king_moves(&state, color, &mut self.move_lists[depth], captures_only);
     }
 
@@ -226,13 +226,19 @@ impl Engine {
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+            if last_occupied == 0 {
+                return if board.is_square_attacked(board.white_king_square, 16) {
+                    -CHECKMATE_VALUE + (self.depth - depth) as i32
+                } else {
+                    0
+                };
+            }
             self.score_all_moves(
                 depth_as_index,
                 last_occupied,
                 &best_move_transposition,
                 &board.cached_pieces,
             );
-            let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
                 /*let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
@@ -277,11 +283,11 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-                if board.is_square_attacked(board.white_king_square, 16) {
+                /*if board.is_square_attacked(board.white_king_square, 16) {
                     board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
                     legal_moves_amount -= 1;
                     continue;
-                }
+                }*/
 
                 let current_score: i32 = self.alpha_beta_pruning(
                     board,
@@ -317,13 +323,6 @@ impl Engine {
                     break;
                 }
             }
-            if legal_moves_amount == 0 {
-                return if board.is_square_attacked(board.white_king_square, 16) {
-                    -CHECKMATE_VALUE + (self.depth - depth) as i32
-                } else {
-                    0
-                };
-            }
         } else {
             // black's branch
             state.whose_turn = 16;
@@ -332,13 +331,19 @@ impl Engine {
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+            if last_occupied == 0 {
+                return if board.is_square_attacked(board.black_king_square, 8) {
+                    CHECKMATE_VALUE - (self.depth - depth) as i32
+                } else {
+                    0
+                };
+            }
             self.score_all_moves(
                 depth_as_index,
                 last_occupied,
                 &best_move_transposition,
                 &board.cached_pieces,
             );
-            let mut legal_moves_amount: usize = last_occupied;
 
             for i in 0..last_occupied {
                 let true_index: usize = if i < 8 {
@@ -369,13 +374,6 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-
-                if board.is_square_attacked(board.black_king_square, 8) {
-                    board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
-
-                    legal_moves_amount -= 1;
-                    continue;
-                }
 
                 let current_score: i32 = self.alpha_beta_pruning(
                     board,
@@ -410,13 +408,6 @@ impl Engine {
                     }
                     break;
                 }
-            }
-            if legal_moves_amount == 0 {
-                return if board.is_square_attacked(board.black_king_square, 8) {
-                    CHECKMATE_VALUE - (self.depth - depth) as i32
-                } else {
-                    0
-                };
             }
         }
 
@@ -560,7 +551,7 @@ impl Engine {
                     checkmate_score
                 }
             } else {
-                stand_pat
+                0
             };
         }
 
@@ -574,8 +565,6 @@ impl Engine {
         let mut best_score: i32 = stand_pat;
 
         let mut best_move: u16 = 0;
-
-        let opponent: u16 = if color == 8 { 16 } else { 8 };
 
         let scores: &mut [i16; 192] = &mut self.move_scores[quiescence_depth];
         let moves: &mut [u16; 192] = &mut self.move_lists[quiescence_depth].pseudo_moves;
@@ -613,15 +602,11 @@ impl Engine {
                 &mut self.evaluation,
                 &mut self.current_hash,
             );
-            let king_sq: u8 = match color {
-                8 => board.white_king_square,
-                _ => board.black_king_square,
-            };
 
-            if board.is_square_attacked(king_sq, opponent) {
+            /*if board.is_square_attacked(king_sq, opponent) {
                 board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
                 continue;
-            }
+            }*/
 
             let score: i32 = self.quiescence_search(
                 board,
@@ -687,6 +672,7 @@ impl Engine {
         time_contrainsts: Duration,
         max_depth: u8,
     ) -> Option<u16> {
+        board.calculate_check_restrictions(state, self.side);
         for i in 0..4096 {
             self.history_heuristics[i] /= 100;
         }
@@ -726,7 +712,6 @@ impl Engine {
         let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
-        let opponent_color: u16 = if self.side == 8 { 16 } else { 8 };
 
         copied_state.whose_turn = self.side.clone() as u16;
 
@@ -762,6 +747,9 @@ impl Engine {
                 false,
             );
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+            if last_occupied < 1 {
+                std::process::exit(0);
+            }
             self.how_much_searched.1 = last_occupied as f32;
 
             self.score_all_moves(
@@ -803,21 +791,6 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-
-                let current_king_square: u8 = match self.side {
-                    8 => copied_board.white_king_square,
-                    _ => copied_board.black_king_square,
-                };
-
-                if copied_board.is_square_attacked(current_king_square, opponent_color) {
-                    copied_board.cancel_move(
-                        &mut copied_state,
-                        self.side,
-                        &mut self.evaluation,
-                        &mut self.current_hash,
-                    );
-                    continue;
-                }
 
                 let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
