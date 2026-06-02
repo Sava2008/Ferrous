@@ -33,10 +33,11 @@ impl Board {
     ) -> () {
         assert!(
             enemy != WHITE_KING_U16,
-            "board: {:?}, from: {}, to: {}",
+            "board: {:?}, from: {}, to: {}, move history: {:?}",
             board_to_fen(self, state, &16),
             from,
             to_sq,
+            state.moves_history
         );
         assert!(
             enemy != BLACK_KING_U16,
@@ -167,6 +168,7 @@ impl Board {
         state: &mut GameState,
         from: u16,
         to: u16,
+        flag: u16,
         moving_piece: u16,
         color: u16,
     ) -> () {
@@ -175,6 +177,18 @@ impl Board {
             let king_sq: u8 = self.black_king_square;
             let king_sq_index: usize = king_sq as usize;
             let (is_discovery, squares) = self.exposes_king(from, king_sq, 16);
+            if flag == 2 {
+                let (second_ep_discovery, second_ep_squares) =
+                    self.exposes_king(state.en_passant_target.unwrap() as u16 - 8, king_sq, 16);
+                if second_ep_discovery {
+                    if is_discovery {
+                        state.black_legal_squares_mask = 0;
+                        return ();
+                    }
+                    state.black_legal_squares_mask = second_ep_squares;
+                    return ();
+                }
+            }
             let occupancy_no_black_king = self.total_occupancy & !(1 << king_sq);
             let attacks: u64 = match moving_piece {
                 5 => {
@@ -185,7 +199,18 @@ impl Board {
                 4 => rook_attacks(king_sq_index, occupancy_no_black_king), // rook
                 3 => bishop_attacks(king_sq_index, occupancy_no_black_king), // bishop
                 2 => KNIGHT_ATTACKS[king_sq_index],
-                1 => BLACK_PAWN_ATTACKS[king_sq_index],
+                1 => match flag {
+                    0 => BLACK_PAWN_ATTACKS[king_sq_index],
+                    2 => BLACK_PAWN_ATTACKS[king_sq_index],
+                    3 => KNIGHT_ATTACKS[king_sq_index],
+                    4 => bishop_attacks(king_sq_index, occupancy_no_black_king),
+                    5 => rook_attacks(king_sq_index, occupancy_no_black_king),
+                    6 => {
+                        bishop_attacks(king_sq_index, occupancy_no_black_king)
+                            | rook_attacks(king_sq_index, occupancy_no_black_king)
+                    }
+                    _ => unreachable!(),
+                },
                 6 => 0, // king
                 _ => unreachable!(),
             };
@@ -209,6 +234,18 @@ impl Board {
             let king_sq: u8 = self.white_king_square;
             let king_sq_index: usize = king_sq as usize;
             let (is_discovery, squares) = self.exposes_king(from, king_sq, 8);
+            if flag == 2 {
+                let (second_ep_discovery, second_ep_squares) =
+                    self.exposes_king(state.en_passant_target.unwrap() as u16 + 8, king_sq, 8);
+                if second_ep_discovery {
+                    if is_discovery {
+                        state.white_legal_squares_mask = 0;
+                        return ();
+                    }
+                    state.white_legal_squares_mask = second_ep_squares;
+                    return ();
+                }
+            }
             let occupancy_no_white_king: u64 = self.total_occupancy & !(1 << king_sq);
             let attacks: u64 = match moving_piece {
                 11 => {
@@ -219,7 +256,18 @@ impl Board {
                 10 => rook_attacks(king_sq_index, occupancy_no_white_king), // rook
                 9 => bishop_attacks(king_sq_index, occupancy_no_white_king), // bishop
                 8 => KNIGHT_ATTACKS[king_sq_index],
-                7 => WHITE_PAWN_ATTACKS[king_sq_index],
+                7 => match flag {
+                    0 => WHITE_PAWN_ATTACKS[king_sq_index],
+                    2 => WHITE_PAWN_ATTACKS[king_sq_index],
+                    3 => KNIGHT_ATTACKS[king_sq_index],
+                    4 => bishop_attacks(king_sq_index, occupancy_no_white_king),
+                    5 => rook_attacks(king_sq_index, occupancy_no_white_king),
+                    6 => {
+                        bishop_attacks(king_sq_index, occupancy_no_white_king)
+                            | rook_attacks(king_sq_index, occupancy_no_white_king)
+                    }
+                    _ => unreachable!(),
+                },
                 12 => 0, // king
                 _ => unreachable!("moving piece: {moving_piece}, color {color}"),
             };
@@ -269,7 +317,7 @@ impl Board {
             } else {
                 (0, 0)
             };
-        if moving_piece == WHITE_QUEEN_U16 && to_sq == 62 {
+        /*if moving_piece == WHITE_QUEEN_U16 && to_sq == 62 {
             println!(
                 "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}",
                 board_to_fen(self, state, &(color as u8)),
@@ -278,14 +326,14 @@ impl Board {
                 state.white_legal_squares_mask,
                 state.black_legal_squares_mask
             );
-        }
+        }*/
 
         let check_restrictions: u64 = if color == 8 {
             state.black_legal_squares_mask
         } else {
             state.white_legal_squares_mask
         };
-        self.adjust_move_restriction(state, from_sq, to_sq, moving_piece, color);
+        self.adjust_move_restriction(state, from_sq, to_sq, move_flag, moving_piece, color);
         let to_sq_index_base_one: usize = to_sq_index + 1;
 
         let moving_piece_hash: usize = moving_piece_table_idx * 64;
@@ -438,12 +486,13 @@ impl Board {
                 },
                 if color == 8 { 16 } else { 8 }
             ),
-            "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}",
+            "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}\nmove history: {:?}",
             board_to_fen(self, state, &if color == 8 { 16 } else { 8 }),
             from_sq,
             to_sq,
             state.white_legal_squares_mask,
-            state.black_legal_squares_mask
+            state.black_legal_squares_mask,
+            state.moves_history
         );
     }
 

@@ -26,17 +26,17 @@ fn chess_notation_to_index(c_n: &str) -> u8 {
         .chars()
         .map(|c: char| {
             if c.is_ascii_digit() {
-                c.to_digit(10).unwrap() as u8
+                c.to_digit(10).unwrap() as u8 - 1
             } else {
                 match c {
-                    'a' => 1,
-                    'b' => 2,
-                    'c' => 3,
-                    'd' => 4,
-                    'e' => 5,
-                    'f' => 6,
-                    'g' => 7,
-                    'h' => 8,
+                    'a' => 0,
+                    'b' => 1,
+                    'c' => 2,
+                    'd' => 3,
+                    'e' => 4,
+                    'f' => 5,
+                    'g' => 6,
+                    'h' => 7,
                     _ => unreachable!(),
                 }
             }
@@ -231,8 +231,11 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
     match en_passant {
         // wrong logic, because en passant should be capturable
         "-" => (),
-        c_n => state.en_passant_target = Some(chess_notation_to_index(c_n)),
+        c_n => {
+            state.en_passant_target = Some(chess_notation_to_index(c_n));
+        }
     }
+
     (state.fifty_moves_rule_counter, state.total_moves_amount) =
         (fifty_moves.parse().unwrap(), total_moves.parse().unwrap());
 

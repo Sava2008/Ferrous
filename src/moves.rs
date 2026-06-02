@@ -18,7 +18,7 @@ impl MoveList {
 }
 
 impl Board {
-    fn en_passant_exposes_king(
+    pub fn en_passant_exposes_king(
         &self,
         from: u16,
         e_p_pawn: u16,
@@ -89,31 +89,10 @@ impl Board {
             bishop_attacks(from_sq, occ) & enemies
         };
         let valid_attack: bool = attackers != 0;
-        if valid_attack {
-            let occ_without_piece = self.total_occupancy & !(1 << from_sq);
-
-            let exposed = if is_line {
-                rook_attacks(king_sq, occ_without_piece)
-                    & if king_color == 16 {
-                        self.bitboards[3] | self.bitboards[4]
-                    } else {
-                        self.bitboards[9] | self.bitboards[10]
-                    }
-            } else {
-                bishop_attacks(king_sq, occ_without_piece)
-                    & if king_color == 16 {
-                        self.bitboards[2] | self.bitboards[4]
-                    } else {
-                        self.bitboards[8] | self.bitboards[10]
-                    }
-            };
-
-            assert!(exposed != 0);
-        }
         return (
             valid_attack,
             if valid_attack {
-                squares_between | attackers
+                (unsafe { RAYS_BETWEEN[king_sq][attackers.trailing_zeros() as usize] }) | attackers
             } else {
                 0
             },
