@@ -23,7 +23,6 @@ impl Board {
         state: &mut GameState,
         enemy: u16,
         previous_move: &mut PreviousMove,
-        from: u16,
         to_sq: usize,
         evaluation: &mut i32,
         current_hash: &mut u64,
@@ -31,21 +30,6 @@ impl Board {
         occupancy_idx: usize,
         color: u16,
     ) -> () {
-        assert!(
-            enemy != WHITE_KING_U16,
-            "board: {:?}, from: {}, to: {}, move history: {:?}",
-            board_to_fen(self, state, &16),
-            from,
-            to_sq,
-            state.moves_history
-        );
-        assert!(
-            enemy != BLACK_KING_U16,
-            "board: {:?}, from: {}, to: {}",
-            board_to_fen(self, state, &8),
-            from,
-            to_sq,
-        );
         *evaluation -= VALUE_TABLE[captured_table_idx];
         *evaluation -= if color == 8 {
             -HEURISTICS_TABLE[captured_table_idx][to_sq]
@@ -178,8 +162,12 @@ impl Board {
             let king_sq_index: usize = king_sq as usize;
             let (is_discovery, squares) = self.exposes_king(from, king_sq, 16);
             if flag == 2 {
-                let (second_ep_discovery, second_ep_squares) =
-                    self.exposes_king(state.en_passant_target.unwrap() as u16 - 8, king_sq, 16);
+                let (second_ep_discovery, second_ep_squares) = self.en_passant_exposes_king(
+                    from,
+                    state.en_passant_target.unwrap() as u16 - 8,
+                    16,
+                    king_sq,
+                );
                 if second_ep_discovery {
                     if is_discovery {
                         state.black_legal_squares_mask = 0;
@@ -189,7 +177,7 @@ impl Board {
                     return ();
                 }
             }
-            let occupancy_no_black_king = self.total_occupancy & !(1 << king_sq);
+            let occupancy_no_black_king = self.total_occupancy & !(1 << king_sq) & !(1 << from);
             let attacks: u64 = match moving_piece {
                 5 => {
                     bishop_attacks(king_sq_index, occupancy_no_black_king)
@@ -213,7 +201,7 @@ impl Board {
                 },
                 6 => 0, // king
                 _ => unreachable!(),
-            };
+            } | self.occupancies[1];
             let direct_attack: bool = attacks & to_sq_bb != 0;
             if direct_attack && is_discovery {
                 state.black_legal_squares_mask = 0;
@@ -235,8 +223,12 @@ impl Board {
             let king_sq_index: usize = king_sq as usize;
             let (is_discovery, squares) = self.exposes_king(from, king_sq, 8);
             if flag == 2 {
-                let (second_ep_discovery, second_ep_squares) =
-                    self.exposes_king(state.en_passant_target.unwrap() as u16 + 8, king_sq, 8);
+                let (second_ep_discovery, second_ep_squares) = self.en_passant_exposes_king(
+                    from,
+                    state.en_passant_target.unwrap() as u16 + 8,
+                    8,
+                    king_sq,
+                );
                 if second_ep_discovery {
                     if is_discovery {
                         state.white_legal_squares_mask = 0;
@@ -246,7 +238,8 @@ impl Board {
                     return ();
                 }
             }
-            let occupancy_no_white_king: u64 = self.total_occupancy & !(1 << king_sq);
+            let occupancy_no_white_king: u64 =
+                self.total_occupancy & !(1 << king_sq) & !(1 << from);
             let attacks: u64 = match moving_piece {
                 11 => {
                     bishop_attacks(king_sq_index, occupancy_no_white_king)
@@ -270,7 +263,7 @@ impl Board {
                 },
                 12 => 0, // king
                 _ => unreachable!("moving piece: {moving_piece}, color {color}"),
-            };
+            } | self.occupancies[0];
             let direct_attack: bool = attacks & to_sq_bb != 0;
             if direct_attack && is_discovery {
                 state.white_legal_squares_mask = 0;
@@ -317,16 +310,6 @@ impl Board {
             } else {
                 (0, 0)
             };
-        /*if moving_piece == WHITE_QUEEN_U16 && to_sq == 62 {
-            println!(
-                "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}",
-                board_to_fen(self, state, &(color as u8)),
-                from_sq,
-                to_sq,
-                state.white_legal_squares_mask,
-                state.black_legal_squares_mask
-            );
-        }*/
 
         let check_restrictions: u64 = if color == 8 {
             state.black_legal_squares_mask
@@ -360,7 +343,6 @@ impl Board {
                 state,
                 captured_piece,
                 &mut previous_move,
-                from_sq,
                 to_sq_index,
                 evaluation,
                 current_hash,

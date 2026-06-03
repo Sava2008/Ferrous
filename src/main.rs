@@ -1,5 +1,8 @@
 #[cfg(feature = "debug-ui")]
-use crate::{board_geometry_templates::TO_SHIFT, converters::fen_converter::fen_to_board};
+use crate::{
+    board_geometry_templates::{MARK_SHIFT, TO_SHIFT},
+    converters::fen_converter::fen_to_board,
+};
 use crate::{
     constants::attacks::{
         compute_all_lines, compute_all_rays, compute_all_rays_from, compute_mvvlva,
@@ -71,16 +74,21 @@ async fn main() {
         load_texture("pieces/black_queen.png").await.unwrap(),
         load_texture("pieces/black_king.png").await.unwrap(),
     ];
+    for texture in &pieces_images {
+        texture.set_filter(FilterMode::Nearest);
+    }
 
-    let (mut board, mut state) =
-        fen_to_board("rnb1kbnr/ppp1pppp/8/2q5/2B5/6P1/PPP4P/RNBQ1KNR b kq - 0 1");
+    let (mut board, mut state) = fen_to_board("8/2P5/K2p4/7r/2k5/8/4P3/8 w - - 0 2");
+    board.perform_move(
+        50 | (58 << TO_SHIFT) | (6 << MARK_SHIFT),
+        &mut state,
+        8,
+        &mut 0,
+        &mut 0,
+    );
 
     board.total_occupancy();
     board.update_full_cache();
-
-    board.perform_move(34 | (6 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
-    board.perform_move(7 | (6 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
-    board.cancel_move(&mut state, 8, &mut 0, &mut 0);
 
     let mut debugger_board = board_visual::BoardVisual {
         squares: [0; 64],
@@ -91,7 +99,7 @@ async fn main() {
         selected_square: 64,
     };
     debugger_board.set_pieces(&board, &state);
-    debugger_board.get_moves(&board, &state, 8);
+    debugger_board.get_moves(&board, &state, 16);
 
     let mut should_highlight: bool = false;
 

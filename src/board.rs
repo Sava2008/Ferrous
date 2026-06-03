@@ -83,16 +83,6 @@ impl Board {
         return unsafe { *self.cached_pieces.get_unchecked(square as usize) };
     }
 
-    #[inline(always)]
-    pub fn colorless_piece_at(&self, square: u16) -> u16 {
-        let piece: u16 = self.piece_at(square);
-        if piece == 0 {
-            return 0;
-        }
-        let color: u16 = piece >> 3;
-        return piece ^ if color == 1 { 8 } else { 16 };
-    }
-
     pub fn white_occupancy(&mut self) -> () {
         for i in 0..6 {
             self.occupancies[0] |= self.bitboards[i];
