@@ -61,42 +61,40 @@ impl Board {
     }
     #[inline(always)]
     pub fn exposes_king(&self, from: u16, king_square: u8, king_color: u16) -> (bool, u64) {
-        let (king_sq, from_sq) = (king_square as usize, from as usize);
-        let pinner_squares: u64 = unsafe { RAYS_FROM[king_sq][from_sq] };
-        if pinner_squares == 0 {
-            return (false, 0);
-        }
-        let squares_between: u64 = unsafe { RAYS_BETWEEN[king_sq][from_sq] };
-        if squares_between & self.total_occupancy != 0 {
-            return (false, 0);
-        }
-
-        let is_line: bool = (from_sq % 8 == king_sq % 8) || (from_sq / 8 == king_sq / 8);
-        let occ: u64 = self.total_occupancy;
-        let attackers: u64 = if is_line {
-            let enemies: u64 = if king_color == 16 {
-                (self.bitboards[3] | self.bitboards[4]) & pinner_squares
-            } else {
-                (self.bitboards[9] | self.bitboards[10]) & pinner_squares
-            };
-            rook_attacks(from_sq, occ) & enemies
+        let king_sq = king_square as usize;
+        let occ_no_moving_piece = self.total_occupancy & !(1 << from);
+        let (linear_enemies, diagonal_enemies) = if king_color == 16 {
+            (
+                (self.bitboards[3] | self.bitboards[4])
+                    & rook_attacks(king_sq, occ_no_moving_piece),
+                (self.bitboards[2] | self.bitboards[4])
+                    & bishop_attacks(king_sq, occ_no_moving_piece),
+            )
         } else {
-            let enemies: u64 = if king_color == 16 {
-                (self.bitboards[2] | self.bitboards[4]) & pinner_squares
-            } else {
-                (self.bitboards[8] | self.bitboards[10]) & pinner_squares
-            };
-            bishop_attacks(from_sq, occ) & enemies
+            (
+                (self.bitboards[9] | self.bitboards[10])
+                    & rook_attacks(king_sq, occ_no_moving_piece),
+                (self.bitboards[8] | self.bitboards[10])
+                    & bishop_attacks(king_sq, occ_no_moving_piece),
+            )
         };
-        let valid_attack: bool = attackers != 0;
-        return (
-            valid_attack,
-            if valid_attack {
-                (unsafe { RAYS_BETWEEN[king_sq][attackers.trailing_zeros() as usize] }) | attackers
-            } else {
-                0
-            },
-        );
+        if diagonal_enemies.count_ones() > 1 || linear_enemies.count_ones() > 1 {
+            return (true, 0);
+        }
+        let diagonal_attacker = diagonal_enemies.trailing_zeros() as usize;
+        let linear_attacker = linear_enemies.trailing_zeros() as usize;
+        return match (diagonal_attacker, linear_attacker) {
+            (64, 64) => (false, 0),
+            (0..64, 64) => (
+                true,
+                unsafe { RAYS_BETWEEN[king_sq][diagonal_attacker] } | diagonal_enemies,
+            ),
+            (64, 0..64) => (
+                true,
+                unsafe { RAYS_BETWEEN[king_sq][linear_attacker] } | linear_enemies,
+            ),
+            _ => (true, 0),
+        };
     }
 
     #[inline(always)]

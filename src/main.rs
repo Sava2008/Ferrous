@@ -78,17 +78,11 @@ async fn main() {
         texture.set_filter(FilterMode::Nearest);
     }
 
-    let (mut board, mut state) = fen_to_board("8/2P5/K2p4/7r/2k5/8/4P3/8 w - - 0 2");
-    board.perform_move(
-        50 | (58 << TO_SHIFT) | (6 << MARK_SHIFT),
-        &mut state,
-        8,
-        &mut 0,
-        &mut 0,
-    );
-
+    let (mut board, mut state) =
+        fen_to_board("r4r2/2p2p1k/5p1p/2p1p3/6PN/P1P4P/KP2qP2/7R b - - 3 4");
     board.total_occupancy();
     board.update_full_cache();
+    board.perform_move(56 | (16 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
 
     let mut debugger_board = board_visual::BoardVisual {
         squares: [0; 64],
@@ -99,7 +93,7 @@ async fn main() {
         selected_square: 64,
     };
     debugger_board.set_pieces(&board, &state);
-    debugger_board.get_moves(&board, &state, 16);
+    debugger_board.get_moves(&board, &state, 8);
 
     let mut should_highlight: bool = false;
 
