@@ -85,11 +85,11 @@ impl Board {
         let linear_attacker = linear_enemies.trailing_zeros() as usize;
         return match (diagonal_attacker, linear_attacker) {
             (64, 64) => (false, 0),
-            (0..64, 64) => (
+            (_, 64) => (
                 true,
                 unsafe { RAYS_BETWEEN[king_sq][diagonal_attacker] } | diagonal_enemies,
             ),
-            (64, 0..64) => (
+            (64, _) => (
                 true,
                 unsafe { RAYS_BETWEEN[king_sq][linear_attacker] } | linear_enemies,
             ),
@@ -297,6 +297,33 @@ impl Board {
             return true;
         }
         return false;
+    }
+
+    #[inline(always)]
+    pub fn type_of_check(&self, from: u16, to: u16, king_square: u8, king_color: u16) -> u8 {
+        // check in CURRENT position
+        let king_sq = king_square as usize;
+        let occ = (self.total_occupancy & !(1 << from)) & (1 << to);
+        let (linear_enemies, diagonal_enemies) = if king_color == 16 {
+            (
+                (self.bitboards[3] | self.bitboards[4]) & rook_attacks(king_sq, occ),
+                (self.bitboards[2] | self.bitboards[4]) & bishop_attacks(king_sq, occ),
+            )
+        } else {
+            (
+                (self.bitboards[9] | self.bitboards[10]) & rook_attacks(king_sq, occ),
+                (self.bitboards[8] | self.bitboards[10]) & bishop_attacks(king_sq, occ),
+            )
+        };
+        return match (
+            diagonal_enemies.trailing_zeros(),
+            linear_enemies.trailing_zeros(),
+        ) {
+            (64, 64) => 0,
+            (_, 64) => 7,
+            (64, _) => 7,
+            _ => 8,
+        };
     }
 
     #[inline(always)]

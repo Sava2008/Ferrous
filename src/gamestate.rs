@@ -4,14 +4,6 @@ use crate::{
     enums::GameResult,
 };
 
-/* order of updating the fields:
-1. whose_turn
-2. result
-3. fifty_move_rule_counter
-4. total_moves_amount
-5. check_info, pin_info
-6. check_contraints  */
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct GameState {
     pub en_passant_target: Option<u8>, // the square BEHIND the pawn that has moved two squares

@@ -24,7 +24,7 @@ bit 6-11: to square
 bit 12-15: markers
 (0000 - regular, 0001 - castling, 0010 - en passant,
 0011 - knight promo, 0100 - bishop promo, 0101 - rook promo,
-0110 - queen promo)
+0110 - queen promo, 0111 - single check, 1000 - double check, 1001)
  */
 
 pub const TO_SHIFT: u16 = 6;

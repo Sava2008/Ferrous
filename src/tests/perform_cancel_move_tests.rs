@@ -207,14 +207,13 @@ fn castling_long_and_cancel_test() -> () {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
-    println!("before generation");
     board.king_moves(&state, 8, &mut legal_moves, false);
-    println!("movegen passed");
     assert_eq!(legal_moves.first_not_occupied, 7);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..7 {
         println!("i = {i}");
         let m: u16 = legal_moves.pseudo_moves[i];
+        println!("from: {}, to: {}", from_square(m), to_square(m));
         board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
         board.cancel_move(&mut state, 8, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
@@ -225,14 +224,13 @@ fn castling_long_and_cancel_test() -> () {
         first_not_occupied: 0,
     };
 
-    println!("before second movegen");
     board.king_moves(&state, 16, &mut legal_moves, false);
-    println!("after second movegen");
     assert_eq!(legal_moves.first_not_occupied, 4);
     let (copied_board, copied_state) = (board.clone(), state.clone());
-    for i in 0..5 {
+    for i in 0..4 {
         println!("i = {i}");
         let m: u16 = legal_moves.pseudo_moves[i];
+        println!("from: {}, to: {}", from_square(m), to_square(m));
         board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
         board.cancel_move(&mut state, 16, &mut 0, &mut 0);
         assert_eq!(board, copied_board);

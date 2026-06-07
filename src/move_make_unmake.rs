@@ -13,7 +13,6 @@ use crate::{
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
-    converters::fen_converter::board_to_fen,
     gamestate::{GameState, PreviousMove},
 };
 
@@ -146,70 +145,98 @@ impl Board {
         *eval += material_subtraction;
     }
 
+    #[cold]
+    #[inline(never)]
+    fn promote_pawn(
+        &mut self,
+        zobrist_table: &[u64; 768],
+        current_hash: &mut u64,
+        evaluation: &mut i32,
+        color: u16,
+        start: &u64,
+        promotion_choice: usize,
+        to_sq_index: &usize,
+        to_sq_index_base_zero: usize,
+        end: &u64,
+    ) -> () {
+        let promotion_choice_table_idx: usize = if color == 8 {
+            self.bitboards[0] &= start;
+            promotion_choice
+        } else {
+            self.bitboards[6] &= start;
+            promotion_choice + 6
+        };
+        *evaluation += VALUE_TABLE[promotion_choice_table_idx]
+            + if color == 8 { -PAWN_VALUE } else { PAWN_VALUE };
+        self.bitboards[promotion_choice_table_idx] |= end;
+        *current_hash ^= zobrist_table[to_sq_index_base_zero];
+        *current_hash ^= zobrist_table[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
+        self.cached_pieces[*to_sq_index] = U16_PIECES_TABLE[promotion_choice_table_idx];
+    }
+
     #[inline(always)]
     pub fn adjust_move_restriction(
         &self,
         state: &mut GameState,
-        from: u16,
         to: u16,
         flag: u16,
         moving_piece: u16,
         color: u16,
     ) -> () {
         let to_sq_bb: u64 = 1 << to;
+        let total_occ: u64 = self.total_occupancy;
         if color == 8 {
             let king_sq: u8 = self.black_king_square;
             let king_sq_index: usize = king_sq as usize;
-            let (is_discovery, squares) = self.exposes_king(from, king_sq, 16);
-            if flag == 2 {
-                let (second_ep_discovery, second_ep_squares) = self.en_passant_exposes_king(
-                    from,
-                    state.en_passant_target.unwrap() as u16 - 8,
-                    16,
-                    king_sq,
-                );
-                if second_ep_discovery {
-                    if is_discovery {
-                        state.black_legal_squares_mask = 0;
-                        return ();
-                    }
-                    state.black_legal_squares_mask = second_ep_squares;
-                    return ();
+            let diag_discovery_attacks: usize = ((bishop_attacks(king_sq_index, total_occ)
+                & !to_sq_bb)
+                & (self.bitboards[4] | self.bitboards[2]))
+                .trailing_zeros() as usize;
+            let line_discovery_attacks: usize = ((rook_attacks(king_sq_index, total_occ)
+                & !to_sq_bb)
+                & (self.bitboards[4] | self.bitboards[3]))
+                .trailing_zeros() as usize;
+
+            let squares: u64 = unsafe {
+                if diag_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_sq_index][diag_discovery_attacks]
+                } else if line_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_sq_index][line_discovery_attacks]
+                } else {
+                    64
                 }
-            }
-            let occupancy_no_black_king = self.total_occupancy & !(1 << king_sq) & !(1 << from);
-            let attacks: u64 = match moving_piece {
+            };
+            let direct_attacks: u64 = match moving_piece {
                 5 => {
-                    bishop_attacks(king_sq_index, occupancy_no_black_king)
-                        | rook_attacks(king_sq_index, occupancy_no_black_king)
-                }
-                // queen
-                4 => rook_attacks(king_sq_index, occupancy_no_black_king), // rook
-                3 => bishop_attacks(king_sq_index, occupancy_no_black_king), // bishop
+                    bishop_attacks(king_sq_index, total_occ)
+                        | rook_attacks(king_sq_index, total_occ)
+                } // queen
+                4 => rook_attacks(king_sq_index, total_occ), // rook
+                3 => bishop_attacks(king_sq_index, total_occ), // bishop
                 2 => KNIGHT_ATTACKS[king_sq_index],
                 1 => match flag {
-                    0 => BLACK_PAWN_ATTACKS[king_sq_index],
-                    2 => BLACK_PAWN_ATTACKS[king_sq_index],
+                    0 | 2 => BLACK_PAWN_ATTACKS[king_sq_index],
                     3 => KNIGHT_ATTACKS[king_sq_index],
-                    4 => bishop_attacks(king_sq_index, occupancy_no_black_king),
-                    5 => rook_attacks(king_sq_index, occupancy_no_black_king),
+                    4 => bishop_attacks(king_sq_index, total_occ),
+                    5 => rook_attacks(king_sq_index, total_occ),
                     6 => {
-                        bishop_attacks(king_sq_index, occupancy_no_black_king)
-                            | rook_attacks(king_sq_index, occupancy_no_black_king)
+                        bishop_attacks(king_sq_index, total_occ)
+                            | rook_attacks(king_sq_index, total_occ)
                     }
                     _ => unreachable!(),
                 },
                 6 => 0, // king
                 _ => unreachable!(),
-            } | self.occupancies[1];
-            let direct_attack: bool = attacks & to_sq_bb != 0;
+            };
+            let direct_attack: bool = direct_attacks & to_sq_bb != 0;
+            let is_discovery: bool = squares != 64;
             if direct_attack && is_discovery {
                 state.black_legal_squares_mask = 0;
                 return ();
             }
             if direct_attack {
                 state.black_legal_squares_mask &=
-                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] } | to_sq_bb;
+                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] };
                 return ();
             }
             if is_discovery {
@@ -221,50 +248,49 @@ impl Board {
         } else {
             let king_sq: u8 = self.white_king_square;
             let king_sq_index: usize = king_sq as usize;
-            let (is_discovery, squares) = self.exposes_king(from, king_sq, 8);
-            if flag == 2 {
-                let (second_ep_discovery, second_ep_squares) = self.en_passant_exposes_king(
-                    from,
-                    state.en_passant_target.unwrap() as u16 + 8,
-                    8,
-                    king_sq,
-                );
-                if second_ep_discovery {
-                    if is_discovery {
-                        state.white_legal_squares_mask = 0;
-                        return ();
-                    }
-                    state.white_legal_squares_mask = second_ep_squares;
-                    return ();
+            let diag_discovery_attacks: usize = ((bishop_attacks(king_sq_index, total_occ)
+                & !to_sq_bb)
+                & (self.bitboards[10] | self.bitboards[8]))
+                .trailing_zeros() as usize;
+            let line_discovery_attacks: usize = ((rook_attacks(king_sq_index, total_occ)
+                & !to_sq_bb)
+                & (self.bitboards[10] | self.bitboards[9]))
+                .trailing_zeros() as usize;
+
+            let squares: u64 = unsafe {
+                if diag_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_sq_index][diag_discovery_attacks]
+                } else if line_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_sq_index][line_discovery_attacks]
+                } else {
+                    64
                 }
-            }
-            let occupancy_no_white_king: u64 =
-                self.total_occupancy & !(1 << king_sq) & !(1 << from);
-            let attacks: u64 = match moving_piece {
+            };
+            let direct_attacks: u64 = match moving_piece {
                 11 => {
-                    bishop_attacks(king_sq_index, occupancy_no_white_king)
-                        | rook_attacks(king_sq_index, occupancy_no_white_king)
+                    bishop_attacks(king_sq_index, total_occ)
+                        | rook_attacks(king_sq_index, total_occ)
                 }
                 // queen
-                10 => rook_attacks(king_sq_index, occupancy_no_white_king), // rook
-                9 => bishop_attacks(king_sq_index, occupancy_no_white_king), // bishop
+                10 => rook_attacks(king_sq_index, total_occ), // rook
+                9 => bishop_attacks(king_sq_index, total_occ), // bishop
                 8 => KNIGHT_ATTACKS[king_sq_index],
                 7 => match flag {
-                    0 => WHITE_PAWN_ATTACKS[king_sq_index],
-                    2 => WHITE_PAWN_ATTACKS[king_sq_index],
+                    0 | 2 => WHITE_PAWN_ATTACKS[king_sq_index],
                     3 => KNIGHT_ATTACKS[king_sq_index],
-                    4 => bishop_attacks(king_sq_index, occupancy_no_white_king),
-                    5 => rook_attacks(king_sq_index, occupancy_no_white_king),
+                    4 => bishop_attacks(king_sq_index, total_occ),
+                    5 => rook_attacks(king_sq_index, total_occ),
                     6 => {
-                        bishop_attacks(king_sq_index, occupancy_no_white_king)
-                            | rook_attacks(king_sq_index, occupancy_no_white_king)
+                        bishop_attacks(king_sq_index, total_occ)
+                            | rook_attacks(king_sq_index, total_occ)
                     }
                     _ => unreachable!(),
                 },
                 12 => 0, // king
-                _ => unreachable!("moving piece: {moving_piece}, color {color}"),
-            } | self.occupancies[0];
-            let direct_attack: bool = attacks & to_sq_bb != 0;
+                _ => unreachable!(),
+            };
+            let direct_attack: bool = direct_attacks & to_sq_bb != 0;
+            let is_discovery: bool = squares != 64;
             if direct_attack && is_discovery {
                 state.white_legal_squares_mask = 0;
                 return ();
@@ -316,7 +342,6 @@ impl Board {
         } else {
             state.white_legal_squares_mask
         };
-        self.adjust_move_restriction(state, from_sq, to_sq, move_flag, moving_piece, color);
         let to_sq_index_base_one: usize = to_sq_index + 1;
 
         let moving_piece_hash: usize = moving_piece_table_idx * 64;
@@ -425,19 +450,17 @@ impl Board {
         let to_sq_index_base_zero: usize = to_sq_index_base_one - 1;
 
         if promotion_choice != 0 {
-            let promotion_choice_table_idx: usize = if color == 8 {
-                self.bitboards[0] &= start;
-                promotion_choice
-            } else {
-                *&mut self.bitboards[6] &= start;
-                promotion_choice + 6
-            };
-            *evaluation += VALUE_TABLE[promotion_choice_table_idx]
-                + if color == 8 { -PAWN_VALUE } else { PAWN_VALUE };
-            self.bitboards[promotion_choice_table_idx] |= end;
-            *current_hash ^= zobrist_table[to_sq_index_base_zero];
-            *current_hash ^= zobrist_table[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
-            cached_pieces[to_sq_index] = U16_PIECES_TABLE[promotion_choice_table_idx];
+            self.promote_pawn(
+                zobrist_table,
+                current_hash,
+                evaluation,
+                color,
+                &start,
+                promotion_choice,
+                &to_sq_index,
+                to_sq_index_base_zero,
+                &end,
+            );
         } else {
             *moving_piece_bb |= end;
             *moving_piece_bb &= start;
@@ -458,24 +481,8 @@ impl Board {
         } else {
             state.en_passant_target = None;
         }
+        self.adjust_move_restriction(state, to_sq, move_flag, moving_piece, color);
         state.moves_history.push(previous_move);
-        assert!(
-            !self.is_square_attacked(
-                if color == 8 {
-                    self.white_king_square
-                } else {
-                    self.black_king_square
-                },
-                if color == 8 { 16 } else { 8 }
-            ),
-            "{}, from: {}, to: {}, allowed white mask: {:b}, allowed black mask: {:b}\nmove history: {:?}",
-            board_to_fen(self, state, &if color == 8 { 16 } else { 8 }),
-            from_sq,
-            to_sq,
-            state.white_legal_squares_mask,
-            state.black_legal_squares_mask,
-            state.moves_history
-        );
     }
 
     pub fn cancel_move(
