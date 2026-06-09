@@ -200,8 +200,10 @@ impl Board {
             let squares: u64 = unsafe {
                 if diag_discovery_attacks != 64 {
                     RAYS_BETWEEN[king_sq_index][diag_discovery_attacks]
+                        | (1 << diag_discovery_attacks)
                 } else if line_discovery_attacks != 64 {
                     RAYS_BETWEEN[king_sq_index][line_discovery_attacks]
+                        | (1 << line_discovery_attacks)
                 } else {
                     64
                 }
@@ -235,8 +237,8 @@ impl Board {
                 return ();
             }
             if direct_attack {
-                state.black_legal_squares_mask &=
-                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] };
+                state.black_legal_squares_mask =
+                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] | to_sq_bb };
                 return ();
             }
             if is_discovery {
@@ -260,8 +262,10 @@ impl Board {
             let squares: u64 = unsafe {
                 if diag_discovery_attacks != 64 {
                     RAYS_BETWEEN[king_sq_index][diag_discovery_attacks]
+                        | (1 << diag_discovery_attacks)
                 } else if line_discovery_attacks != 64 {
                     RAYS_BETWEEN[king_sq_index][line_discovery_attacks]
+                        | (1 << line_discovery_attacks)
                 } else {
                     64
                 }
@@ -296,7 +300,7 @@ impl Board {
                 return ();
             }
             if direct_attack {
-                state.white_legal_squares_mask &=
+                state.white_legal_squares_mask =
                     unsafe { RAYS_BETWEEN[king_sq_index][to as usize] } | to_sq_bb;
                 return ();
             }

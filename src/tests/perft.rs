@@ -1,4 +1,3 @@
-use crate::board_geometry_templates::TO_SHIFT;
 #[allow(unused)]
 use crate::{
     board::Board,
@@ -187,7 +186,7 @@ fn run_perft() -> () {
     compute_all_lines();
     compute_mvvlva();
 
-    /*let mut board: Board = Board::set();
+    let mut board: Board = Board::set();
     let mut state: GameState = GameState::new(&board);
 
     board.total_occupancy();
@@ -238,39 +237,36 @@ fn run_perft() -> () {
                 assert_eq!(node_counter.castlings, 883453);
             }
         }
-    }*/
+    }
 
-    let (mut pos3_board, mut pos3_state) = fen_to_board("8/2p5/3p4/KP5r/1R3p2/6k1/4P3/8 w - - 0 2");
+    let (mut pos3_board, mut pos3_state) =
+        fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
     pos3_board.total_occupancy();
     pos3_board.update_full_cache();
-    //pos3_board.perform_move(14 | (22 << TO_SHIFT), &mut pos3_state, 8, &mut 0, &mut 0);
 
-    let mut engine: Engine = Engine::new(8, 2);
+    let mut engine: Engine = Engine::new(8, 10);
 
     engine.evaluate(&pos3_board);
 
-    println!(
-        "{:?}",
-        engine.perft_test(2, &mut pos3_board, &mut pos3_state, 8)
-    ); /*
     for d in 1..8 {
-    println!("depth {d}");
-    engine.depth = d as u8;
-    let (correct_nodes, correct_captures, correct_e_p, correct_promotions) = match d {
-    1 => (14, 1, 0, 0),
-    2 => (191, 14, 0, 0),
-    3 => (2812, 209, 2, 0),
-    4 => (43238, 3348, 123, 0),
-    5 => (674624, 52051, 1165, 0),
-    6 => (11030083, 940350, 33325, 7552),
-    7 => (178633661, 14519036, 294874, 140024),
-    _ => unreachable!(),
-    };
-    assert_eq!(node_counter.captures, correct_captures, "depth {}", d);
-    assert_eq!(node_counter.promotions, correct_promotions, "depth {}", d);
-    assert_eq!(node_counter.en_passants, correct_e_p, "depth {}", d);
-    assert_eq!(node_counter.total_nodes, correct_nodes, "depth {}", d);
-    assert_eq!(node_counter.castlings, 0, "depth {}", d);
-    //println!("{:?}", node_counter);
-    }*/
+        println!("depth {d}");
+        engine.depth = d as u8;
+        let node_counter: NodeCounter = engine.perft_test(d, &mut pos3_board, &mut pos3_state, 8);
+        let (correct_nodes, correct_captures, correct_e_p, correct_promotions) = match d {
+            1 => (14, 1, 0, 0),
+            2 => (191, 14, 0, 0),
+            3 => (2812, 209, 2, 0),
+            4 => (43238, 3348, 123, 0),
+            5 => (674624, 52051, 1165, 0),
+            6 => (11030083, 940350, 33325, 7552),
+            7 => (178633661, 14519036, 294874, 140024),
+            _ => unreachable!(),
+        };
+        assert_eq!(node_counter.captures, correct_captures, "depth {}", d);
+        assert_eq!(node_counter.promotions, correct_promotions, "depth {}", d);
+        assert_eq!(node_counter.en_passants, correct_e_p, "depth {}", d);
+        assert_eq!(node_counter.total_nodes, correct_nodes, "depth {}", d);
+        assert_eq!(node_counter.castlings, 0, "depth {}", d);
+        //println!("{:?}", node_counter);
+    }
 }

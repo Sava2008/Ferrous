@@ -63,6 +63,7 @@ impl Board {
     pub fn exposes_king(&self, from: u16, king_square: u8, king_color: u16) -> (bool, u64) {
         let king_sq = king_square as usize;
         let occ_no_moving_piece = self.total_occupancy & !(1 << from);
+
         let (linear_enemies, diagonal_enemies) = if king_color == 16 {
             (
                 (self.bitboards[3] | self.bitboards[4])
@@ -78,21 +79,39 @@ impl Board {
                     & bishop_attacks(king_sq, occ_no_moving_piece),
             )
         };
+
         if diagonal_enemies.count_ones() > 1 || linear_enemies.count_ones() > 1 {
             return (true, 0);
         }
         let diagonal_attacker = diagonal_enemies.trailing_zeros() as usize;
         let linear_attacker = linear_enemies.trailing_zeros() as usize;
+
         return match (diagonal_attacker, linear_attacker) {
             (64, 64) => (false, 0),
-            (_, 64) => (
-                true,
-                unsafe { RAYS_BETWEEN[king_sq][diagonal_attacker] } | diagonal_enemies,
-            ),
-            (64, _) => (
-                true,
-                unsafe { RAYS_BETWEEN[king_sq][linear_attacker] } | linear_enemies,
-            ),
+            (_, 64) => {
+                if unsafe {
+                    TWO_SQUARES_LINE[king_sq][from as usize]
+                        != TWO_SQUARES_LINE[king_sq][diagonal_attacker]
+                } {
+                    return (false, 0);
+                }
+                (
+                    true,
+                    unsafe { RAYS_BETWEEN[king_sq][diagonal_attacker] } | diagonal_enemies,
+                )
+            }
+            (64, _) => {
+                if unsafe {
+                    TWO_SQUARES_LINE[king_sq][from as usize]
+                        != TWO_SQUARES_LINE[king_sq][linear_attacker]
+                } {
+                    return (false, 0);
+                }
+                (
+                    true,
+                    unsafe { RAYS_BETWEEN[king_sq][linear_attacker] } | linear_enemies,
+                )
+            }
             _ => (true, 0),
         };
     }
@@ -201,14 +220,6 @@ impl Board {
                 _ => BLACK_PAWN_ATTACKS[initial_pos as usize],
             };
             let mut dest_bitboard: u64 = attacks & enemy_occupancy;
-            if (1 << initial_pos) & e_p_rank != 0 && attacks & e_p_bitboard != 0 {
-                if !self
-                    .en_passant_exposes_king(initial_pos, en_passant_pawn, color, king_sq)
-                    .0
-                {
-                    dest_bitboard |= e_p_bitboard;
-                }
-            }
             if !captures_only {
                 let forward_square: u16 = match color {
                     8 => initial_pos + 8,
@@ -231,6 +242,15 @@ impl Board {
             }
             let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
             dest_bitboard &= check_restrictions;
+            if (1 << initial_pos) & e_p_rank != 0 && attacks & e_p_bitboard != 0 {
+                if !self
+                    .en_passant_exposes_king(initial_pos, en_passant_pawn, color, king_sq)
+                    .0
+                    && check_restrictions & (1 << en_passant_pawn) != 0
+                {
+                    dest_bitboard |= e_p_bitboard;
+                }
+            }
             if exposes_king {
                 dest_bitboard &= allowed_squares;
             }

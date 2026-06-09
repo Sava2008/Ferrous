@@ -836,7 +836,6 @@ impl Engine {
                     depth_best_score = score;
                     depth_best_move = allegedly_best_move;
                 }
-                // best_score_eval = depth_best_score;
             }
             previous_best_move = depth_best_move;
             println!("reached depth {d}");
@@ -844,7 +843,6 @@ impl Engine {
         if previous_best_move != 0 {
             best_move = Some(previous_best_move);
         }
-        //println!("eval: {best_score_eval}");
 
         println!("nodes: {node_count}\n");
         return best_move;
