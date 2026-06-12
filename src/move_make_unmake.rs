@@ -30,10 +30,11 @@ impl Board {
         color: u16,
     ) -> () {
         *evaluation -= VALUE_TABLE[captured_table_idx];
+        let dest_heuristic = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
         *evaluation -= if color == 8 {
-            -HEURISTICS_TABLE[captured_table_idx][to_sq]
+            -dest_heuristic
         } else {
-            HEURISTICS_TABLE[captured_table_idx][to_sq]
+            dest_heuristic
         };
         previous_move.captured_piece |= enemy;
         let capture: u64 = !BIT_MASKS[to_sq];
@@ -132,10 +133,11 @@ impl Board {
                 -PAWN_VALUE,
             ),
         };
+        let piece_heuristics = &raw const HEURISTICS_TABLE;
         material_subtraction -= if color == 8 {
-            -HEURISTICS_TABLE[6][captured_pawn_square]
+            unsafe { -(*piece_heuristics)[6][captured_pawn_square] }
         } else {
-            HEURISTICS_TABLE[0][captured_pawn_square]
+            unsafe { (*piece_heuristics)[0][captured_pawn_square] }
         };
         self.cached_pieces[captured_pawn_square] = 0;
         let capture: u64 = !BIT_MASKS[captured_pawn_square];
@@ -438,9 +440,12 @@ impl Board {
         *occupancy &= start;
         *occupancy |= end;
 
+        let moving_piece_heuristics: &[i32; 64] =
+            unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
+
         let (from_heuristic, to_heuristic) = (
-            HEURISTICS_TABLE[moving_piece_table_idx][from_sq_index],
-            HEURISTICS_TABLE[moving_piece_table_idx][to_sq_index],
+            moving_piece_heuristics[from_sq_index],
+            moving_piece_heuristics[to_sq_index],
         );
 
         if color == 8 {

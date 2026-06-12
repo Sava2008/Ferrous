@@ -85,7 +85,7 @@ impl GameState {
                 repetition_counter += 1;
             }
         }
-        if repetition_counter > 2 {
+        if repetition_counter > 1 {
             return true;
         }
         return false;

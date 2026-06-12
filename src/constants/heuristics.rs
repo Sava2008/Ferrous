@@ -105,7 +105,7 @@ pub const BLACK_KING_HEURISTICS: [i32; 64] = {
     temp
 };
 
-pub const HEURISTICS_TABLE: [[i32; 64]; 12] = [
+pub static mut HEURISTICS_TABLE: [[i32; 64]; 12] = [
     WHITE_PAWN_HEURISTICS,
     WHITE_KNIGHT_HEURISTICS,
     WHITE_BISHOP_HEURISTICS,
@@ -120,8 +120,15 @@ pub const HEURISTICS_TABLE: [[i32; 64]; 12] = [
     BLACK_KING_HEURISTICS,
 ];
 
-pub const ENDGAME_KING_HEURISTICS: [i32; 64] = [
-    -20, -15, -10, -5, -5, -10, -15, -20, -15, -10, -5, 0, 0, -5, -10, -15, -10, 20, 25, 30, 30,
-    25, 20, -10, 0, 20, 30, 40, 40, 30, 20, 0, 0, 20, 30, 40, 40, 30, 20, 0, -10, 20, 25, 30, 30,
-    25, 20, -10, -15, -10, -5, 0, 0, -5, -10, -15, -20, -15, -10, -5, -5, -10, -15, -20,
+pub const ENDGAME_WHITE_KING_HEURISTICS: [i32; 64] = [
+    -9, -8, -7, -7, -7, -7, -8, -9, // Rank 1
+    -8, -7, -6, -5, -5, -6, -7, -8, // Rank 2
+    -7, -6, -4, 0, 0, -4, -6, -7, // Rank 3
+    -7, -5, 0, 2, 2, 0, -5, -7, // Rank 4
+    -7, -5, 0, 2, 2, 0, -5, -7, // Rank 5
+    -7, -6, -4, 0, 0, -4, -6, -7, // Rank 6
+    -8, -7, -6, -5, -5, -8, -7, -8, // Rank 7
+    -9, -8, -9, -9, -9, -9, -8, -9, // Rank 8
 ];
+
+pub const ENDGAME_BLACK_KING_HEURISTICS: [i32; 64] = WHITE_KING_HEURISTICS;

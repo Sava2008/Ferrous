@@ -230,7 +230,7 @@ impl Engine {
                 depth_as_index,
                 last_occupied,
                 &best_move_transposition,
-                &board.cached_pieces,
+                &board,
             );
             let mut legal_moves_amount: usize = last_occupied;
 
@@ -336,7 +336,7 @@ impl Engine {
                 depth_as_index,
                 last_occupied,
                 &best_move_transposition,
-                &board.cached_pieces,
+                &board,
             );
             let mut legal_moves_amount: usize = last_occupied;
 
@@ -568,7 +568,7 @@ impl Engine {
             quiescence_depth,
             last_occupied,
             &best_move_transposition,
-            &board.cached_pieces,
+            &board,
         );
 
         let mut best_score: i32 = stand_pat;
@@ -687,42 +687,8 @@ impl Engine {
         time_contrainsts: Duration,
         max_depth: u8,
     ) -> Option<u16> {
-        for i in 0..4096 {
-            self.history_heuristics[i] /= 100;
-        }
+        self.prepare_before_search(board);
         let mut node_count: u64 = 0;
-        self.killer_moves = [[None; 2]; 64];
-        self.move_lists = [MoveList {
-            pseudo_moves: [0; 192],
-            first_not_occupied: 0,
-        }; 64];
-        self.move_scores = [[0; 192]; 64];
-        self.current_hash = 0;
-
-        self.transposition_table.hits = 0;
-        self.transposition_table.collisions = 0;
-        self.transposition_table.replacements = 0;
-
-        /*let mut best_score_eval: i32 = if self.side == 8 {
-            -CHECKMATE_VALUE
-        } else {
-            CHECKMATE_VALUE
-        };*/
-
-        // calculate the hash of the position in the beginning
-        for (i, piece) in board.cached_pieces.iter().enumerate() {
-            let piece: u16 = *piece;
-            if piece != 0 {
-                let zobrist_index: usize = (piece as usize - 1) * 64 + i;
-                self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
-            }
-        }
-        self.current_hash ^= if self.side == 8 {
-            WHITE_ZOBRIST_KEY
-        } else {
-            BLACK_ZOBRIST_KEY
-        };
-
         let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
@@ -735,8 +701,6 @@ impl Engine {
             8 => -50,
             _ => 50,
         };
-
-        self.evaluate(board);
 
         let mut time_limit_ms: u128 = time_contrainsts.as_millis();
         if time_limit_ms == 0 {
@@ -768,7 +732,7 @@ impl Engine {
                 depth_as_index,
                 last_occupied,
                 &previous_best_move,
-                &copied_board.cached_pieces,
+                &copied_board,
             );
             let scores: &mut [i16; 192] = &mut self.move_scores[depth_as_index];
             let moves: &mut [u16; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
@@ -876,6 +840,69 @@ impl Engine {
         println!("nodes: {node_count}\n");
         return best_move;
     }
+
+    fn prepare_before_search(&mut self, board: &Board) -> () {
+        for i in 0..4096 {
+            self.history_heuristics[i] /= 100;
+        }
+        self.killer_moves = [[None; 2]; 64];
+        self.move_lists = [MoveList {
+            pseudo_moves: [0; 192],
+            first_not_occupied: 0,
+        }; 64];
+        self.move_scores = [[0; 192]; 64];
+        self.current_hash = 0;
+
+        self.transposition_table.hits = 0;
+        self.transposition_table.collisions = 0;
+        self.transposition_table.replacements = 0;
+
+        // calculate the hash of the position in the beginning
+        let (
+            mut white_queens_amount,
+            mut black_queens_amount,
+            mut white_pieces_left,
+            mut black_pieces_left,
+        ) = (0, 0, 0, 0);
+        for (i, piece) in board.cached_pieces.iter().enumerate() {
+            let piece: u16 = *piece;
+            if piece != 0 {
+                let zobrist_index: usize = (piece as usize - 1) * 64 + i;
+                self.current_hash ^= ZOBRIST_HASH_TABLE[zobrist_index];
+                match piece {
+                    WHITE_QUEEN_U16 => white_queens_amount += 1,
+                    BLACK_QUEEN_U16 => black_queens_amount += 1,
+                    WHITE_KING_U16 | BLACK_KING_U16 => continue, // don't count kings, they self negate each other
+                    _ => (),
+                };
+                if piece < 7 {
+                    white_pieces_left += 1;
+                } else {
+                    black_pieces_left += 1;
+                }
+            }
+        }
+        let piece_heuristic_table = &raw mut HEURISTICS_TABLE;
+        unsafe {
+            if white_queens_amount == 0 || white_pieces_left < 8 {
+                (*piece_heuristic_table)[5] = ENDGAME_WHITE_KING_HEURISTICS;
+            } else {
+                (*piece_heuristic_table)[5] = WHITE_KING_HEURISTICS;
+            }
+            if black_queens_amount == 0 || black_pieces_left < 8 {
+                (*piece_heuristic_table)[11] = ENDGAME_BLACK_KING_HEURISTICS;
+            } else {
+                (*piece_heuristic_table)[11] = BLACK_KING_HEURISTICS;
+            }
+        }
+        self.current_hash ^= if self.side == 8 {
+            WHITE_ZOBRIST_KEY
+        } else {
+            BLACK_ZOBRIST_KEY
+        };
+        self.evaluate(board);
+    }
+
     fn proceed_search(&self, depth: u8) -> bool {
         let depth_percent: f32 = match depth {
             1..=4 => 0.10,

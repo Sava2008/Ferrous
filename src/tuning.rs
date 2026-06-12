@@ -1,6 +1,10 @@
 use crate::{
+    board::Board,
     board_geometry_templates::*,
-    constants::{attacks::MVV_LVA, heuristics::*},
+    constants::{
+        attacks::{BLACK_PAWN_ATTACKS, MVV_LVA, WHITE_PAWN_ATTACKS},
+        heuristics::*,
+    },
     search::Engine,
 };
 
@@ -10,7 +14,7 @@ impl Engine {
         depth: usize,
         last_occupied: usize,
         previous_best_move: &u16,
-        current_board: &[u16; 64],
+        current_board: &Board,
     ) -> () {
         for i in 0..last_occupied {
             let mv: u16 = self.move_lists[depth].pseudo_moves[0..last_occupied][i];
@@ -22,11 +26,12 @@ impl Engine {
             }
         }
     }
-    pub fn move_priority(&self, m: &u16, depth: usize, current_board: &[u16; 64]) -> i16 {
+    pub fn move_priority(&self, m: &u16, depth: usize, current_board: &Board) -> i16 {
         let mut score: i16 = 0;
+        let to_square: usize = to_square(*m) as usize;
         let (moving_piece_type, taken_piece_type): (u16, u16) = (
-            current_board[from_square(*m) as usize],
-            current_board[to_square(*m) as usize],
+            current_board.cached_pieces[from_square(*m) as usize],
+            current_board.cached_pieces[to_square],
         );
         if taken_piece_type != 0 {
             let mut victim_value: usize = Self::get_piece_value(taken_piece_type);
@@ -52,7 +57,15 @@ impl Engine {
         let history_idx: usize =
             (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
         score += self.history_heuristics[history_idx] / 100;
-        score += Self::does_improve_piece(*m, moving_piece_type, current_board) as i16;
+        score +=
+            Self::does_improve_piece(*m, moving_piece_type, &current_board.cached_pieces) as i16;
+        if moving_piece_type < 7 {
+            score -= 200
+                * (WHITE_PAWN_ATTACKS[to_square] & current_board.bitboards[6]).count_ones() as i16;
+            return score;
+        }
+        score -=
+            200 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
         return score;
     }
     fn get_piece_value(piece_type: u16) -> usize {
@@ -72,7 +85,7 @@ impl Engine {
                 board, from_sq
             );
         }
-        let heuristics_table: &[i32; 64] = &HEURISTICS_TABLE[piece_table_idx];
+        let heuristics_table: &[i32; 64] = unsafe { &HEURISTICS_TABLE[piece_table_idx] };
         return heuristics_table[to_sq] - heuristics_table[from_sq];
     }
 }
