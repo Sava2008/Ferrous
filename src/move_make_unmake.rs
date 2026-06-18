@@ -30,7 +30,7 @@ impl Board {
         color: u16,
     ) -> () {
         *evaluation -= VALUE_TABLE[captured_table_idx];
-        let dest_heuristic: i32 = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
+        let dest_heuristic = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
         *evaluation -= if color == 8 {
             -dest_heuristic
         } else {
@@ -99,13 +99,10 @@ impl Board {
         previous_move.move_flag = 0b0001;
 
         let (start, end): (u64, u64) = (!BIT_MASKS[rook_from], BIT_MASKS[rook_to]);
-        self.total_occupancy &= start;
-        self.total_occupancy |= end;
+        self.total_occupancy = (self.total_occupancy & start) | end;
 
-        *occupancy &= start;
-        *occupancy |= end;
-        *rook_bb &= start;
-        *rook_bb |= end;
+        *occupancy = (*occupancy & start) | end;
+        *rook_bb = (*rook_bb & start) | end;
         *eval += if color == 8 {
             rook_to_heuristic - rook_from_heuristic
         } else {
@@ -133,7 +130,7 @@ impl Board {
                 -PAWN_VALUE,
             ),
         };
-        let piece_heuristics: *const [[i32; 64]; 12] = &raw const HEURISTICS_TABLE;
+        let piece_heuristics = &raw const HEURISTICS_TABLE;
         material_subtraction -= if color == 8 {
             unsafe { -(*piece_heuristics)[6][captured_pawn_square] }
         } else {
@@ -229,7 +226,7 @@ impl Board {
                     _ => unreachable!(),
                 },
                 6 => 0, // king
-                _ => unreachable!("previous moves: {:?}", state.moves_history),
+                _ => unreachable!(),
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -292,7 +289,7 @@ impl Board {
                     _ => unreachable!(),
                 },
                 12 => 0, // king
-                _ => unreachable!("previous moves: {:?}", state.moves_history),
+                _ => unreachable!(),
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -433,11 +430,7 @@ impl Board {
         );
 
         let (start, end): (u64, u64) = (!BIT_MASKS[from_sq_index], BIT_MASKS[to_sq_index]);
-        // self.total_occupancy &= start;
-        // self.total_occupancy |= end;
         self.total_occupancy = (self.total_occupancy & start) | end;
-        // *occupancy &= start;
-        // *occupancy |= end;
         *occupancy = (*occupancy & start) | end;
 
         let moving_piece_heuristics: &[i32; 64] =
@@ -468,8 +461,6 @@ impl Board {
                 &end,
             );
         } else {
-            // *moving_piece_bb |= end;
-            // *moving_piece_bb &= start;
             *moving_piece_bb = (*moving_piece_bb & start) | end;
         }
         previous_move.material_difference = *evaluation - evaluation_before;
@@ -554,7 +545,7 @@ impl Board {
                 *moved_piece_bitboard |= start_bb;
                 *current_hash ^= zobrist_table[main_piece_hash + end_index];
             } else {
-                let promotion_as_index: usize = promotion as usize;
+                let promotion_as_index = promotion as usize;
                 let (pawns, promotion_piece_encoding, pawn) = if color == 8 {
                     (&mut self.bitboards[0], promotion_as_index, WHITE_PAWN_U16)
                 } else {
@@ -570,9 +561,7 @@ impl Board {
                 *current_hash ^= zobrist_table[promotion_piece_encoding * 64 + end_index];
             }
 
-            // *color_occupancy |= start_bb;
-            // *color_occupancy &= not_end_bb;
-            *color_occupancy = (*color_occupancy | start_bb) & not_end_bb;
+            *color_occupancy = (*color_occupancy & not_end_bb) | start_bb;
             self.total_occupancy |= start_bb;
             if captured_piece != 0 {
                 let end_bb: u64 = BIT_MASKS[end_index];
@@ -616,8 +605,8 @@ impl Board {
                 };
                 let taken_pawn_square_bb: u64 = BIT_MASKS[taken_pawn_square];
                 *enemy_pawns |= taken_pawn_square_bb;
-                *enemy_occupancy |= taken_pawn_square_bb;
                 self.total_occupancy |= taken_pawn_square_bb;
+                *enemy_occupancy |= taken_pawn_square_bb;
                 cached_pieces[taken_pawn_square] = pawn;
             }
 
@@ -632,15 +621,9 @@ impl Board {
                 let (rook_start_bb, rook_end_bb): (u64, u64) =
                     (BIT_MASKS[rook_start], !BIT_MASKS[rook_end]);
 
-                // *rooks |= rook_start_bb;
-                // *rooks &= rook_end_bb;
-                // *occupancy |= rook_start_bb;
-                // *occupancy &= rook_end_bb;
-                // self.total_occupancy |= rook_start_bb;
-                // self.total_occupancy &= rook_end_bb;
-                *rooks = (*rooks | rook_start_bb) & rook_end_bb;
-                *occupancy = (*occupancy | rook_start_bb) & rook_end_bb;
-                self.total_occupancy = (self.total_occupancy | rook_start_bb) & rook_end_bb;
+                *rooks = (*rooks & rook_end_bb) | rook_start_bb;
+                *occupancy = (*occupancy & rook_end_bb) | rook_start_bb;
+                self.total_occupancy = (self.total_occupancy & rook_end_bb) | rook_start_bb;
                 cached_pieces.swap(rook_end, rook_start);
 
                 let rook_hash: usize = (rook_encoding - 1) * 64;

@@ -43,9 +43,6 @@ impl Engine {
                 attacker_value -= 6;
             }
 
-            if attacker_value > 12 {
-                panic!("index: {}", from_square(*m));
-            }
             return unsafe { MVV_LVA[victim_value][attacker_value] } * 1000;
         }
         if self.killer_moves[depth][0] == Some(*m) {
