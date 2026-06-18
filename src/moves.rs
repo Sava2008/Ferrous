@@ -36,7 +36,7 @@ impl Board {
         }
         let pinners_area: u64 = unsafe { RAYS_FROM[king_sq][from_sq] };
         let is_line: bool = (from_sq % 8 == king_sq % 8) || (from_sq / 8 == king_sq / 8);
-        let attackers = if king_color == 8 {
+        let attackers: u64 = if king_color == 8 {
             if is_line {
                 (self.bitboards[9] | self.bitboards[10])
                     & (rook_attacks(from_sq, en_passantless_occupancy) & pinners_area)
@@ -61,8 +61,17 @@ impl Board {
     }
     #[inline(always)]
     pub fn exposes_king(&self, from: u16, king_square: u8, king_color: u16) -> (bool, u64) {
-        let king_sq = king_square as usize;
-        let occ_no_moving_piece = self.total_occupancy & !(1 << from);
+        let king_sq: usize = king_square as usize;
+        let from_sq: usize = from as usize;
+
+        if unsafe { TWO_SQUARES_LINE[king_sq][from_sq] == 0 } {
+            return (false, 0);
+        }
+
+        let occ_no_moving_piece: u64 = self.total_occupancy & !(1 << from);
+        if occ_no_moving_piece & unsafe { RAYS_BETWEEN[king_sq][from_sq] } != 0 {
+            return (false, 0);
+        }
 
         let (linear_enemies, diagonal_enemies) = if king_color == 16 {
             (
@@ -83,8 +92,8 @@ impl Board {
         if diagonal_enemies.count_ones() > 1 || linear_enemies.count_ones() > 1 {
             return (true, 0);
         }
-        let diagonal_attacker = diagonal_enemies.trailing_zeros() as usize;
-        let linear_attacker = linear_enemies.trailing_zeros() as usize;
+        let diagonal_attacker: usize = diagonal_enemies.trailing_zeros() as usize;
+        let linear_attacker: usize = linear_enemies.trailing_zeros() as usize;
 
         return match (diagonal_attacker, linear_attacker) {
             (64, 64) => (false, 0),

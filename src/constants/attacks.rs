@@ -624,3 +624,40 @@ pub fn compute_mvvlva() -> () {
         }
     }
 }
+
+pub const EN_PASSANT_TARGETS: [[u8; 64]; 64] = generate_en_passant_targets();
+
+const fn generate_en_passant_targets() -> [[u8; 64]; 64] {
+    let mut en_passant_table: [[u8; 64]; 64] = [[64; 64]; 64];
+
+    let mut white_from_index: usize = 8;
+    while white_from_index < 16 {
+        let white_from_u8: u8 = white_from_index as u8 + 8;
+        let mut white_to_index: usize = 16;
+
+        while white_to_index < 24 {
+            en_passant_table[white_from_index][white_to_index] = white_from_u8;
+            white_to_index += 1;
+        }
+
+        white_from_index += 1;
+    }
+
+    let mut black_from_index: usize = 48;
+    while black_from_index < 56 {
+        let black_from_u8: u8 = black_from_index as u8 - 8;
+        let mut black_to_index: usize = 32;
+
+        while black_to_index < 40 {
+            en_passant_table[black_from_index][black_to_index] = black_from_u8;
+            black_to_index += 1;
+        }
+
+        black_from_index += 1;
+    }
+
+    return en_passant_table;
+}
+
+// no EP tables: 1. 2800000 nodes, time 2032ms 2. 3100000 nodes, time 2043ms 3. 3000000 nodes, time 2017ms
+//

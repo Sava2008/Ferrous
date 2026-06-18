@@ -1,3 +1,4 @@
+use crate::constants::attacks::{bishop_attacks, rook_attacks};
 #[allow(unused)]
 use crate::{
     board::Board, converters::fen_converter::fen_to_board, gamestate::GameState, moves::MoveList,
@@ -87,6 +88,12 @@ pub fn engine_speed_test() -> () {
     is_square_attacked_speed_test(&board3);
     is_square_attacked_speed_test(&board4);
     is_square_attacked_speed_test(&board5);
+
+    magic_attacks_speed_test(&board1);
+    magic_attacks_speed_test(&board2);
+    magic_attacks_speed_test(&board3);
+    magic_attacks_speed_test(&board4);
+    magic_attacks_speed_test(&board5);
 }
 
 #[allow(unused)]
@@ -149,5 +156,30 @@ fn is_square_attacked_speed_test(board: &Board) -> () {
     println!(
         "average attack check time: {}ns",
         total_time.as_nanos() / 128
+    );
+}
+
+#[allow(unused)]
+fn magic_attacks_speed_test(board: &Board) -> () {
+    let mut total_time_rooks: Duration = Duration::ZERO;
+    let mut total_time_bishops: Duration = Duration::ZERO;
+
+    let occ: u64 = board.total_occupancy;
+    for sq in 0..64 {
+        let start_timer: Instant = Instant::now();
+        rook_attacks(sq, occ);
+        total_time_rooks += start_timer.elapsed();
+
+        let start_timer: Instant = Instant::now();
+        bishop_attacks(sq, occ);
+        total_time_bishops += start_timer.elapsed();
+    }
+    println!(
+        "average rooks attack time: {}ns",
+        total_time_rooks.as_nanos() / 64
+    );
+    println!(
+        "average bishop attack time: {}ns",
+        total_time_bishops.as_nanos() / 64
     );
 }

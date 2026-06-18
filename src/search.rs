@@ -882,7 +882,7 @@ impl Engine {
                 }
             }
         }
-        let piece_heuristic_table = &raw mut HEURISTICS_TABLE;
+        let piece_heuristic_table: *mut [[i32; 64]; 12] = &raw mut HEURISTICS_TABLE;
         unsafe {
             if white_queens_amount == 0 || white_pieces_left < 8 {
                 (*piece_heuristic_table)[5] = ENDGAME_WHITE_KING_HEURISTICS;

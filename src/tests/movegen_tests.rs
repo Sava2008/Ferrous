@@ -18,7 +18,7 @@ fn knight_gen_test() -> () {
 
     board.calculate_check_restrictions(&mut state, 8);
 
-    let mut moves = MoveList {
+    let mut moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
@@ -94,10 +94,31 @@ fn pawn_gen_block_check_test() -> () {
         state.white_legal_squares_mask, state.black_legal_squares_mask
     );
 
-    let mut moves = MoveList {
+    let mut moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
     };
     board.pawn_moves(&state, 16, &mut moves, false);
     println!("{:?}", moves.pseudo_moves);
+}
+
+#[test]
+fn illegal_en_passant_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("rnbqkb1r/pppp1pp1/5n2/4p2p/4PP2/2N2Q2/PPPP2PP/R1B1KBNR b KQkq - 1 4");
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.perform_move(54 | (38 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 8, &mut moves, false);
+    println!("pawn moves: {:?}", moves.pseudo_moves);
 }

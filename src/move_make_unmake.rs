@@ -5,8 +5,8 @@ use crate::{
     board_geometry_templates::*,
     constants::{
         attacks::{
-            BLACK_PAWN_ATTACKS, KNIGHT_ATTACKS, RAYS_BETWEEN, WHITE_PAWN_ATTACKS, bishop_attacks,
-            rook_attacks,
+            BLACK_PAWN_ATTACKS, EN_PASSANT_TARGETS, KNIGHT_ATTACKS, RAYS_BETWEEN,
+            WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
         },
         heuristics::*,
         masks::BIT_MASKS,
@@ -30,7 +30,7 @@ impl Board {
         color: u16,
     ) -> () {
         *evaluation -= VALUE_TABLE[captured_table_idx];
-        let dest_heuristic = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
+        let dest_heuristic: i32 = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
         *evaluation -= if color == 8 {
             -dest_heuristic
         } else {
@@ -133,7 +133,7 @@ impl Board {
                 -PAWN_VALUE,
             ),
         };
-        let piece_heuristics = &raw const HEURISTICS_TABLE;
+        let piece_heuristics: *const [[i32; 64]; 12] = &raw const HEURISTICS_TABLE;
         material_subtraction -= if color == 8 {
             unsafe { -(*piece_heuristics)[6][captured_pawn_square] }
         } else {
@@ -157,7 +157,6 @@ impl Board {
         color: u16,
         start: &u64,
         promotion_choice: usize,
-        to_sq_index: &usize,
         to_sq_index_base_zero: usize,
         end: &u64,
     ) -> () {
@@ -173,7 +172,7 @@ impl Board {
         self.bitboards[promotion_choice_table_idx] |= end;
         *current_hash ^= zobrist_table[to_sq_index_base_zero];
         *current_hash ^= zobrist_table[promotion_choice_table_idx * 64 + to_sq_index_base_zero];
-        self.cached_pieces[*to_sq_index] = U16_PIECES_TABLE[promotion_choice_table_idx];
+        self.cached_pieces[to_sq_index_base_zero] = U16_PIECES_TABLE[promotion_choice_table_idx];
     }
 
     #[inline(always)]
@@ -230,7 +229,7 @@ impl Board {
                     _ => unreachable!(),
                 },
                 6 => 0, // king
-                _ => unreachable!(),
+                _ => unreachable!("previous moves: {:?}", state.moves_history),
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -293,7 +292,7 @@ impl Board {
                     _ => unreachable!(),
                 },
                 12 => 0, // king
-                _ => unreachable!(),
+                _ => unreachable!("previous moves: {:?}", state.moves_history),
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -348,7 +347,6 @@ impl Board {
         } else {
             state.white_legal_squares_mask
         };
-        let to_sq_index_base_one: usize = to_sq_index + 1;
 
         let moving_piece_hash: usize = moving_piece_table_idx * 64;
 
@@ -435,10 +433,12 @@ impl Board {
         );
 
         let (start, end): (u64, u64) = (!BIT_MASKS[from_sq_index], BIT_MASKS[to_sq_index]);
-        self.total_occupancy &= start;
-        self.total_occupancy |= end;
-        *occupancy &= start;
-        *occupancy |= end;
+        // self.total_occupancy &= start;
+        // self.total_occupancy |= end;
+        self.total_occupancy = (self.total_occupancy & start) | end;
+        // *occupancy &= start;
+        // *occupancy |= end;
+        *occupancy = (*occupancy & start) | end;
 
         let moving_piece_heuristics: &[i32; 64] =
             unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
@@ -456,8 +456,6 @@ impl Board {
             *evaluation += from_heuristic - to_heuristic;
         }
 
-        let to_sq_index_base_zero: usize = to_sq_index_base_one - 1;
-
         if promotion_choice != 0 {
             self.promote_pawn(
                 zobrist_table,
@@ -466,26 +464,19 @@ impl Board {
                 color,
                 &start,
                 promotion_choice,
-                &to_sq_index,
-                to_sq_index_base_zero,
+                to_sq_index,
                 &end,
             );
         } else {
-            *moving_piece_bb |= end;
-            *moving_piece_bb &= start;
+            // *moving_piece_bb |= end;
+            // *moving_piece_bb &= start;
+            *moving_piece_bb = (*moving_piece_bb & start) | end;
         }
         previous_move.material_difference = *evaluation - evaluation_before;
-        if moving_piece == WHITE_PAWN_U16 {
-            if from_sq < 16 && to_sq > 23 && to_sq < 32 {
-                state.en_passant_target = Some(to_sq as u8 - 8);
-            } else {
-                state.en_passant_target = None;
-            }
-        } else if moving_piece == BLACK_PAWN_U16 {
-            if from_sq > 47 && to_sq > 31 && to_sq < 40 {
-                state.en_passant_target = Some(to_sq as u8 + 8);
-            } else {
-                state.en_passant_target = None;
+        if moving_piece == WHITE_PAWN_U16 || moving_piece == BLACK_PAWN_U16 {
+            let potential_en_passant: u8 = EN_PASSANT_TARGETS[to_sq_index][from_sq_index];
+            if potential_en_passant < 64 {
+                state.en_passant_target = Some(potential_en_passant);
             }
         } else {
             state.en_passant_target = None;
@@ -563,7 +554,7 @@ impl Board {
                 *moved_piece_bitboard |= start_bb;
                 *current_hash ^= zobrist_table[main_piece_hash + end_index];
             } else {
-                let promotion_as_index = promotion as usize;
+                let promotion_as_index: usize = promotion as usize;
                 let (pawns, promotion_piece_encoding, pawn) = if color == 8 {
                     (&mut self.bitboards[0], promotion_as_index, WHITE_PAWN_U16)
                 } else {
@@ -579,8 +570,9 @@ impl Board {
                 *current_hash ^= zobrist_table[promotion_piece_encoding * 64 + end_index];
             }
 
-            *color_occupancy |= start_bb;
-            *color_occupancy &= not_end_bb;
+            // *color_occupancy |= start_bb;
+            // *color_occupancy &= not_end_bb;
+            *color_occupancy = (*color_occupancy | start_bb) & not_end_bb;
             self.total_occupancy |= start_bb;
             if captured_piece != 0 {
                 let end_bb: u64 = BIT_MASKS[end_index];
@@ -624,8 +616,8 @@ impl Board {
                 };
                 let taken_pawn_square_bb: u64 = BIT_MASKS[taken_pawn_square];
                 *enemy_pawns |= taken_pawn_square_bb;
-                self.total_occupancy |= taken_pawn_square_bb;
                 *enemy_occupancy |= taken_pawn_square_bb;
+                self.total_occupancy |= taken_pawn_square_bb;
                 cached_pieces[taken_pawn_square] = pawn;
             }
 
@@ -640,12 +632,15 @@ impl Board {
                 let (rook_start_bb, rook_end_bb): (u64, u64) =
                     (BIT_MASKS[rook_start], !BIT_MASKS[rook_end]);
 
-                *rooks |= rook_start_bb;
-                *rooks &= rook_end_bb;
-                *occupancy |= rook_start_bb;
-                *occupancy &= rook_end_bb;
-                self.total_occupancy |= rook_start_bb;
-                self.total_occupancy &= rook_end_bb;
+                // *rooks |= rook_start_bb;
+                // *rooks &= rook_end_bb;
+                // *occupancy |= rook_start_bb;
+                // *occupancy &= rook_end_bb;
+                // self.total_occupancy |= rook_start_bb;
+                // self.total_occupancy &= rook_end_bb;
+                *rooks = (*rooks | rook_start_bb) & rook_end_bb;
+                *occupancy = (*occupancy | rook_start_bb) & rook_end_bb;
+                self.total_occupancy = (self.total_occupancy | rook_start_bb) & rook_end_bb;
                 cached_pieces.swap(rook_end, rook_start);
 
                 let rook_hash: usize = (rook_encoding - 1) * 64;
