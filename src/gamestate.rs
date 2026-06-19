@@ -56,7 +56,6 @@ pub struct PreviousMove {
     pub previous_castling_rights: u8,
     pub material_difference: i32,
     pub check_restrictions: u64,
-    pub pawn_structure: PawnStructureFeatures,
 }
 
 impl GameState {

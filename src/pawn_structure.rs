@@ -1,4 +1,4 @@
-use crate::{board::Board, board_geometry_templates::FILES};
+use crate::{board::Board, board_geometry_templates::FILES, constants::masks::ISOLATED_PAWNS};
 
 pub fn get_adjacent_files(sq: usize) -> (u64, u64) {
     let (adjacent_left, adjacent_right) = if sq % 8 == 0 {
@@ -51,6 +51,17 @@ impl PawnStructureFeatures {
             - self.isolated_white;
     }
 }
+#[inline(always)]
+fn file_occupancy_parallel(mut pawns: u64) -> usize {
+    pawns |= pawns >> 8;
+    pawns |= pawns >> 16;
+    pawns |= pawns >> 24;
+    pawns |= pawns >> 32;
+    pawns |= pawns >> 40;
+    pawns |= pawns >> 48;
+    pawns |= pawns >> 56;
+    return (pawns & 255) as usize;
+}
 
 // to be applied after a move for simplicity
 impl Board {
@@ -64,50 +75,15 @@ impl Board {
 
     #[inline(always)]
     pub fn modify_pawn_structure(&self, pawn_structure: &mut PawnStructureFeatures) -> () {
-        let (
-            mut white_pawn_on_previous,
-            mut black_pawn_on_previous,
-            mut white_pawn_on_current,
-            mut black_pawn_on_current,
-            mut white_pawn_on_next,
-            mut black_pawn_on_next,
-        ): (bool, bool, bool, bool, bool, bool) = (false, false, false, false, false, false);
-        let (mut white_isolated, mut black_isolated, mut white_doubled, mut black_doubled): (
-            i32,
-            i32,
-            u32,
-            u32,
-        ) = (0, 0, 0, 0);
+        let (mut white_doubled, mut black_doubled): (u32, u32) = (0, 0);
+        let white_pawns: u64 = self.bitboards[0];
+        let black_pawns: u64 = self.bitboards[6];
 
-        for f in 0..9 {
-            if f < 8 {
-                let (white_file_count, black_file_count) = self.count_pawns_on_file(FILES[f]);
-                if white_file_count > 0 {
-                    white_pawn_on_next = true;
-                }
-                if black_file_count > 0 {
-                    black_pawn_on_next = true;
-                }
-                white_doubled += white_file_count.saturating_sub(1);
-                black_doubled += black_file_count.saturating_sub(1);
-            } else {
-                (white_pawn_on_next, black_pawn_on_next) = (false, false);
-            }
-            if !white_pawn_on_previous && white_pawn_on_current && !white_pawn_on_next {
-                white_isolated += 1;
-            }
-            if !black_pawn_on_previous && black_pawn_on_current && !black_pawn_on_next {
-                black_isolated += 1;
-            }
+        for f in FILES {
+            let (white_file_count, black_file_count) = self.count_pawns_on_file(f);
 
-            white_pawn_on_previous = white_pawn_on_current;
-            black_pawn_on_previous = black_pawn_on_current;
-
-            white_pawn_on_current = white_pawn_on_next;
-            black_pawn_on_current = black_pawn_on_next;
-
-            white_pawn_on_next = false;
-            black_pawn_on_next = false;
+            white_doubled += white_file_count.saturating_sub(1);
+            black_doubled += black_file_count.saturating_sub(1);
         }
         (
             pawn_structure.isolated_white,
@@ -115,8 +91,8 @@ impl Board {
             pawn_structure.doubled_white,
             pawn_structure.doubled_black,
         ) = (
-            white_isolated * 3,
-            black_isolated * 3,
+            ISOLATED_PAWNS[file_occupancy_parallel(white_pawns)] * 3,
+            ISOLATED_PAWNS[file_occupancy_parallel(black_pawns)] * 3,
             white_doubled as i32 * 3,
             black_doubled as i32 * 3,
         );

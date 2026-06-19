@@ -369,7 +369,6 @@ impl Board {
             material_difference: 0,
             move_flag,
             check_restrictions,
-            pawn_structure: state.pawn_structure.clone(),
         };
         if captured_piece != 0 {
             self.perform_capture(
@@ -557,7 +556,7 @@ impl Board {
                 *moved_piece_bitboard |= start_bb;
                 *current_hash ^= zobrist_table[main_piece_hash + end_index];
             } else {
-                let promotion_as_index = promotion as usize;
+                let promotion_as_index: usize = promotion as usize;
                 let (pawns, promotion_piece_encoding, pawn) = if color == 8 {
                     (&mut self.bitboards[0], promotion_as_index, WHITE_PAWN_U16)
                 } else {
