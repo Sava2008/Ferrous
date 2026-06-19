@@ -20,6 +20,7 @@ pub mod gamestate;
 pub mod move_generation;
 pub mod move_make_unmake;
 pub mod moves;
+pub mod pawn_structure;
 pub mod search;
 pub mod tests;
 pub mod transposition;

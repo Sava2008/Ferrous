@@ -1,5 +1,6 @@
 use crate::board_geometry_templates::*;
 use crate::enums::GameResult;
+use crate::pawn_structure::PawnStructureFeatures;
 use crate::{board::Board, gamestate::GameState};
 
 fn index_to_chess_notation(idx: u8) -> String {
@@ -160,6 +161,14 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         irreversible_moves: Vec::new(),
         white_legal_squares_mask: u64::MAX,
         black_legal_squares_mask: u64::MAX,
+        pawn_structure: PawnStructureFeatures {
+            isolated_white: 0,
+            isolated_black: 0,
+            doubled_white: 0,
+            doubled_black: 0,
+            white_passers: 0,
+            black_passers: 0,
+        },
     };
     let mut index: u8 = 63;
     let mut split_fen: std::str::SplitWhitespace<'_> = fen.split_whitespace();

@@ -650,6 +650,3 @@ const fn generate_en_passant_targets() -> [[u8; 64]; 64] {
 
     return en_passant_table;
 }
-
-// no EP tables: 1. 2800000 nodes, time 2032ms 2. 3100000 nodes, time 2043ms 3. 3000000 nodes, time 2017ms
-//

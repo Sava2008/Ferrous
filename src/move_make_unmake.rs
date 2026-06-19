@@ -30,7 +30,7 @@ impl Board {
         color: u16,
     ) -> () {
         *evaluation -= VALUE_TABLE[captured_table_idx];
-        let dest_heuristic = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
+        let dest_heuristic: i32 = unsafe { HEURISTICS_TABLE[captured_table_idx][to_sq] };
         *evaluation -= if color == 8 {
             -dest_heuristic
         } else {
@@ -66,35 +66,41 @@ impl Board {
         eval: &mut i32,
         current_hash: &mut u64,
     ) -> () {
-        let (rook, (rook_from, rook_to)) = if color == 8 {
+        let (
+            rook,
+            rook_from,
+            rook_to,
+            occupancy,
+            (rook_from_heuristic, rook_to_heuristic),
+            rook_bb,
+        ) = if color == 8 {
+            let (rook_from_idx, rook_to_idx) = if to_sq > from_sq { (7, 5) } else { (0, 3) };
             (
                 WHITE_ROOK_U16,
-                if to_sq > from_sq { (7, 5) } else { (0, 3) },
-            )
-        } else {
-            (
-                BLACK_ROOK_U16,
-                if to_sq > from_sq { (63, 61) } else { (56, 59) },
-            )
-        };
-        let (occupancy, (rook_from_heuristic, rook_to_heuristic), rook_bb) = match color {
-            8 => (
+                rook_from_idx,
+                rook_to_idx,
                 &mut self.occupancies[0],
                 (
-                    WHITE_ROOK_HEURISTICS[rook_from],
-                    WHITE_ROOK_HEURISTICS[rook_to],
+                    WHITE_ROOK_HEURISTICS[rook_from_idx],
+                    WHITE_ROOK_HEURISTICS[rook_to_idx],
                 ),
                 &mut self.bitboards[3],
-            ),
-            _ => (
+            )
+        } else {
+            let (rook_from_idx, rook_to_idx) = if to_sq > from_sq { (63, 61) } else { (56, 59) };
+            (
+                BLACK_ROOK_U16,
+                rook_from_idx,
+                rook_to_idx,
                 &mut self.occupancies[1],
                 (
-                    BLACK_ROOK_HEURISTICS[rook_from],
-                    BLACK_ROOK_HEURISTICS[rook_to],
+                    BLACK_ROOK_HEURISTICS[rook_from_idx],
+                    BLACK_ROOK_HEURISTICS[rook_to_idx],
                 ),
                 &mut self.bitboards[9],
-            ),
+            )
         };
+
         self.cached_pieces.swap(rook_from, rook_to);
         previous_move.move_flag = 0b0001;
 
@@ -363,6 +369,7 @@ impl Board {
             material_difference: 0,
             move_flag,
             check_restrictions,
+            pawn_structure: state.pawn_structure.clone(),
         };
         if captured_piece != 0 {
             self.perform_capture(
@@ -463,7 +470,6 @@ impl Board {
         } else {
             *moving_piece_bb = (*moving_piece_bb & start) | end;
         }
-        previous_move.material_difference = *evaluation - evaluation_before;
         if moving_piece == WHITE_PAWN_U16 || moving_piece == BLACK_PAWN_U16 {
             let potential_en_passant: u8 = EN_PASSANT_TARGETS[to_sq_index][from_sq_index];
             if potential_en_passant < 64 {
@@ -472,6 +478,12 @@ impl Board {
         } else {
             state.en_passant_target = None;
         }
+
+        *evaluation -= state.pawn_structure.sum();
+        self.modify_pawn_structure(&mut state.pawn_structure);
+        *evaluation += state.pawn_structure.sum();
+
+        previous_move.material_difference = *evaluation - evaluation_before;
         self.adjust_move_restriction(state, to_sq, move_flag, moving_piece, color);
         state.moves_history.push(previous_move);
     }
