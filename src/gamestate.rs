@@ -1,7 +1,6 @@
 use crate::{
     board::Board,
     board_geometry_templates::{BLACK_LONG, BLACK_SHORT, WHITE_LONG, WHITE_SHORT},
-    enums::GameResult,
     pawn_structure::PawnStructureFeatures,
 };
 
@@ -13,7 +12,6 @@ pub struct GameState {
     pub moves_history: Vec<PreviousMove>,
     pub total_moves_amount: u16,
     pub whose_turn: u16,
-    pub result: GameResult,
     pub irreversible_moves: Vec<u64>,
     pub white_legal_squares_mask: u64,
     pub black_legal_squares_mask: u64,
@@ -56,6 +54,7 @@ pub struct PreviousMove {
     pub previous_castling_rights: u8,
     pub material_difference: i32,
     pub check_restrictions: u64,
+    pub pawn_structure: PawnStructureFeatures,
 }
 
 impl GameState {
@@ -73,7 +72,6 @@ impl GameState {
             moves_history: Vec::with_capacity(50),
             total_moves_amount: 0,
             whose_turn: 8,
-            result: GameResult::Going,
             irreversible_moves: Vec::new(),
             white_legal_squares_mask: u64::MAX, // all squares available
             black_legal_squares_mask: u64::MAX, // all squares available

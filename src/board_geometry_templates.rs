@@ -77,6 +77,9 @@ pub const WHITE_LONG: u8 = 2;
 pub const BLACK_SHORT: u8 = 4;
 pub const BLACK_LONG: u8 = 8; // all available = 15
 
+pub const NOT_WHITE_CASTLING: u8 = !(WHITE_SHORT | WHITE_LONG);
+pub const NOT_BLACK_CASTLING: u8 = !(BLACK_SHORT | BLACK_LONG);
+
 pub const WHITE_SHORT_MASK: u8 = 0b1;
 pub const WHITE_LONG_MASK: u8 = 0b10;
 pub const BLACK_SHORT_MASK: u8 = 0b100;

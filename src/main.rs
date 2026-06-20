@@ -15,7 +15,6 @@ pub mod board;
 pub mod board_geometry_templates;
 pub mod constants;
 pub mod converters;
-pub mod enums;
 pub mod gamestate;
 pub mod move_generation;
 pub mod move_make_unmake;
@@ -80,10 +79,10 @@ async fn main() {
     }
 
     let (mut board, mut state) =
-        fen_to_board("r4r2/2p2p1k/5p1p/2p1p3/6PN/P1P4P/KP2qP2/7R b - - 3 4");
+        fen_to_board("r1bq1k1r/ppn1b1pp/2n1p3/2pPPp2/4Q3/3B1N2/PP1P1PPP/RNB2RK1 w - f6 0 11");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(56 | (16 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(2851, &mut state, 8, &mut 0, &mut 0);
 
     let mut debugger_board = board_visual::BoardVisual {
         squares: [0; 64],
@@ -94,7 +93,7 @@ async fn main() {
         selected_square: 64,
     };
     debugger_board.set_pieces(&board, &state);
-    debugger_board.get_moves(&board, &state, 8);
+    debugger_board.get_moves(&board, &state, 16);
 
     let mut should_highlight: bool = false;
 

@@ -136,7 +136,7 @@ impl Board {
                 -PAWN_VALUE,
             ),
         };
-        let piece_heuristics = &raw const HEURISTICS_TABLE;
+        let piece_heuristics: *const [[i32; 64]; 12] = &raw const HEURISTICS_TABLE;
         material_subtraction -= if color == 8 {
             unsafe { -(*piece_heuristics)[6][captured_pawn_square] }
         } else {
@@ -231,8 +231,7 @@ impl Board {
                     }
                     _ => unreachable!(),
                 },
-                6 => 0, // king
-                _ => unreachable!(),
+                _ => 0,
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -294,8 +293,7 @@ impl Board {
                     }
                     _ => unreachable!(),
                 },
-                12 => 0, // king
-                _ => unreachable!(),
+                _ => 0,
             };
             let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
@@ -326,6 +324,7 @@ impl Board {
         current_hash: &mut u64,
     ) -> () {
         let evaluation_before: i32 = *evaluation;
+
         let (from_sq, to_sq): (u16, u16) =
             ((piece_move & FROM_MASK), (piece_move & TO_MASK) >> TO_SHIFT);
         let (from_sq_index, to_sq_index): (usize, usize) = (from_sq as usize, to_sq as usize);
@@ -338,16 +337,21 @@ impl Board {
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
             get_bb_index(moving_piece, &color);
-        let (captured_piece_table_idx, captured_occupancy_idx): (usize, usize) =
-            if captured_piece != 0 {
-                get_bb_index(captured_piece, if color == 8 { &16 } else { &8 })
-            } else {
-                (0, 0)
-            };
+        let moving_piece_heuristics: &[i32; 64] =
+            unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
+
+        let (from_heuristic, to_heuristic) = (
+            moving_piece_heuristics[from_sq_index],
+            moving_piece_heuristics[to_sq_index],
+        );
 
         let check_restrictions: u64 = if color == 8 {
+            *current_hash ^= WHITE_ZOBRIST_KEY;
+            *evaluation += to_heuristic - from_heuristic;
             state.black_legal_squares_mask
         } else {
+            *current_hash ^= BLACK_ZOBRIST_KEY;
+            *evaluation += from_heuristic - to_heuristic;
             state.white_legal_squares_mask
         };
 
@@ -356,11 +360,7 @@ impl Board {
         *current_hash ^= zobrist_table[moving_piece_hash + from_sq_index];
         *current_hash ^= zobrist_table[moving_piece_hash + to_sq_index];
 
-        let promotion_choice: usize = if move_flag > 2 && move_flag < 7 {
-            move_flag as usize - 2
-        } else {
-            0
-        };
+        let promotion_choice: usize = move_flag.saturating_sub(2) as usize;
         let mut previous_move: PreviousMove = PreviousMove {
             moved_piece: piece_move,
             captured_piece: captured_piece,
@@ -369,8 +369,11 @@ impl Board {
             material_difference: 0,
             move_flag,
             check_restrictions,
+            pawn_structure: state.pawn_structure.clone(),
         };
         if captured_piece != 0 {
+            let (captured_piece_table_idx, captured_occupancy_idx): (usize, usize) =
+                get_bb_index(captured_piece, if color == 8 { &16 } else { &8 });
             self.perform_capture(
                 state,
                 captured_piece,
@@ -422,11 +425,11 @@ impl Board {
             }
             6 => {
                 self.white_king_square = to_sq as u8;
-                state.castling_rights &= !(WHITE_LONG_MASK | WHITE_SHORT_MASK);
+                state.castling_rights &= NOT_WHITE_CASTLING;
             }
             12 => {
                 self.black_king_square = to_sq as u8;
-                state.castling_rights &= !(BLACK_LONG_MASK | BLACK_SHORT_MASK);
+                state.castling_rights &= NOT_BLACK_CASTLING;
             }
             _ => (),
         };
@@ -438,22 +441,6 @@ impl Board {
         let (start, end): (u64, u64) = (!BIT_MASKS[from_sq_index], BIT_MASKS[to_sq_index]);
         self.total_occupancy = (self.total_occupancy & start) | end;
         *occupancy = (*occupancy & start) | end;
-
-        let moving_piece_heuristics: &[i32; 64] =
-            unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
-
-        let (from_heuristic, to_heuristic) = (
-            moving_piece_heuristics[from_sq_index],
-            moving_piece_heuristics[to_sq_index],
-        );
-
-        if color == 8 {
-            *current_hash ^= WHITE_ZOBRIST_KEY;
-            *evaluation += to_heuristic - from_heuristic;
-        } else {
-            *current_hash ^= BLACK_ZOBRIST_KEY;
-            *evaluation += from_heuristic - to_heuristic;
-        }
 
         if promotion_choice != 0 {
             self.promote_pawn(
@@ -473,6 +460,8 @@ impl Board {
             let potential_en_passant: u8 = EN_PASSANT_TARGETS[to_sq_index][from_sq_index];
             if potential_en_passant < 64 {
                 state.en_passant_target = Some(potential_en_passant);
+            } else {
+                state.en_passant_target = None;
             }
         } else {
             state.en_passant_target = None;
@@ -644,6 +633,7 @@ impl Board {
 
             state.castling_rights = previous_move.previous_castling_rights;
             state.en_passant_target = previous_move.previous_en_passant;
+            state.pawn_structure = previous_move.pawn_structure;
         }
     }
 }

@@ -632,9 +632,11 @@ const fn generate_en_passant_targets() -> [[u8; 64]; 64] {
 
     let mut white_from_index: usize = 8;
     while white_from_index < 16 {
-        let white_from_u8: u8 = white_from_index as u8 + 8;
+        let white_from_u8: u8 = white_from_index as u8 - 8;
+        let white_to: usize = white_from_index + 16;
 
-        en_passant_table[white_from_index][white_from_index + 16] = white_from_u8;
+        en_passant_table[white_from_index][white_to] = white_from_u8;
+        en_passant_table[white_to][white_from_index] = white_from_u8; // indices can be used interchangeably
 
         white_from_index += 1;
     }
@@ -642,8 +644,10 @@ const fn generate_en_passant_targets() -> [[u8; 64]; 64] {
     let mut black_from_index: usize = 48;
     while black_from_index < 56 {
         let black_from_u8: u8 = black_from_index as u8 - 8;
+        let black_to: usize = black_from_index - 16;
 
-        en_passant_table[black_from_index][black_from_index - 16] = black_from_u8;
+        en_passant_table[black_from_index][black_to] = black_from_u8;
+        en_passant_table[black_to][black_from_index] = black_from_u8; // indices can be used interchangeably
 
         black_from_index += 1;
     }

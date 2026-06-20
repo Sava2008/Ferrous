@@ -1,4 +1,8 @@
-use crate::{board::Board, board_geometry_templates::FILES, constants::masks::ISOLATED_PAWNS};
+use crate::{
+    board::Board,
+    board_geometry_templates::{FILE_A, FILES},
+    constants::masks::ISOLATED_PAWNS,
+};
 
 pub fn get_adjacent_files(sq: usize) -> (u64, u64) {
     let (adjacent_left, adjacent_right) = if sq % 8 == 0 {
@@ -63,28 +67,40 @@ fn file_occupancy_parallel(mut pawns: u64) -> usize {
     return (pawns & 255) as usize;
 }
 
+const PAWN_COUNTS: [u32; 256] = {
+    let mut table: [u32; 256] = [0; 256];
+    let mut i: usize = 0;
+    while i < 256 {
+        table[i] = i.count_ones() as u32;
+        i += 1;
+    }
+    table
+};
+
+#[inline(always)]
+fn count_doubled_pawns(pawns: u64) -> u32 {
+    let mut doubled: u32 = 0;
+
+    for file in 0..8 {
+        let file_pawns: usize = (((pawns >> file) & FILE_A) as usize * 9259542123273814144) >> 56;
+        let count: u32 = PAWN_COUNTS[file_pawns];
+        if count > 1 {
+            doubled += count - 1;
+        }
+    }
+    return doubled as u32;
+}
+
 // to be applied after a move for simplicity
 impl Board {
-    #[inline(always)]
-    fn count_pawns_on_file(&self, f: u64) -> (u32, u32) {
-        return (
-            (self.bitboards[0] & f).count_ones(),
-            (self.bitboards[6] & f).count_ones(),
-        );
-    }
-
     #[inline(always)]
     pub fn modify_pawn_structure(&self, pawn_structure: &mut PawnStructureFeatures) -> () {
         let (mut white_doubled, mut black_doubled): (u32, u32) = (0, 0);
         let white_pawns: u64 = self.bitboards[0];
         let black_pawns: u64 = self.bitboards[6];
 
-        for f in FILES {
-            let (white_file_count, black_file_count) = self.count_pawns_on_file(f);
-
-            white_doubled += white_file_count.saturating_sub(1);
-            black_doubled += black_file_count.saturating_sub(1);
-        }
+        white_doubled += count_doubled_pawns(white_pawns);
+        black_doubled += count_doubled_pawns(black_pawns);
         (
             pawn_structure.isolated_white,
             pawn_structure.isolated_black,

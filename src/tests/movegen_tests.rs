@@ -122,3 +122,24 @@ fn illegal_en_passant_test1() -> () {
     board.pawn_moves(&state, 8, &mut moves, false);
     println!("pawn moves: {:?}", moves.pseudo_moves);
 }
+
+#[test]
+fn phantom_capture_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("r1bq1k1r/ppn1b1pp/2n1p3/2pPPp2/4Q3/3B1N2/PP1P1PPP/RNB2RK1 w - f6 0 11");
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.perform_move(2851, &mut state, 8, &mut 0, &mut 0);
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 16, &mut moves, false);
+    println!("pawn moves: {:?}", moves.pseudo_moves);
+}

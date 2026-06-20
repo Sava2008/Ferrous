@@ -1,12 +1,11 @@
 use crate::board_geometry_templates::*;
-use crate::enums::GameResult;
 use crate::pawn_structure::PawnStructureFeatures;
 use crate::{board::Board, gamestate::GameState};
 
 fn index_to_chess_notation(idx: u8) -> String {
     let coords: (u8, u8) = (idx / 8, idx % 8);
     return format!(
-        "{},{}",
+        "{}{}",
         match coords.0 {
             0 => 'a',
             1 => 'b',
@@ -157,7 +156,6 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         moves_history: Vec::new(),
         total_moves_amount: 0,
         whose_turn: 8,
-        result: GameResult::Going,
         irreversible_moves: Vec::new(),
         white_legal_squares_mask: u64::MAX,
         black_legal_squares_mask: u64::MAX,
