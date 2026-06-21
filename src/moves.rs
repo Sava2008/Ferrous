@@ -3,7 +3,6 @@ use crate::board_geometry_templates::*;
 use crate::constants::attacks::*;
 use crate::gamestate::GameState;
 
-pub static mut PROMOTION_COUNT: u64 = 0;
 #[derive(Clone, Copy)]
 pub struct MoveList {
     pub pseudo_moves: [u16; 192],
@@ -265,16 +264,15 @@ impl Board {
             }
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
-                let mut piece_move: u16 = initial_pos | (final_pos << TO_SHIFT);
-                if final_pos == en_passant {
-                    piece_move |= 2 << MARK_SHIFT;
-                }
+                let piece_move: u16 = initial_pos | (final_pos << TO_SHIFT);
+
                 if promo_rank & (1 << final_pos) != 0 {
-                    unsafe { PROMOTION_COUNT += 4 }
                     moves.push(piece_move | (0b0110 << MARK_SHIFT));
                     moves.push(piece_move | (0b0101 << MARK_SHIFT));
                     moves.push(piece_move | (0b0100 << MARK_SHIFT));
                     moves.push(piece_move | (0b0011 << MARK_SHIFT));
+                } else if final_pos == en_passant {
+                    moves.push(piece_move | (2 << MARK_SHIFT));
                 } else {
                     moves.push(piece_move);
                 }
