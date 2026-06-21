@@ -76,11 +76,11 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             .get(&(((engine_move & TO_MASK) >> TO_SHIFT) as u8))
                             .unwrap(),
                         match (engine_move & MARK_MASK) >> MARK_SHIFT {
-                            0..3 => "",
-                            3 => "n",
-                            4 => "b",
-                            5 => "r",
-                            6 => "q",
+                            0..3 | 7..10 => "",
+                            3 | 10 => "n",
+                            4 | 11 => "b",
+                            5 | 12 => "r",
+                            6 | 13 => "q",
                             _ => unreachable!(),
                         },
                     )

@@ -32,10 +32,18 @@ impl Engine {
     pub fn move_priority(&self, m: &u16, depth: usize, current_board: &Board) -> i16 {
         let mut score: i16 = 0;
         let to_square: usize = to_square(*m) as usize;
+        let flag: u16 = (m & MARK_MASK) >> MARK_SHIFT;
         let (moving_piece_type, taken_piece_type): (u16, u16) = (
             current_board.cached_pieces[from_square(*m) as usize],
             current_board.cached_pieces[to_square],
         );
+        score += match flag as i16 {
+            2 => 0,
+            7 => 100,
+            8 => 30,
+            other => other * 10,
+        };
+
         if taken_piece_type != 0 {
             let mut victim_value: usize = Self::get_piece_value(taken_piece_type);
             let mut attacker_value: usize = Self::get_piece_value(moving_piece_type);

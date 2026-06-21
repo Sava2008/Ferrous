@@ -221,15 +221,15 @@ impl Board {
                 3 => bishop_attacks(king_sq_index, total_occ), // bishop
                 2 => KNIGHT_ATTACKS[king_sq_index],
                 1 => match flag {
-                    0 | 2 => BLACK_PAWN_ATTACKS[king_sq_index],
-                    3 => KNIGHT_ATTACKS[king_sq_index],
-                    4 => bishop_attacks(king_sq_index, total_occ),
-                    5 => rook_attacks(king_sq_index, total_occ),
-                    6 => {
+                    7 | 9 => BLACK_PAWN_ATTACKS[king_sq_index],
+                    10 => KNIGHT_ATTACKS[king_sq_index],
+                    11 => bishop_attacks(king_sq_index, total_occ),
+                    12 => rook_attacks(king_sq_index, total_occ),
+                    13 => {
                         bishop_attacks(king_sq_index, total_occ)
                             | rook_attacks(king_sq_index, total_occ)
                     }
-                    _ => unreachable!(),
+                    _ => 0,
                 },
                 _ => 0,
             };
@@ -283,15 +283,15 @@ impl Board {
                 9 => bishop_attacks(king_sq_index, total_occ), // bishop
                 8 => KNIGHT_ATTACKS[king_sq_index],
                 7 => match flag {
-                    0 | 2 => WHITE_PAWN_ATTACKS[king_sq_index],
-                    3 => KNIGHT_ATTACKS[king_sq_index],
-                    4 => bishop_attacks(king_sq_index, total_occ),
-                    5 => rook_attacks(king_sq_index, total_occ),
-                    6 => {
+                    7 | 9 => WHITE_PAWN_ATTACKS[king_sq_index],
+                    10 => KNIGHT_ATTACKS[king_sq_index],
+                    11 => bishop_attacks(king_sq_index, total_occ),
+                    12 => rook_attacks(king_sq_index, total_occ),
+                    13 => {
                         bishop_attacks(king_sq_index, total_occ)
                             | rook_attacks(king_sq_index, total_occ)
                     }
-                    _ => unreachable!(),
+                    _ => 0,
                 },
                 _ => 0,
             };
@@ -360,7 +360,13 @@ impl Board {
         *current_hash ^= zobrist_table[moving_piece_hash + from_sq_index];
         *current_hash ^= zobrist_table[moving_piece_hash + to_sq_index];
 
-        let promotion_choice: usize = move_flag.saturating_sub(2) as usize;
+        let promotion_choice: usize = if move_flag < 7 {
+            move_flag.saturating_sub(2)
+        } else if move_flag > 9 {
+            move_flag - 9
+        } else {
+            0
+        } as usize;
         let mut previous_move: PreviousMove = PreviousMove {
             moved_piece: piece_move,
             captured_piece: captured_piece,
@@ -386,7 +392,7 @@ impl Board {
                 color,
             );
         }
-        if move_flag == 1 {
+        if move_flag == 1 || move_flag == 8 {
             self.castling(
                 &mut previous_move,
                 from_sq_index,
@@ -395,7 +401,7 @@ impl Board {
                 evaluation,
                 current_hash,
             );
-        } else if move_flag == 2 {
+        } else if move_flag == 2 || move_flag == 9 {
             self.en_passant(state.en_passant_target.unwrap(), color, evaluation);
 
             let (en_passant_pawn_type, en_passant_pawn_offset) =
@@ -521,10 +527,11 @@ impl Board {
             };
 
             let (promotion, castling, en_passant) = match previous_move.move_flag {
-                0 => (0, 0, 0),
-                1 => (0, 1, 0),
-                2 => (0, 0, 1),
+                0 | 7 => (0, 0, 0),
+                1 | 8 => (0, 1, 0),
+                2 | 9 => (0, 0, 1),
                 3 | 4 | 5 | 6 => (previous_move.move_flag - 2, 0, 0),
+                10 | 11 | 12 | 13 => (previous_move.move_flag - 7, 0, 0),
                 _ => unreachable!(),
             };
 

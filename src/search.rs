@@ -886,17 +886,13 @@ impl Engine {
         unsafe {
             if white_queens_amount == 0 || white_pieces_left < 8 {
                 (*piece_heuristic_table)[5] = ENDGAME_WHITE_KING_HEURISTICS;
-                (*piece_heuristic_table)[0] = ENDGAME_WHITE_PAWN_HEURISTICS;
             } else {
                 (*piece_heuristic_table)[5] = WHITE_KING_HEURISTICS;
-                (*piece_heuristic_table)[0] = WHITE_PAWN_HEURISTICS;
             }
             if black_queens_amount == 0 || black_pieces_left < 8 {
                 (*piece_heuristic_table)[11] = ENDGAME_BLACK_KING_HEURISTICS;
-                (*piece_heuristic_table)[6] = ENDGAME_BLACK_PAWN_HEURISTICS;
             } else {
                 (*piece_heuristic_table)[11] = BLACK_KING_HEURISTICS;
-                (*piece_heuristic_table)[6] = BLACK_PAWN_HEURISTICS;
             }
         }
         self.current_hash ^= if self.side == 8 {

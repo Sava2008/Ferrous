@@ -16,7 +16,6 @@ pub mod board_geometry_templates;
 pub mod constants;
 pub mod converters;
 pub mod gamestate;
-pub mod move_generation;
 pub mod move_make_unmake;
 pub mod moves;
 pub mod pawn_structure;
