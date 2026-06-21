@@ -1,6 +1,7 @@
 use crate::{
     board::Board,
     board_geometry_templates::{BLACK_LONG, BLACK_SHORT, WHITE_LONG, WHITE_SHORT},
+    constants::attacks::*,
     pawn_structure::PawnStructureFeatures,
 };
 
@@ -16,6 +17,7 @@ pub struct GameState {
     pub white_legal_squares_mask: u64,
     pub black_legal_squares_mask: u64,
     pub pawn_structure: PawnStructureFeatures,
+    pub check_squares: [u64; 5],
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,10 +57,10 @@ pub struct PreviousMove {
     pub material_difference: i32,
     pub check_restrictions: u64,
     pub pawn_structure: PawnStructureFeatures,
+    pub check_squares: [u64; 5],
 }
 
 impl GameState {
-    #[inline]
     pub fn new(board: &Board) -> Self {
         return Self {
             en_passant_target: None,
@@ -83,6 +85,7 @@ impl GameState {
                 white_passers: 0,
                 black_passers: 0,
             },
+            check_squares: [0; 5],
         };
     }
 
@@ -97,5 +100,27 @@ impl GameState {
             return true;
         }
         return false;
+    }
+
+    #[inline(always)]
+    pub fn calculate_check_squares(
+        &mut self,
+        king_square: usize,
+        total_occ: u64,
+        color: u16,
+    ) -> () {
+        let check_squares: &mut [u64; 5] = &mut self.check_squares;
+        let diagonals: u64 = bishop_attacks(king_square, total_occ);
+        let lines: u64 = rook_attacks(king_square, total_occ);
+
+        check_squares[0] = if color == 8 {
+            WHITE_PAWN_ATTACKS[king_square]
+        } else {
+            BLACK_PAWN_ATTACKS[king_square]
+        };
+        check_squares[1] = KNIGHT_ATTACKS[king_square];
+        check_squares[2] = diagonals;
+        check_squares[3] = lines;
+        check_squares[4] = lines | diagonals;
     }
 }

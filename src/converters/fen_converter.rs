@@ -167,6 +167,7 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
             white_passers: 0,
             black_passers: 0,
         },
+        check_squares: [0; 5],
     };
     let mut index: u8 = 63;
     let mut split_fen: std::str::SplitWhitespace<'_> = fen.split_whitespace();

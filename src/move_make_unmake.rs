@@ -4,10 +4,7 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
-        attacks::{
-            BLACK_PAWN_ATTACKS, EN_PASSANT_TARGETS, KNIGHT_ATTACKS, RAYS_BETWEEN,
-            WHITE_PAWN_ATTACKS, bishop_attacks, rook_attacks,
-        },
+        attacks::{EN_PASSANT_TARGETS, RAYS_BETWEEN, bishop_attacks, rook_attacks},
         heuristics::*,
         masks::BIT_MASKS,
         piece_values::*,
@@ -184,11 +181,26 @@ impl Board {
         state: &mut GameState,
         to: u16,
         flag: u16,
-        moving_piece: u16,
+        mut moving_piece: u16,
         color: u16,
     ) -> () {
         let to_sq_bb: u64 = 1 << to;
         let total_occ: u64 = self.total_occupancy;
+        if moving_piece > 6 {
+            moving_piece -= 6;
+        }
+        let check_squares: &[u64; 5] = &state.check_squares;
+        let direct_attacks: u64 = if flag == 0 || flag == 1 {
+            if moving_piece == 6 {
+                0
+            } else {
+                check_squares[moving_piece as usize - 1]
+            }
+        } else {
+            check_squares[flag.saturating_sub(7) as usize]
+        };
+        let direct_attack: bool = direct_attacks & to_sq_bb != 0;
+
         if color == 8 {
             let king_sq: u8 = self.black_king_square;
             let king_sq_index: usize = king_sq as usize;
@@ -212,29 +224,8 @@ impl Board {
                     64
                 }
             };
-            let direct_attacks: u64 = match moving_piece {
-                5 => {
-                    bishop_attacks(king_sq_index, total_occ)
-                        | rook_attacks(king_sq_index, total_occ)
-                } // queen
-                4 => rook_attacks(king_sq_index, total_occ), // rook
-                3 => bishop_attacks(king_sq_index, total_occ), // bishop
-                2 => KNIGHT_ATTACKS[king_sq_index],
-                1 => match flag {
-                    7 | 9 => BLACK_PAWN_ATTACKS[king_sq_index],
-                    10 => KNIGHT_ATTACKS[king_sq_index],
-                    11 => bishop_attacks(king_sq_index, total_occ),
-                    12 => rook_attacks(king_sq_index, total_occ),
-                    13 => {
-                        bishop_attacks(king_sq_index, total_occ)
-                            | rook_attacks(king_sq_index, total_occ)
-                    }
-                    _ => 0,
-                },
-                _ => 0,
-            };
-            let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
+
             if direct_attack && is_discovery {
                 state.black_legal_squares_mask = 0;
                 return ();
@@ -273,30 +264,8 @@ impl Board {
                     64
                 }
             };
-            let direct_attacks: u64 = match moving_piece {
-                11 => {
-                    bishop_attacks(king_sq_index, total_occ)
-                        | rook_attacks(king_sq_index, total_occ)
-                }
-                // queen
-                10 => rook_attacks(king_sq_index, total_occ), // rook
-                9 => bishop_attacks(king_sq_index, total_occ), // bishop
-                8 => KNIGHT_ATTACKS[king_sq_index],
-                7 => match flag {
-                    7 | 9 => WHITE_PAWN_ATTACKS[king_sq_index],
-                    10 => KNIGHT_ATTACKS[king_sq_index],
-                    11 => bishop_attacks(king_sq_index, total_occ),
-                    12 => rook_attacks(king_sq_index, total_occ),
-                    13 => {
-                        bishop_attacks(king_sq_index, total_occ)
-                            | rook_attacks(king_sq_index, total_occ)
-                    }
-                    _ => 0,
-                },
-                _ => 0,
-            };
-            let direct_attack: bool = direct_attacks & to_sq_bb != 0;
             let is_discovery: bool = squares != 64;
+
             if direct_attack && is_discovery {
                 state.white_legal_squares_mask = 0;
                 return ();
@@ -376,6 +345,7 @@ impl Board {
             move_flag,
             check_restrictions,
             pawn_structure: state.pawn_structure.clone(),
+            check_squares: state.check_squares.clone(),
         };
         if captured_piece != 0 {
             let (captured_piece_table_idx, captured_occupancy_idx): (usize, usize) =
@@ -478,7 +448,9 @@ impl Board {
         *evaluation += state.pawn_structure.sum();
 
         previous_move.material_difference = *evaluation - evaluation_before;
-        self.adjust_move_restriction(state, to_sq, move_flag, moving_piece, color);
+        if move_flag > 6 {
+            self.adjust_move_restriction(state, to_sq, move_flag, moving_piece, color);
+        }
         state.moves_history.push(previous_move);
     }
 
@@ -531,7 +503,7 @@ impl Board {
                 1 | 8 => (0, 1, 0),
                 2 | 9 => (0, 0, 1),
                 3 | 4 | 5 | 6 => (previous_move.move_flag - 2, 0, 0),
-                10 | 11 | 12 | 13 => (previous_move.move_flag - 7, 0, 0),
+                10 | 11 | 12 | 13 => (previous_move.move_flag - 9, 0, 0),
                 _ => unreachable!(),
             };
 
@@ -641,6 +613,7 @@ impl Board {
             state.castling_rights = previous_move.previous_castling_rights;
             state.en_passant_target = previous_move.previous_en_passant;
             state.pawn_structure = previous_move.pawn_structure;
+            state.check_squares = previous_move.check_squares;
         }
     }
 }

@@ -34,6 +34,7 @@ pub struct Engine {
 const CHECKMATE_VALUE: i32 = 1_000_000;
 const TIME_CHECK_NODES_OFFSET: u64 = 100000; // how often to check for time
 const TIMEOUT_RETURN: i32 = 2_000_001;
+const QUIESCENCE_DELTA: i32 = 200;
 
 impl Engine {
     pub fn new(side: u16, depth: u8) -> Self {
@@ -223,6 +224,11 @@ impl Engine {
             state.whose_turn = 8;
             let mut current_alpha: i32 = alpha;
 
+            state.calculate_check_squares(
+                board.white_king_square as usize,
+                board.total_occupancy,
+                8,
+            );
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
             let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
@@ -328,6 +334,11 @@ impl Engine {
             // black's branch
             state.whose_turn = 16;
             let mut current_beta: i32 = beta;
+            state.calculate_check_squares(
+                board.black_king_square as usize,
+                board.total_occupancy,
+                16,
+            );
 
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
 
@@ -484,7 +495,7 @@ impl Engine {
 
         if !in_check {
             if maximizing {
-                if stand_pat >= beta {
+                if stand_pat - QUIESCENCE_DELTA >= beta {
                     self.transposition_table.record_entry(
                         &self.current_hash,
                         TTEntry {
@@ -501,7 +512,7 @@ impl Engine {
                     alpha = stand_pat;
                 }
 
-                if stand_pat + QUEEN_VALUE + 100 < alpha {
+                if stand_pat + QUIESCENCE_DELTA < alpha {
                     self.transposition_table.record_entry(
                         &self.current_hash,
                         TTEntry {
@@ -512,10 +523,10 @@ impl Engine {
                             best_move: 0,
                         },
                     );
-                    return alpha;
+                    return stand_pat;
                 }
             } else {
-                if stand_pat <= alpha {
+                if stand_pat + QUIESCENCE_DELTA <= alpha {
                     self.transposition_table.record_entry(
                         &self.current_hash,
                         TTEntry {
@@ -532,7 +543,7 @@ impl Engine {
                     beta = stand_pat;
                 }
 
-                if stand_pat - QUEEN_VALUE - 100 > beta {
+                if stand_pat - QUIESCENCE_DELTA > beta {
                     self.transposition_table.record_entry(
                         &self.current_hash,
                         TTEntry {
@@ -543,7 +554,7 @@ impl Engine {
                             best_move: 0,
                         },
                     );
-                    return beta;
+                    return stand_pat;
                 }
             }
         }
@@ -593,18 +604,17 @@ impl Engine {
 
         for i in 0..last_occupied {
             let move_to_search: u16 = self.move_lists[quiescence_depth].pseudo_moves[i];
-            /*if board.cached_pieces[from_square(move_to_search) as usize] == 0 {
-                panic!(
-                    "no piece at starting square, depth: {quiescence_depth}, square: {}\nking square: {}, cached pieces: {:?}",
-                    from_square(move_to_search),
-                    if color == 16 {
-                        board.black_king_square
-                    } else {
-                        board.white_king_square
-                    },
-                    board.cached_pieces
-                );
-            }*/
+
+            let captured_piece: u16 = board.cached_pieces[to_square(move_to_search) as usize]; // SEE
+            if captured_piece != 0 && !in_check {
+                let capture_value: i32 = Self::get_piece_value(captured_piece) as i32 * 100;
+                if maximizing && stand_pat + capture_value + 50 <= alpha {
+                    continue;
+                }
+                if !maximizing && stand_pat - capture_value - 50 >= beta {
+                    continue;
+                }
+            }
 
             board.perform_move(
                 move_to_search,

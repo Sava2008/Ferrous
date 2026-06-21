@@ -77,7 +77,7 @@ impl Engine {
     }
 
     #[inline(always)]
-    fn get_piece_value(piece_type: u16) -> usize {
+    pub fn get_piece_value(piece_type: u16) -> usize {
         return (piece_type as usize) - 1;
     }
 

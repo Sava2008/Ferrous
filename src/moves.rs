@@ -124,6 +124,7 @@ impl Board {
         };
     }
 
+    #[inline(always)]
     fn check_info(
         &self,
         from: u16,
@@ -131,30 +132,28 @@ impl Board {
         flag: u16,
         king_square: usize,
         king_color: u16,
-        moving_piece: u16,
+        mut moving_piece: u16,
+        check_squares: &[u64; 5],
     ) -> u16 {
         let total_occ: u64 = self.total_occupancy & !(1 << from);
         let to_sq_bb: u64 = 1 << to;
+        if moving_piece > 6 {
+            moving_piece -= 6;
+        }
 
-        let (pawn_tables, queen_idx, rook_idx, bishop_idx) = if king_color == 8 {
-            (&WHITE_PAWN_ATTACKS, 10, 9, 8)
+        let (queen_idx, rook_idx, bishop_idx) = if king_color == 8 {
+            (10, 9, 8)
         } else {
-            (&BLACK_PAWN_ATTACKS, 4, 3, 2)
+            (4, 3, 2)
         };
-        let direct_attacks: u64 = match moving_piece {
-            5 => bishop_attacks(king_square, total_occ) | rook_attacks(king_square, total_occ), // queen
-            4 => rook_attacks(king_square, total_occ), // rook
-            3 => bishop_attacks(king_square, total_occ), // bishop
-            2 => KNIGHT_ATTACKS[king_square],
-            1 => match flag {
-                0 | 2 => pawn_tables[king_square],
-                3 => KNIGHT_ATTACKS[king_square],
-                4 => bishop_attacks(king_square, total_occ),
-                5 => rook_attacks(king_square, total_occ),
-                6 => bishop_attacks(king_square, total_occ) | rook_attacks(king_square, total_occ),
-                _ => unreachable!(),
-            },
-            _ => 0,
+        let direct_attacks: u64 = if flag == 0 || flag == 1 {
+            if moving_piece == 6 {
+                0
+            } else {
+                check_squares[moving_piece as usize - 1]
+            }
+        } else {
+            check_squares[flag.saturating_sub(2) as usize]
         };
         let diag_discovery_attacks: usize = ((bishop_attacks(king_square, total_occ) & !to_sq_bb)
             & (self.bitboards[queen_idx] | self.bitboards[bishop_idx]))
@@ -232,6 +231,7 @@ impl Board {
                     king_sq_idx,
                     opposite_color,
                     moving_piece,
+                    &state.check_squares,
                 );
                 if captures_checks_only
                     && (self.cached_pieces[final_pos as usize] == 0 && check_flag == 0)
@@ -350,6 +350,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     let rook_promo_check: u16 = self.check_info(
                         initial_pos,
@@ -358,6 +359,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     let bishop_promo_check: u16 = self.check_info(
                         initial_pos,
@@ -366,6 +368,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     let knight_promo_check: u16 = self.check_info(
                         initial_pos,
@@ -374,6 +377,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     if captures_checks_only {
                         if self.cached_pieces[final_pos as usize] != 0 {
@@ -405,6 +409,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     if captures_checks_only {
                         if self.cached_pieces[final_pos as usize] == 0 && ep_promo_check == 2 {
@@ -421,6 +426,7 @@ impl Board {
                         king_sq_idx,
                         opposite_color,
                         moving_piece,
+                        &state.check_squares,
                     );
                     if captures_checks_only {
                         if self.cached_pieces[final_pos as usize] == 0 && regular_move_check == 0 {
@@ -676,6 +682,7 @@ impl Board {
                     king_sq_idx,
                     opposite_color,
                     moving_piece,
+                    &state.check_squares,
                 );
                 if captures_checks_only
                     && check_flag == 0
@@ -745,6 +752,7 @@ impl Board {
                     king_sq_idx,
                     opposite_color,
                     moving_piece,
+                    &state.check_squares,
                 );
                 if captures_checks_only
                     && check_flag == 0
@@ -818,6 +826,7 @@ impl Board {
                     king_sq_idx,
                     opposite_color,
                     moving_piece,
+                    &state.check_squares,
                 );
                 if captures_checks_only
                     && check_flag == 0
