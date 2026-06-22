@@ -127,7 +127,7 @@ impl Board {
     #[inline(always)]
     fn check_info(
         &self,
-        from: u16,
+        from: usize,
         to: u16,
         flag: u16,
         king_square: usize,
@@ -155,24 +155,35 @@ impl Board {
         } else {
             check_squares[flag.saturating_sub(2) as usize]
         };
-        let diag_discovery_attacks: usize = ((bishop_attacks(king_square, total_occ) & !to_sq_bb)
-            & (self.bitboards[queen_idx] | self.bitboards[bishop_idx]))
-            .trailing_zeros() as usize;
-        let line_discovery_attacks: usize = ((rook_attacks(king_square, total_occ) & !to_sq_bb)
-            & (self.bitboards[queen_idx] | self.bitboards[rook_idx]))
-            .trailing_zeros() as usize;
+        if direct_attacks & to_sq_bb != 0 {
+            return flag + 7;
+        }
 
-        let squares: u64 = unsafe {
-            if diag_discovery_attacks != 64 {
-                RAYS_BETWEEN[king_square][diag_discovery_attacks] | (1 << diag_discovery_attacks)
-            } else if line_discovery_attacks != 64 {
-                RAYS_BETWEEN[king_square][line_discovery_attacks] | (1 << line_discovery_attacks)
-            } else {
-                64
+        let squares: u64 = if unsafe { TWO_SQUARES_LINE[king_square][from] } != 0 {
+            let diag_discovery_attacks: usize = ((bishop_attacks(king_square, total_occ)
+                & !to_sq_bb)
+                & (self.bitboards[queen_idx] | self.bitboards[bishop_idx]))
+                .trailing_zeros() as usize;
+            let line_discovery_attacks: usize = ((rook_attacks(king_square, total_occ) & !to_sq_bb)
+                & (self.bitboards[queen_idx] | self.bitboards[rook_idx]))
+                .trailing_zeros() as usize;
+
+            unsafe {
+                if diag_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_square][diag_discovery_attacks]
+                        | (1 << diag_discovery_attacks)
+                } else if line_discovery_attacks != 64 {
+                    RAYS_BETWEEN[king_square][line_discovery_attacks]
+                        | (1 << line_discovery_attacks)
+                } else {
+                    64
+                }
             }
+        } else {
+            64
         };
-        let is_check: bool = direct_attacks & to_sq_bb != 0 || squares != 64;
-        if is_check {
+
+        if squares != 64 {
             return flag + 7;
         }
         return flag;
@@ -193,7 +204,8 @@ impl Board {
             check_restrictions,
             opposite_color,
             moving_piece,
-        ): (u64, u64, u8, &u64, u16, u16) = match color {
+            enemy_king_sq,
+        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[1],
                 !self.occupancies[0],
@@ -201,6 +213,7 @@ impl Board {
                 &state.white_legal_squares_mask,
                 16,
                 WHITE_KNIGHT_U16,
+                self.black_king_square as usize,
             ),
             _ => (
                 self.bitboards[7],
@@ -209,9 +222,9 @@ impl Board {
                 &state.black_legal_squares_mask,
                 8,
                 BLACK_KNIGHT_U16,
+                self.white_king_square as usize,
             ),
         };
-        let king_sq_idx: usize = king_sq as usize;
 
         while knights_bitboard != 0 {
             let initial_pos: u16 = knights_bitboard.trailing_zeros() as u16;
@@ -222,13 +235,15 @@ impl Board {
             let attacks: u64 = KNIGHT_ATTACKS[initial_pos as usize];
             let mut dest_bitboard: u64 = attacks & excluded_occupancy & check_restrictions;
 
+            let initial_pos_idx: usize = initial_pos as usize;
+
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
                 let check_flag: u16 = self.check_info(
-                    initial_pos,
+                    initial_pos_idx,
                     final_pos,
                     0,
-                    king_sq_idx,
+                    enemy_king_sq,
                     opposite_color,
                     moving_piece,
                     &state.check_squares,
@@ -270,7 +285,8 @@ impl Board {
             check_restrictions,
             opposite_color,
             moving_piece,
-        ): (u64, u64, &u64, &u64, u8, u16, &u64, u16, u16) = match color {
+            enemy_king_sq,
+        ): (u64, u64, &u64, &u64, u8, u16, &u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[0],
                 self.occupancies[1],
@@ -281,6 +297,7 @@ impl Board {
                 &state.white_legal_squares_mask,
                 16,
                 WHITE_PAWN_U16,
+                self.black_king_square as usize,
             ),
             _ => (
                 self.bitboards[6],
@@ -292,9 +309,9 @@ impl Board {
                 &state.black_legal_squares_mask,
                 8,
                 BLACK_PAWN_U16,
+                self.white_king_square as usize,
             ),
         };
-        let king_sq_idx: usize = king_sq as usize;
         let e_p_bitboard: u64 = if en_passant < 64 { 1 << en_passant } else { 0 };
 
         while pawns_bitboard != 0 {
@@ -338,43 +355,45 @@ impl Board {
             if exposes_king {
                 dest_bitboard &= allowed_squares;
             }
+
+            let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
                 let piece_move: u16 = initial_pos | (final_pos << TO_SHIFT);
 
                 if promo_rank & (1 << final_pos) != 0 {
                     let queen_promo_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         0b0110,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
                     );
                     let rook_promo_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         0b0101,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
                     );
                     let bishop_promo_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         0b0100,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
                     );
                     let knight_promo_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         0b0011,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
@@ -403,10 +422,10 @@ impl Board {
                     moves.push(piece_move | (knight_promo_check << MARK_SHIFT));
                 } else if final_pos == en_passant {
                     let ep_promo_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         2,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
@@ -420,10 +439,10 @@ impl Board {
                     moves.push(piece_move | (ep_promo_check << MARK_SHIFT));
                 } else {
                     let regular_move_check: u16 = self.check_info(
-                        initial_pos,
+                        initial_pos_idx,
                         final_pos,
                         0,
-                        king_sq_idx,
+                        enemy_king_sq,
                         opposite_color,
                         moving_piece,
                         &state.check_squares,
@@ -644,7 +663,8 @@ impl Board {
             check_restrictions,
             opposite_color,
             moving_piece,
-        ): (u64, u64, u8, &u64, u16, u16) = match color {
+            enemy_king_sq,
+        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[3],
                 self.occupancies[0],
@@ -652,6 +672,7 @@ impl Board {
                 &state.white_legal_squares_mask,
                 16,
                 WHITE_ROOK_U16,
+                self.black_king_square as usize,
             ),
             _ => (
                 self.bitboards[9],
@@ -660,10 +681,9 @@ impl Board {
                 &state.black_legal_squares_mask,
                 8,
                 BLACK_ROOK_U16,
+                self.white_king_square as usize,
             ),
         };
-
-        let king_sq_idx: usize = king_sq as usize;
 
         while rooks_bitboard != 0 {
             let initial_pos: u16 = rooks_bitboard.trailing_zeros() as u16;
@@ -673,13 +693,14 @@ impl Board {
             if exposes_king {
                 dest_bitboard &= allowed_squares;
             }
+            let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
                 let check_flag: u16 = self.check_info(
-                    initial_pos,
+                    initial_pos_idx,
                     final_pos,
                     0,
-                    king_sq_idx,
+                    enemy_king_sq,
                     opposite_color,
                     moving_piece,
                     &state.check_squares,
@@ -715,7 +736,8 @@ impl Board {
             check_restrictions,
             opposite_color,
             moving_piece,
-        ): (u64, u64, u8, &u64, u16, u16) = match color {
+            enemy_king_sq,
+        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[2],
                 self.occupancies[0],
@@ -723,6 +745,7 @@ impl Board {
                 &state.white_legal_squares_mask,
                 16,
                 WHITE_BISHOP_U16,
+                self.black_king_square as usize,
             ),
             _ => (
                 self.bitboards[8],
@@ -731,9 +754,9 @@ impl Board {
                 &state.black_legal_squares_mask,
                 8,
                 BLACK_BISHOP_U16,
+                self.white_king_square as usize,
             ),
         };
-        let king_sq_idx: usize = king_sq as usize;
 
         while bishops_bitboard != 0 {
             let initial_pos: u16 = bishops_bitboard.trailing_zeros() as u16;
@@ -743,13 +766,14 @@ impl Board {
             if exposes_king {
                 dest_bitboard &= allowed_squares;
             }
+            let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
                 let check_flag: u16 = self.check_info(
-                    initial_pos,
+                    initial_pos_idx,
                     final_pos,
                     0,
-                    king_sq_idx,
+                    enemy_king_sq,
                     opposite_color,
                     moving_piece,
                     &state.check_squares,
@@ -784,7 +808,8 @@ impl Board {
             check_restrictions,
             opposite_color,
             moving_piece,
-        ): (u64, u64, u8, &u64, u16, u16) = match color {
+            enemy_king_sq,
+        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[4],
                 self.occupancies[0],
@@ -792,6 +817,7 @@ impl Board {
                 &state.white_legal_squares_mask,
                 16,
                 WHITE_QUEEN_U16,
+                self.black_king_square as usize,
             ),
             _ => (
                 self.bitboards[10],
@@ -800,9 +826,9 @@ impl Board {
                 &state.black_legal_squares_mask,
                 8,
                 BLACK_QUEEN_U16,
+                self.white_king_square as usize,
             ),
         };
-        let king_sq_idx: usize = king_sq as usize;
 
         while queens_bitboard != 0 {
             let initial_pos: u16 = queens_bitboard.trailing_zeros() as u16;
@@ -817,13 +843,14 @@ impl Board {
                 dest_bitboard &= allowed_squares;
             }
 
+            let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
                 let check_flag: u16 = self.check_info(
-                    initial_pos,
+                    initial_pos_idx,
                     final_pos,
                     0,
-                    king_sq_idx,
+                    enemy_king_sq,
                     opposite_color,
                     moving_piece,
                     &state.check_squares,

@@ -225,9 +225,9 @@ impl Engine {
             let mut current_alpha: i32 = alpha;
 
             state.calculate_check_squares(
-                board.white_king_square as usize,
+                board.black_king_square as usize,
                 board.total_occupancy,
-                8,
+                16, // OPPOSITE COLOR!
             );
             self.generate_pseudo_legal_moves(8, &board, &state, depth_as_index, false);
 
@@ -335,9 +335,9 @@ impl Engine {
             state.whose_turn = 16;
             let mut current_beta: i32 = beta;
             state.calculate_check_squares(
-                board.black_king_square as usize,
+                board.white_king_square as usize,
                 board.total_occupancy,
-                16,
+                8, // OPPOSITE COLOR!
             );
 
             self.generate_pseudo_legal_moves(16, &board, &state, depth_as_index, false);
@@ -487,9 +487,17 @@ impl Engine {
             0
         };
 
-        let in_check: bool = match color {
-            8 => board.is_square_attacked(board.white_king_square, 16),
-            _ => board.is_square_attacked(board.black_king_square, 8),
+        let (in_check, enemy_color, enemy_king) = match color {
+            8 => (
+                board.is_square_attacked(board.white_king_square, 16),
+                16,
+                board.black_king_square as usize,
+            ),
+            _ => (
+                board.is_square_attacked(board.black_king_square, 8),
+                8,
+                board.white_king_square as usize,
+            ),
         };
         let stand_pat: i32 = self.evaluation;
 
@@ -558,6 +566,7 @@ impl Engine {
                 }
             }
         }
+        state.calculate_check_squares(enemy_king, board.total_occupancy, enemy_color);
 
         self.generate_pseudo_legal_moves(color, board, state, quiescence_depth, !in_check);
         let last_occupied: usize = self.move_lists[quiescence_depth].first_not_occupied;

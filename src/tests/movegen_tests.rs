@@ -143,3 +143,74 @@ fn phantom_capture_test1() -> () {
     board.pawn_moves(&state, 16, &mut moves, false);
     println!("pawn moves: {:?}", moves.pseudo_moves);
 }
+
+#[test]
+fn forcing_only_movegen_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("rnbqkb1r/ppp2ppp/8/3pP3/4n3/2N2N2/PPPP2PP/R1BQKB1R b KQkq - 1 5");
+    board.total_occupancy();
+    board.update_full_cache();
+    state.calculate_check_squares(board.white_king_square as usize, board.total_occupancy, 8);
+
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 16, &mut moves, true);
+    board.knight_moves(16, &mut moves, &state, true);
+    board.bishop_moves(16, &mut moves, &state, true);
+    board.queen_moves(16, &mut moves, &state, true);
+    board.rook_moves(16, &mut moves, &state, true);
+    board.king_moves(&state, 16, &mut moves, true);
+    for i in 0..moves.first_not_occupied {
+        let m = moves.pseudo_moves[i];
+        println!(
+            "from: {}, to: {}, mark: {}",
+            from_square(m),
+            to_square(m),
+            (m & MARK_MASK) >> MARK_SHIFT
+        );
+    }
+
+    assert_eq!(moves.first_not_occupied, 3);
+}
+#[test]
+fn forcing_only_movegen_test2() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("rnb1kb1r/pp2pppp/2pp1n2/q3P3/3P1P2/2N5/PPP3PP/R1BQKBNR b KQkq - 0 5");
+    board.total_occupancy();
+    board.update_full_cache();
+    state.calculate_check_squares(board.white_king_square as usize, board.total_occupancy, 8);
+
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 16, &mut moves, true);
+    board.knight_moves(16, &mut moves, &state, true);
+    board.bishop_moves(16, &mut moves, &state, true);
+    board.queen_moves(16, &mut moves, &state, true);
+    board.rook_moves(16, &mut moves, &state, true);
+    board.king_moves(&state, 16, &mut moves, true);
+    for i in 0..moves.first_not_occupied {
+        let m: u16 = moves.pseudo_moves[i];
+        println!(
+            "from: {}, to: {}, mark: {}",
+            from_square(m),
+            to_square(m),
+            (m & MARK_MASK) >> MARK_SHIFT
+        );
+    }
+
+    assert_eq!(moves.first_not_occupied, 5);
+}

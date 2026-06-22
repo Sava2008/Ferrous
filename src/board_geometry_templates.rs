@@ -29,12 +29,12 @@ START INCLUSIVE, END INCLUSIVE
 bit 0-5: from square
 bit 6-11: to square
 bit 12-15: markers
-(0000 - regular, 0001 - castling, 0010 - en passant,
-0011 - knight promo, 0100 - bishop promo, 0101 - rook promo,
-0110 - queen promo, 0111 - check,
-1000 - castling check, 1001 - e.p. promo check,
-1010 - knight promo check, 1011 - bishop promo check, 1100 - rook promo check,
-1101 - queen promo check)
+(0000 - regular, 0001 (1) - castling, 0010 (2) - en passant,
+0011 (3) - knight promo, 0100 (4) - bishop promo, 0101 (5) - rook promo,
+0110 (6) - queen promo, 0111 (7) - check,
+1000 (8) - castling check, 1001 (9) - e.p. check,
+1010 (10) - knight promo check, 1011 (11) - bishop promo check, 1100 (12) - rook promo check,
+1101 (13) - queen promo check)
  */
 
 pub const TO_SHIFT: u16 = 6;

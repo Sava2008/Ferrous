@@ -197,7 +197,7 @@ impl Board {
                 check_squares[moving_piece as usize - 1]
             }
         } else {
-            check_squares[flag.saturating_sub(7) as usize]
+            check_squares[flag.saturating_sub(9) as usize]
         };
         let direct_attack: bool = direct_attacks & to_sq_bb != 0;
 
