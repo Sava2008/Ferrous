@@ -800,6 +800,8 @@ impl Engine {
 
                 let hash_before = self.current_hash;
 
+                let board_clone = copied_board.clone();
+
                 copied_board.perform_move(
                     allegedly_best_move,
                     &mut copied_state,
@@ -868,6 +870,16 @@ impl Engine {
                     &mut self.current_hash,
                 );
                 assert_eq!(hash_before, self.current_hash);
+                assert_eq!(
+                    copied_board, board_clone,
+                    "incorrect_board: {:?}\ncorrect board: {:?}",
+                    copied_board, board_clone
+                );
+                // assert_eq!(
+                //     copied_state, state_clone,
+                //     "incorrect_state: {:?}\ncorrect state: {:?}",
+                //     copied_state, state_clone
+                // );
 
                 if match self.side {
                     8 => score > depth_best_score,

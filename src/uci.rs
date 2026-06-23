@@ -10,6 +10,7 @@ use crate::{
     converters::fen_converter::fen_to_board,
     gamestate::GameState,
     search::Engine,
+    tests,
     transposition::TranspositionTable,
 };
 
@@ -31,6 +32,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
             "quit" => break,
 
             _ => {
+                let mut perft: bool = false;
                 if command.starts_with("position fen ") {
                     command.split_whitespace().next();
                     let fen_position: &str = command.strip_prefix("position fen ").unwrap();
@@ -52,18 +54,27 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             match r {
                                 "depth" => (a.parse().unwrap(), Duration::ZERO),
                                 "movetime" => (64, Duration::from_millis(a.parse().unwrap())),
+                                "perft" => {
+                                    perft = true;
+                                    (a.parse().unwrap(), Duration::ZERO)
+                                }
                                 _ => unimplemented!(),
                             }
                         } else {
                             (10, Duration::from_secs(30))
                         };
-                        engine.depth = max_depth;
-                        let start_time: Instant = Instant::now();
-                        let engine_move: u16 = engine
-                            .find_best_move(&b, &mut s, time_constrainst, max_depth)
-                            .unwrap();
-                        println!("time spent: {}", start_time.elapsed().as_millis());
-                        engine_move
+                        if !perft {
+                            engine.depth = max_depth;
+                            let start_time: Instant = Instant::now();
+                            let engine_move: u16 = engine
+                                .find_best_move(&b, &mut s, time_constrainst, max_depth)
+                                .unwrap();
+                            println!("time spent: {}", start_time.elapsed().as_millis());
+                            engine_move
+                        } else {
+                            tests::perft::run_perft(b, s, max_depth);
+                            0
+                        }
                     } else {
                         panic!("uninitialized board");
                     };
@@ -85,7 +96,9 @@ pub fn uci_output(engine: &mut Engine) -> () {
                         },
                     )
                     .replace("\"", "");
-                    println!("bestmove {}", uci_move_string.as_str());
+                    if !perft {
+                        println!("bestmove {}", uci_move_string.as_str());
+                    }
                 } else {
                     unimplemented!();
                 }

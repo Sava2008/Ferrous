@@ -256,3 +256,45 @@ fn king_movegen_test1() -> () {
 
     assert_eq!(moves.first_not_occupied, 1);
 }
+#[test]
+fn check_movegen_test() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("rnbqkbnr/1pp1pppp/3p4/p7/8/P1P5/1P1PPPPP/RNBQKBNR b KQkq - 0 1");
+    board.total_occupancy();
+    board.update_full_cache();
+    board.perform_move(43 | (35 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(
+        3 | (24 << TO_SHIFT) | (7 << MARK_SHIFT),
+        &mut state,
+        8,
+        &mut 0,
+        &mut 0,
+    );
+
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 16, &mut moves, false);
+    board.knight_moves(16, &mut moves, &state, false);
+    board.bishop_moves(16, &mut moves, &state, false);
+    board.queen_moves(16, &mut moves, &state, false);
+    board.rook_moves(16, &mut moves, &state, false);
+    board.king_moves(&state, 16, &mut moves, false);
+    for i in 0..moves.first_not_occupied {
+        let m: u16 = moves.pseudo_moves[i];
+        println!(
+            "from: {}, to: {}, mark: {}",
+            from_square(m),
+            to_square(m),
+            (m & MARK_MASK) >> MARK_SHIFT
+        );
+    }
+
+    assert_eq!(moves.first_not_occupied, 6, "{:?}", state.check_squares);
+}

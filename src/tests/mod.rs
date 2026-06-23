@@ -4,6 +4,6 @@ mod is_check_test;
 mod movegen_tests;
 mod pawn_structure_test;
 mod perform_cancel_move_tests;
-mod perft;
+pub mod perft;
 mod pin_violation_tests;
 mod profiling;

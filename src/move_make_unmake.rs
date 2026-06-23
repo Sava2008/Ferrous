@@ -215,11 +215,12 @@ impl Board {
             check_squares[flag.saturating_sub(2) as usize]
         };
 
-        let king_color: i32 = if color == 8 { 16 } else { 8 };
+        let (king_color, king_sq_index) = if color == 8 {
+            (16, self.black_king_square as usize)
+        } else {
+            (8, self.white_king_square as usize)
+        };
         let direct_attack: bool = direct_attacks & to_sq_bb != 0;
-
-        let king_sq: u8 = self.white_king_square;
-        let king_sq_index: usize = king_sq as usize;
 
         let (queen_idx, rook_idx, bishop_idx) = if king_color == 8 {
             (10, 9, 8)
@@ -449,13 +450,14 @@ impl Board {
         } else {
             (8, self.white_king_square)
         };
-        state.calculate_check_squares(enemy_king as usize, self.total_occupancy, enemy_color);
 
         *evaluation -= state.pawn_structure.sum();
         self.modify_pawn_structure(&mut state.pawn_structure);
         *evaluation += state.pawn_structure.sum();
 
         previous_move.material_difference = *evaluation - evaluation_before;
+
+        state.calculate_check_squares(enemy_king as usize, self.total_occupancy, enemy_color);
         if move_flag > 6 {
             self.adjust_move_restriction(
                 state,
@@ -466,6 +468,7 @@ impl Board {
                 color,
             );
         }
+
         state.moves_history.push(previous_move);
     }
 
