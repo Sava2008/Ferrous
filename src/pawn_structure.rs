@@ -95,6 +95,13 @@ fn count_doubled_pawns(pawns: u64) -> u32 {
 impl Board {
     #[inline(always)]
     pub fn modify_pawn_structure(&self, pawn_structure: &mut PawnStructureFeatures) -> () {
+        (
+            pawn_structure.isolated_white,
+            pawn_structure.isolated_black,
+            pawn_structure.doubled_white,
+            pawn_structure.doubled_black,
+        ) = (0, 0, 0, 0);
+        return ();
         let (mut white_doubled, mut black_doubled): (u32, u32) = (0, 0);
         let white_pawns: u64 = self.bitboards[0];
         let black_pawns: u64 = self.bitboards[6];

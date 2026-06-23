@@ -51,7 +51,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
                         {
                             match r {
                                 "depth" => (a.parse().unwrap(), Duration::ZERO),
-                                "movetime" => (100, Duration::from_millis(a.parse().unwrap())),
+                                "movetime" => (64, Duration::from_millis(a.parse().unwrap())),
                                 _ => unimplemented!(),
                             }
                         } else {

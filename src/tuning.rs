@@ -5,6 +5,7 @@ use crate::{
         attacks::{BLACK_PAWN_ATTACKS, MVV_LVA, WHITE_PAWN_ATTACKS},
         heuristics::*,
     },
+    converters::fen_converter::board_to_fen,
     search::Engine,
 };
 
@@ -37,6 +38,16 @@ impl Engine {
             current_board.cached_pieces[from_square(*m) as usize],
             current_board.cached_pieces[to_square],
         );
+        if moving_piece_type == 0 {
+            panic!(
+                "move: {m}, board: {}",
+                board_to_fen(
+                    current_board,
+                    &crate::gamestate::GameState::new(current_board),
+                    &8,
+                )
+            );
+        }
         score += match flag as i16 {
             2 => 0,
             7 => 100,
