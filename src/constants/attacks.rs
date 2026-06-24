@@ -632,7 +632,7 @@ const fn generate_en_passant_targets() -> [[u8; 64]; 64] {
 
     let mut white_from_index: usize = 8;
     while white_from_index < 16 {
-        let white_from_u8: u8 = white_from_index as u8 - 8;
+        let white_from_u8: u8 = white_from_index as u8 + 8;
         let white_to: usize = white_from_index + 16;
 
         en_passant_table[white_from_index][white_to] = white_from_u8;

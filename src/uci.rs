@@ -72,6 +72,8 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             println!("time spent: {}", start_time.elapsed().as_millis());
                             engine_move
                         } else {
+                            let color = s.whose_turn;
+                            b.calculate_check_restrictions(&mut s, color);
                             tests::perft::run_perft(b, s, max_depth);
                             0
                         }

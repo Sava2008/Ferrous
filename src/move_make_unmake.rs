@@ -467,6 +467,12 @@ impl Board {
                 moving_piece,
                 color,
             );
+        } else {
+            if color == 8 {
+                state.black_legal_squares_mask = u64::MAX;
+            } else {
+                state.white_legal_squares_mask = u64::MAX;
+            }
         }
 
         state.moves_history.push(previous_move);

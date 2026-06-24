@@ -122,6 +122,21 @@ fn illegal_en_passant_test1() -> () {
     board.pawn_moves(&state, 8, &mut moves, false);
     println!("pawn moves: {:?}", moves.pseudo_moves);
 }
+#[test]
+fn en_passant_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) =
+        fen_to_board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.perform_move(8 | (24 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    assert_eq!(state.en_passant_target, Some(16));
+}
 
 #[test]
 fn phantom_capture_test1() -> () {
@@ -142,6 +157,37 @@ fn phantom_capture_test1() -> () {
     };
     board.pawn_moves(&state, 16, &mut moves, false);
     println!("pawn moves: {:?}", moves.pseudo_moves);
+}
+
+#[test]
+fn legal_moves_after_check_test1() -> () {
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+    let (mut board, mut state) = fen_to_board("8/2p5/3p4/KP2P2r/1R5k/5p2/6P1/8 b - - 0 2");
+    board.total_occupancy();
+    board.update_full_cache();
+
+    board.perform_move(31 | (38 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(36 | (43 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    let mut moves: MoveList = MoveList {
+        pseudo_moves: [0; 192],
+        first_not_occupied: 0,
+    };
+    board.pawn_moves(&state, 16, &mut moves, false);
+    board.rook_moves(16, &mut moves, &state, false);
+    board.king_moves(&state, 16, &mut moves, false);
+    for i in 0..moves.first_not_occupied {
+        let m: u16 = moves.pseudo_moves[i];
+        println!(
+            "from: {}, to: {}, mark: {}",
+            from_square(m),
+            to_square(m),
+            (m & MARK_MASK) >> MARK_SHIFT
+        );
+    }
 }
 
 #[test]

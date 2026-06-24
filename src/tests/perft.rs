@@ -62,9 +62,9 @@ impl Engine {
 
             if depth == self.depth as usize {
                 println!(
-                    "from: {}, to: {}, flag: {}, results: {:?}",
-                    from_square(m),
-                    to_square(m),
+                    "{}{}, flag: {}, results: {:?}",
+                    INDICES_TO_COORDS.get(&from_square(m)).unwrap(),
+                    INDICES_TO_COORDS.get(&(to_square(m) as u8)).unwrap(),
                     (m & MARK_MASK) >> MARK_SHIFT,
                     self.perft_divide(depth - 1, board, state, opponent)
                 );
@@ -149,17 +149,14 @@ impl Engine {
                 opponent,
             ) {
                 board.cancel_move(state, color, &mut 0, &mut 0);
-                // println!(
-                //     "illegal move: {m}, board: {}, check constraints: {:b}",
-                //     board_to_fen(board, state, &(color as u8)),
-                //     if color == 16 {
-                //         state.black_legal_squares_mask
-                //     } else {
-                //         state.white_legal_squares_mask
-                //     }
-                // );
                 continue;
             }
+            // println!(
+            //     "depth: {depth}; move: {}{}, {}",
+            //     INDICES_TO_COORDS.get(&from_square(m)).unwrap(),
+            //     INDICES_TO_COORDS.get(&(to_square(m) as u8)).unwrap(),
+            //     (m & MARK_MASK) >> MARK_SHIFT
+            // );
 
             let king_sq: u8 = if color == 8 {
                 board.white_king_square
