@@ -22,22 +22,12 @@ pub fn engine_speed_test() -> () {
 
     let mut prompt_counts: [u128; 5] = [0; 5];
 
-    let (
-        mut total_movegen_time,
-        mut total_make_time,
-        mut total_unmake_time,
-        mut total_time_pawn_structure,
-    ) = (
-        Duration::ZERO,
-        Duration::ZERO,
-        Duration::ZERO,
-        Duration::ZERO,
-    );
+    let (mut total_movegen_time, mut total_make_time, mut total_unmake_time) =
+        (Duration::ZERO, Duration::ZERO, Duration::ZERO);
     movegen_speed_test(
         &mut total_movegen_time,
         &mut total_make_time,
         &mut total_unmake_time,
-        &mut total_time_pawn_structure,
         &mut test_engine,
         &mut board1,
         &mut state1,
@@ -48,7 +38,6 @@ pub fn engine_speed_test() -> () {
         &mut total_movegen_time,
         &mut total_make_time,
         &mut total_unmake_time,
-        &mut total_time_pawn_structure,
         &mut test_engine,
         &mut board2,
         &mut state2,
@@ -59,7 +48,6 @@ pub fn engine_speed_test() -> () {
         &mut total_movegen_time,
         &mut total_make_time,
         &mut total_unmake_time,
-        &mut total_time_pawn_structure,
         &mut test_engine,
         &mut board3,
         &mut state3,
@@ -70,7 +58,6 @@ pub fn engine_speed_test() -> () {
         &mut total_movegen_time,
         &mut total_make_time,
         &mut total_unmake_time,
-        &mut total_time_pawn_structure,
         &mut test_engine,
         &mut board4,
         &mut state4,
@@ -81,7 +68,6 @@ pub fn engine_speed_test() -> () {
         &mut total_movegen_time,
         &mut total_make_time,
         &mut total_unmake_time,
-        &mut total_time_pawn_structure,
         &mut test_engine,
         &mut board5,
         &mut state5,
@@ -91,11 +77,10 @@ pub fn engine_speed_test() -> () {
 
     for i in 0..5 {
         println!(
-            "average results:\nmovegen per position: {}ns\nperform_move time per move: {}ns\ncancel_move time per move: {}ns\nmodify_pawn_structure time per move: {}ns\n",
+            "average results:\nmovegen per position: {}ns\nperform_move time per move: {}ns\ncancel_move time per move: {}ns\n",
             total_movegen_time.as_nanos() / prompt_counts[i],
             total_make_time.as_nanos() / prompt_counts[i],
             total_unmake_time.as_nanos() / prompt_counts[i],
-            total_time_pawn_structure.as_nanos() / prompt_counts[i],
         );
     }
     is_square_attacked_speed_test(&board1);
@@ -116,7 +101,6 @@ fn movegen_speed_test(
     movegen_time: &mut Duration,
     make_move_time: &mut Duration,
     unmake_move_time: &mut Duration,
-    pawn_structure_calculation_time: &mut Duration,
     engine: &mut Engine,
     board: &mut Board,
     state: &mut GameState,
@@ -135,15 +119,7 @@ fn movegen_speed_test(
             unmake_move_time,
             &mut engine.current_hash,
         );
-        *pawn_structure_calculation_time += pawn_structure_calculation_speed_test(&board, state);
     }
-}
-
-#[allow(unused)]
-fn pawn_structure_calculation_speed_test(board: &Board, state: &mut GameState) -> Duration {
-    let start_timer: Instant = Instant::now();
-    board.modify_pawn_structure(&mut state.pawn_structure);
-    return start_timer.elapsed();
 }
 
 #[allow(unused)]

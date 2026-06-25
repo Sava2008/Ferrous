@@ -62,7 +62,7 @@ impl Engine {
 
             if depth == self.depth as usize {
                 println!(
-                    "{}{}, flag: {}, results: {:?}",
+                    " {}{}, flag: {}, results: {:?}",
                     INDICES_TO_COORDS.get(&from_square(m)).unwrap(),
                     INDICES_TO_COORDS.get(&(to_square(m) as u8)).unwrap(),
                     (m & MARK_MASK) >> MARK_SHIFT,

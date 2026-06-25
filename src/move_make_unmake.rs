@@ -351,7 +351,6 @@ impl Board {
             material_difference: 0,
             move_flag,
             check_restrictions,
-            pawn_structure: state.pawn_structure.clone(),
             check_squares: state.check_squares.clone(),
         };
         if captured_piece != 0 {
@@ -450,10 +449,6 @@ impl Board {
         } else {
             (8, self.white_king_square)
         };
-
-        *evaluation -= state.pawn_structure.sum();
-        self.modify_pawn_structure(&mut state.pawn_structure);
-        *evaluation += state.pawn_structure.sum();
 
         previous_move.material_difference = *evaluation - evaluation_before;
 
@@ -645,7 +640,6 @@ impl Board {
 
             state.castling_rights = previous_move.previous_castling_rights;
             state.en_passant_target = previous_move.previous_en_passant;
-            state.pawn_structure = previous_move.pawn_structure;
             state.check_squares = previous_move.check_squares;
         }
     }

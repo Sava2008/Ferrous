@@ -67,41 +67,25 @@ fn file_occupancy_parallel(mut pawns: u64) -> usize {
     return (pawns & 255) as usize;
 }
 
-const PAWN_COUNTS: [u32; 256] = {
-    let mut table: [u32; 256] = [0; 256];
-    let mut i: usize = 0;
-    while i < 256 {
-        table[i] = i.count_ones() as u32;
-        i += 1;
-    }
-    table
-};
-
 #[inline(always)]
 fn count_doubled_pawns(pawns: u64) -> u32 {
     let mut doubled: u32 = 0;
 
     for file in 0..8 {
-        let file_pawns: usize = (((pawns >> file) & FILE_A) as usize * 9259542123273814144) >> 56;
-        let count: u32 = PAWN_COUNTS[file_pawns];
+        let file_mask: u64 = FILE_A << file;
+        let count: u32 = (pawns & file_mask).count_ones();
+
         if count > 1 {
             doubled += count - 1;
         }
     }
-    return doubled as u32;
+    return doubled;
 }
 
 // to be applied after a move for simplicity
 impl Board {
     #[inline(always)]
     pub fn modify_pawn_structure(&self, pawn_structure: &mut PawnStructureFeatures) -> () {
-        (
-            pawn_structure.isolated_white,
-            pawn_structure.isolated_black,
-            pawn_structure.doubled_white,
-            pawn_structure.doubled_black,
-        ) = (0, 0, 0, 0);
-        return ();
         let (mut white_doubled, mut black_doubled): (u32, u32) = (0, 0);
         let white_pawns: u64 = self.bitboards[0];
         let black_pawns: u64 = self.bitboards[6];

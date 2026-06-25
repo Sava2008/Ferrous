@@ -2,7 +2,6 @@ use crate::{
     board::Board,
     board_geometry_templates::{BLACK_LONG, BLACK_SHORT, WHITE_LONG, WHITE_SHORT},
     constants::attacks::*,
-    pawn_structure::PawnStructureFeatures,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +15,6 @@ pub struct GameState {
     pub irreversible_moves: Vec<u64>,
     pub white_legal_squares_mask: u64,
     pub black_legal_squares_mask: u64,
-    pub pawn_structure: PawnStructureFeatures,
     pub check_squares: [u64; 5],
 }
 
@@ -56,7 +54,6 @@ pub struct PreviousMove {
     pub previous_castling_rights: u8,
     pub material_difference: i32,
     pub check_restrictions: u64,
-    pub pawn_structure: PawnStructureFeatures,
     pub check_squares: [u64; 5],
 }
 
@@ -77,14 +74,6 @@ impl GameState {
             irreversible_moves: Vec::new(),
             white_legal_squares_mask: u64::MAX, // all squares available
             black_legal_squares_mask: u64::MAX, // all squares available
-            pawn_structure: PawnStructureFeatures {
-                isolated_white: 0,
-                isolated_black: 0,
-                doubled_white: 0,
-                doubled_black: 0,
-                white_passers: 0,
-                black_passers: 0,
-            },
             check_squares: [0; 5],
         };
     }
