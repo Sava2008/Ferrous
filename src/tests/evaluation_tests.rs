@@ -30,12 +30,11 @@ fn evaluation_test_capture() -> () {
     board.perform_move(
         9 | (18 << TO_SHIFT),
         &mut state,
-        8,
         &mut test_engine.evaluation,
         &mut 0,
     );
 
-    board.cancel_move(&mut state, 8, &mut test_engine.evaluation, &mut 0);
+    board.cancel_move(&mut state, &mut test_engine.evaluation, &mut 0);
     assert_eq!(eval, test_engine.evaluation);
 }
 
@@ -46,7 +45,7 @@ fn confirm_sane_eval() -> () {
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
-    let (mut board, mut state) =
+    let (mut board, state) =
         fen_to_board("rn1q1rk1/pppbppbp/5np1/3p4/3PP3/2NB1N2/PPP2PPP/R1BQK2R b KQ - 0 7");
 
     board.total_occupancy();
@@ -56,7 +55,7 @@ fn confirm_sane_eval() -> () {
 
     test_engine.evaluate(&board);
     let m: u16 = test_engine
-        .find_best_move(&board, &mut state, Duration::from_secs(10), 100)
+        .find_best_move(board, state, Duration::from_secs(10), 100)
         .unwrap();
     println!("move: {} {}", from_square(m), to_square(m));
 }

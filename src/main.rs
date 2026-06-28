@@ -78,10 +78,10 @@ async fn main() {
     }
 
     let (mut board, mut state) =
-        fen_to_board("r1bq1k1r/ppn1b1pp/2n1p3/2pPPp2/4Q3/3B1N2/PP1P1PPP/RNB2RK1 w - f6 0 11");
+        fen_to_board("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(2851, &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(1669, &mut state, &mut 0, &mut 0);
 
     let mut debugger_board = board_visual::BoardVisual {
         squares: [0; 64],

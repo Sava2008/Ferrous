@@ -41,7 +41,7 @@ fn en_passant_pin_test1() -> () {
     test_board.total_occupancy();
     test_board.update_full_cache();
 
-    test_board.perform_move(50 | (34 << TO_SHIFT), &mut test_state, 16, &mut 0, &mut 0);
+    test_board.perform_move(50 | (34 << TO_SHIFT), &mut test_state, &mut 0, &mut 0);
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -65,7 +65,7 @@ fn en_passant_pin_test2() -> () {
     test_board.total_occupancy();
     test_board.update_full_cache();
 
-    test_board.perform_move(11 | (27 << TO_SHIFT), &mut test_state, 8, &mut 0, &mut 0);
+    test_board.perform_move(11 | (27 << TO_SHIFT), &mut test_state, &mut 0, &mut 0);
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -90,7 +90,7 @@ fn en_passant_no_pin() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(11 | (27 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(11 | (27 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -113,7 +113,7 @@ fn en_passant_pin_test3() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(12 | (28 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(12 | (28 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -135,7 +135,7 @@ fn en_passant_pin_test4() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(14 | (30 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(14 | (30 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,

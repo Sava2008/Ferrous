@@ -2,7 +2,7 @@
 pub struct TTEntry {
     pub hash: u64,
     pub score: i32,
-    pub depth: u8,
+    pub depth: usize,
     pub flag: u8, // 0 = exact score; 1 = good move; 2 = bad move
     pub best_move: u16,
 }

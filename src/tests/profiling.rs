@@ -133,11 +133,11 @@ fn make_unmake_speed_test(
     current_hash: &mut u64,
 ) -> () {
     let start_timer: Instant = Instant::now();
-    board.perform_move(piece_move, state, color, &mut 0, current_hash);
+    board.perform_move(piece_move, state, &mut 0, current_hash);
     *make_move_time_results += start_timer.elapsed();
 
     let start_timer: Instant = Instant::now();
-    board.cancel_move(state, color, &mut 0, current_hash);
+    board.cancel_move(state, &mut 0, current_hash);
     *unmake_move_time_results += start_timer.elapsed();
 }
 

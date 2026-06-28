@@ -59,7 +59,7 @@ fn pawn_gen_test() -> () {
         fen_to_board("rnbqkbnr/1pp1pppp/p7/3p4/8/P3P3/1PPP1PPP/RNBQKBNR w KQkq - 0 3");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(5 | (33 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(5 | (33 << TO_SHIFT), &mut state, &mut 0, &mut 0);
 
     let mut moves = MoveList {
         pseudo_moves: [0; 192],
@@ -78,17 +78,17 @@ fn pawn_gen_block_check_test() -> () {
     let (mut board, mut state) = fen_to_board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(14 | (22 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(14 | (22 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     println!(
         "white restrictions: {:b}, black restrictions: {:b}",
         state.white_legal_squares_mask, state.black_legal_squares_mask
     );
-    board.perform_move(31 | (22 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(31 | (22 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     println!(
         "white restrictions: {:b}, black restrictions: {:b}",
         state.white_legal_squares_mask, state.black_legal_squares_mask
     );
-    board.perform_move(25 | (17 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(25 | (17 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     println!(
         "white restrictions: {:b}, black restrictions: {:b}",
         state.white_legal_squares_mask, state.black_legal_squares_mask
@@ -114,7 +114,7 @@ fn illegal_en_passant_test1() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(54 | (38 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(54 | (38 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     let mut moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -134,7 +134,7 @@ fn en_passant_test1() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(8 | (24 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(8 | (24 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     assert_eq!(state.en_passant_target, Some(16));
 }
 
@@ -150,7 +150,7 @@ fn phantom_capture_test1() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(2851, &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(2851, &mut state, &mut 0, &mut 0);
     let mut moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -170,8 +170,8 @@ fn legal_moves_after_check_test1() -> () {
     board.total_occupancy();
     board.update_full_cache();
 
-    board.perform_move(31 | (38 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
-    board.perform_move(36 | (43 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(31 | (38 << TO_SHIFT), &mut state, &mut 0, &mut 0);
+    board.perform_move(36 | (43 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     let mut moves: MoveList = MoveList {
         pseudo_moves: [0; 192],
         first_not_occupied: 0,
@@ -275,7 +275,6 @@ fn king_movegen_test1() -> () {
     board.perform_move(
         54 | (62 << TO_SHIFT) | (13 << MARK_SHIFT),
         &mut state,
-        8,
         &mut 0,
         &mut 0,
     );
@@ -313,11 +312,10 @@ fn check_movegen_test() -> () {
         fen_to_board("rnbqkbnr/1pp1pppp/3p4/p7/8/P1P5/1P1PPPPP/RNBQKBNR b KQkq - 0 1");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(43 | (35 << TO_SHIFT), &mut state, 16, &mut 0, &mut 0);
+    board.perform_move(43 | (35 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     board.perform_move(
         3 | (24 << TO_SHIFT) | (7 << MARK_SHIFT),
         &mut state,
-        8,
         &mut 0,
         &mut 0,
     );

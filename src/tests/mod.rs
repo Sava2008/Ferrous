@@ -1,3 +1,4 @@
+mod color_switch_tests;
 mod engine_tests;
 mod evaluation_tests;
 mod is_check_test;

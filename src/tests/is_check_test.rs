@@ -15,7 +15,7 @@ fn single_check_queen() -> () {
         fen_to_board("r3k2r/3pp2p/2p5/pP2N1p1/3P4/5Q2/2P5/R3K2R w KQkq a6 0 2");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(21 | (39 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(21 | (39 << TO_SHIFT), &mut state, &mut 0, &mut 0);
     println!("board: {:?}", board.cached_pieces);
     println!(
         "legal moves mask(black): {:b}",
@@ -123,7 +123,7 @@ fn check_evasion_test() -> () {
         fen_to_board("rnb2knr/ppp3pp/8/8/2Q5/5N2/PPP3PP/RNBq1BKR w - - 0 1");
     board.total_occupancy();
     board.update_full_cache();
-    board.perform_move(26 | (62 << TO_SHIFT), &mut state, 8, &mut 0, &mut 0);
+    board.perform_move(26 | (62 << TO_SHIFT), &mut state, &mut 0, &mut 0);
 
     let mut legal_moves: MoveList = MoveList {
         pseudo_moves: [0; 192],

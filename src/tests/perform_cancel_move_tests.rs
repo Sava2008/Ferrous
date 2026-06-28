@@ -34,8 +34,8 @@ fn knight_move_and_cancel_test() -> () {
     board.knight_moves(8, &mut legal_moves, &state, false);
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..12 {
-        board.perform_move(legal_moves.pseudo_moves[i], &mut state, 8, &mut 0, &mut 0);
-        board.cancel_move(&mut state, 8, &mut 0, &mut 0);
+        board.perform_move(legal_moves.pseudo_moves[i], &mut state, &mut 0, &mut 0);
+        board.cancel_move(&mut state, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
     }
@@ -80,9 +80,9 @@ fn pawn_moves_and_cancel_test() -> () {
         let m: u16 = legal_moves.pseudo_moves[i];
         let from = from_square(m) as usize;
         println!("moving piece: {}", board.cached_pieces[from]);
-        board.perform_move(m, &mut state, 8, &mut 0, &mut 0);
+        board.perform_move(m, &mut state, &mut 0, &mut 0);
         assert!(board.bitboards[5].count_ones() == 1);
-        board.cancel_move(&mut state, 8, &mut 0, &mut 0);
+        board.cancel_move(&mut state, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
     }
@@ -127,7 +127,7 @@ fn en_passant_and_cancel_test1() -> () {
 
     //board.perform_move(33851937, &mut state, 8, &mut 0, &mut 0);
     assert_ne!(board.bitboards[6], 1 << 32);
-    board.cancel_move(&mut state, 8, &mut 0, &mut 0);
+    board.cancel_move(&mut state, &mut 0, &mut 0);
     assert_eq!(board, copied_board);
     assert_eq!(state, copied_state);
     let mut second_hash: u64 = 0;
@@ -153,7 +153,7 @@ fn en_passant_and_cancel_test2() -> () {
     board.total_occupancy();
     board.update_full_cache();
     let mut hash_before: u64 = Engine::rebuild_hash(&board, 8);
-    board.perform_move(39782, &mut state, 8, &mut 0, &mut hash_before);
+    board.perform_move(39782, &mut state, &mut 0, &mut hash_before);
     assert_eq!(board.cached_pieces[37], 0);
     assert_eq!(board.bitboards[6] & (1 << 37), 0);
     assert_eq!(
@@ -162,7 +162,7 @@ fn en_passant_and_cancel_test2() -> () {
         "missing part: {}",
         hash_before ^ Engine::rebuild_hash(&board, 16)
     );
-    board.cancel_move(&mut state, 8, &mut 0, &mut hash_before);
+    board.cancel_move(&mut state, &mut 0, &mut hash_before);
     assert_eq!(hash_before, Engine::rebuild_hash(&board, 8));
 }
 
@@ -195,9 +195,9 @@ fn castling_short_and_cancel_test() -> () {
     for i in 0..5 {
         let m: u16 = legal_moves.pseudo_moves[i];
         let mut hash_before: u64 = Engine::rebuild_hash(&board, 8);
-        board.perform_move(m, &mut state, 8, &mut 0, &mut hash_before);
+        board.perform_move(m, &mut state, &mut 0, &mut hash_before);
         assert_eq!(hash_before, Engine::rebuild_hash(&board, 16));
-        board.cancel_move(&mut state, 8, &mut 0, &mut hash_before);
+        board.cancel_move(&mut state, &mut 0, &mut hash_before);
         assert_eq!(hash_before, Engine::rebuild_hash(&board, 8));
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
@@ -250,10 +250,10 @@ fn castling_long_and_cancel_test() -> () {
             (m & MARK_MASK) >> MARK_SHIFT
         );
 
-        board.perform_move(m, &mut state, 8, &mut 0, &mut hash_before);
+        board.perform_move(m, &mut state, &mut 0, &mut hash_before);
         let hash_after: u64 = Engine::rebuild_hash(&board, 16);
         assert_eq!(hash_before, hash_after);
-        board.cancel_move(&mut state, 8, &mut 0, &mut hash_before);
+        board.cancel_move(&mut state, &mut 0, &mut hash_before);
         let hash_after: u64 = Engine::rebuild_hash(&board, 8);
         assert_eq!(hash_before, hash_after);
         assert_eq!(board, copied_board);
@@ -271,8 +271,8 @@ fn castling_long_and_cancel_test() -> () {
         println!("i = {i}");
         let m: u16 = legal_moves.pseudo_moves[i];
         println!("from: {}, to: {}", from_square(m), to_square(m));
-        board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
-        board.cancel_move(&mut state, 16, &mut 0, &mut 0);
+        board.perform_move(m, &mut state, &mut 0, &mut 0);
+        board.cancel_move(&mut state, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
     }
@@ -313,8 +313,8 @@ fn knight_moves_and_cancel_test() -> () {
     let (copied_board, copied_state) = (board.clone(), state.clone());
     for i in 0..4 {
         let m: u16 = legal_moves.pseudo_moves[i];
-        board.perform_move(m, &mut state, 16, &mut 0, &mut 0);
-        board.cancel_move(&mut state, 16, &mut 0, &mut 0);
+        board.perform_move(m, &mut state, &mut 0, &mut 0);
+        board.cancel_move(&mut state, &mut 0, &mut 0);
         assert_eq!(board, copied_board);
         assert_eq!(state, copied_state);
     }
@@ -345,9 +345,9 @@ fn buggy_castling_test() -> () {
     let (board_copy, state_copy) = (board.clone(), state.clone());
 
     let mut hash_before = Engine::rebuild_hash(&board, 16);
-    board.perform_move(three_zeros, &mut state, 16, &mut 0, &mut hash_before);
+    board.perform_move(three_zeros, &mut state, &mut 0, &mut hash_before);
     assert_eq!(hash_before, Engine::rebuild_hash(&board, 8));
-    board.cancel_move(&mut state, 16, &mut 0, &mut hash_before);
+    board.cancel_move(&mut state, &mut 0, &mut hash_before);
     assert_eq!(hash_before, Engine::rebuild_hash(&board, 16));
 
     assert_eq!(board_copy, board);
@@ -383,7 +383,6 @@ fn pawn_promo_test1() -> () {
     board.perform_move(
         57 | (56 << TO_SHIFT) | (7 << MARK_SHIFT),
         &mut state,
-        16,
         &mut 0,
         &mut 0,
     );
@@ -400,13 +399,13 @@ fn pawn_promo_test1() -> () {
             (m & MARK_MASK) >> MARK_SHIFT
         );
         let mut hash_before = Engine::rebuild_hash(&board, 8);
-        board.perform_move(m, &mut state, 8, &mut 0, &mut hash_before);
+        board.perform_move(m, &mut state, &mut 0, &mut hash_before);
         let hash_after = Engine::rebuild_hash(&board, 16);
         assert_eq!(hash_after, hash_before);
         if !board.is_square_attacked(board.white_king_square, 16) {
             legal_moves += 1;
         }
-        board.cancel_move(&mut state, 8, &mut 0, &mut hash_before);
+        board.cancel_move(&mut state, &mut 0, &mut hash_before);
         let hash_after = Engine::rebuild_hash(&board, 8);
         assert_eq!(hash_after, hash_before);
         assert_eq!(board, board_copy);
