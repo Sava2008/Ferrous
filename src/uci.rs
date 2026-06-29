@@ -23,9 +23,19 @@ pub fn uci_output(engine: &mut Engine) -> () {
         match command {
             "uci" => println!("uciok"),
             "ucinewgame" => {
-                for i in 0..engine.history_heuristics.len() {
+                for i in 0..4096 {
                     engine.history_heuristics[i] = 0;
                 }
+                engine.killer_moves = [[None; 2]; 128];
+                engine.move_lists = [crate::moves::MoveList {
+                    pseudo_moves: [0; 192],
+                    first_not_occupied: 0,
+                }; 128];
+                engine.move_scores = [[0; 192]; 128];
+                engine.current_hash = 0;
+                engine.evaluation = 0;
+                engine.nodes_since_last_check = 0;
+                engine.how_much_searched = (0., 0.);
                 engine.transposition_table = TranspositionTable::new();
             }
             "isready" => println!("readyok"),
@@ -68,12 +78,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             engine.depth = max_depth;
                             let start_time: Instant = Instant::now();
                             let engine_move: u16 = engine
-                                .find_best_move(
-                                    b.clone(),
-                                    s.clone(),
-                                    time_constrainst,
-                                    max_depth as usize,
-                                )
+                                .find_best_move(&b, &mut s, time_constrainst, max_depth)
                                 .unwrap();
                             println!("time spent: {}", start_time.elapsed().as_millis());
                             engine_move

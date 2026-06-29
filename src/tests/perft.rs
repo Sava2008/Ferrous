@@ -58,7 +58,7 @@ impl Engine {
             let is_castle: bool = flag == 1;
             let is_promotion: bool = flag >= 3 && flag <= 6;
 
-            board.perform_move(m, state, &mut 0, &mut 0);
+            board.perform_move(m, state, color, &mut 0, &mut 0);
 
             if depth == self.depth as usize {
                 println!(
@@ -94,7 +94,7 @@ impl Engine {
                 node_counter.promotions += sub_node_counter.promotions;
             }
 
-            board.cancel_move(state, &mut 0, &mut 0);
+            board.cancel_move(state, color, &mut 0, &mut 0);
         }
 
         return node_counter.clone();
@@ -139,7 +139,7 @@ impl Engine {
             let is_castle: bool = flag == 1;
             let is_promotion: bool = flag >= 3 && flag <= 6;
 
-            board.perform_move(m, state, &mut 0, &mut 0);
+            board.perform_move(m, state, color, &mut 0, &mut 0);
             if board.is_square_attacked(
                 if color == 8 {
                     board.white_king_square
@@ -148,7 +148,7 @@ impl Engine {
                 },
                 opponent,
             ) {
-                board.cancel_move(state, &mut 0, &mut 0);
+                board.cancel_move(state, color, &mut 0, &mut 0);
                 continue;
             }
             // println!(
@@ -189,7 +189,7 @@ impl Engine {
                 node_counter.promotions += sub_node_counter.promotions;
             }
 
-            board.cancel_move(state, &mut 0, &mut 0);
+            board.cancel_move(state, color, &mut 0, &mut 0);
         }
 
         return node_counter.clone();

@@ -12,7 +12,6 @@ use crate::{
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
-    converters::fen_converter::board_to_fen,
     gamestate::{GameState, PreviousMove},
 };
 
@@ -295,12 +294,10 @@ impl Board {
         &mut self,
         piece_move: u16,
         state: &mut GameState,
+        color: u16,
         evaluation: &mut i32,
         current_hash: &mut u64,
     ) -> () {
-        let opponent_color: u16 = state.whose_turn;
-        state.whose_turn = if opponent_color == 8 { 16 } else { 8 };
-        let color = state.whose_turn;
         let evaluation_before: i32 = *evaluation;
 
         let (from_sq, to_sq): (u16, u16) =
@@ -314,15 +311,10 @@ impl Board {
         let move_flag: u16 = (piece_move & MARK_MASK) >> MARK_SHIFT;
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
-            get_bb_index(moving_piece, &opponent_color);
+            get_bb_index(moving_piece, &color);
         if moving_piece_table_idx > 11 {
             let caller = std::panic::Location::caller();
-            panic!(
-                "board: {}, moving piece: {moving_piece}, from: {from_sq}, to: {to_sq}, flag: {move_flag}, caller: {} {}",
-                board_to_fen(&self, &state, &(opponent_color as u8)),
-                caller.file(),
-                caller.line()
-            );
+            panic!("caller: {} {}", caller.file(), caller.line());
         }
         let moving_piece_heuristics: &[i32; 64] =
             unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
@@ -368,7 +360,7 @@ impl Board {
         };
         if captured_piece != 0 {
             let (captured_piece_table_idx, captured_occupancy_idx): (usize, usize) =
-                get_bb_index(captured_piece, &opponent_color);
+                get_bb_index(captured_piece, if color == 8 { &16 } else { &8 });
             self.perform_capture(
                 state,
                 captured_piece,
@@ -378,7 +370,7 @@ impl Board {
                 current_hash,
                 captured_piece_table_idx,
                 captured_occupancy_idx,
-                opponent_color,
+                color,
             );
         }
         if move_flag == 1 || move_flag == 8 {
@@ -386,12 +378,12 @@ impl Board {
                 &mut previous_move,
                 from_sq_index,
                 to_sq_index,
-                opponent_color,
+                color,
                 evaluation,
                 current_hash,
             );
         } else if move_flag == 2 || move_flag == 9 {
-            self.en_passant(state, opponent_color, evaluation, current_hash);
+            self.en_passant(state, color, evaluation, current_hash);
         }
 
         let cached_pieces: &mut [u16; 64] = &mut self.cached_pieces;
@@ -437,7 +429,7 @@ impl Board {
                 zobrist_table,
                 current_hash,
                 evaluation,
-                opponent_color,
+                color,
                 &start,
                 promotion_choice,
                 to_sq_index,
@@ -457,15 +449,15 @@ impl Board {
             state.en_passant_target = None;
         }
 
-        let enemy_king: u8 = if color == 16 {
-            self.black_king_square
+        let (enemy_color, enemy_king) = if color == 8 {
+            (16, self.black_king_square)
         } else {
-            self.white_king_square
+            (8, self.white_king_square)
         };
 
         previous_move.material_difference = *evaluation - evaluation_before;
 
-        state.calculate_check_squares(enemy_king as usize, self.total_occupancy, opponent_color);
+        state.calculate_check_squares(enemy_king as usize, self.total_occupancy, enemy_color);
         if move_flag > 6 {
             self.adjust_move_restriction(
                 state,
@@ -473,14 +465,8 @@ impl Board {
                 to_sq,
                 move_flag,
                 moving_piece,
-                opponent_color,
+                color,
             );
-        } else {
-            if opponent_color == 8 {
-                state.black_legal_squares_mask = u64::MAX;
-            } else {
-                state.white_legal_squares_mask = u64::MAX;
-            }
         }
 
         state.moves_history.push(previous_move);
@@ -489,6 +475,7 @@ impl Board {
     pub fn cancel_move(
         &mut self,
         state: &mut GameState,
+        color: u16,
         evaluation: &mut i32,
         current_hash: &mut u64,
     ) -> () {
@@ -502,7 +489,7 @@ impl Board {
                 (from_square(m), to_square(m), previous_move.captured_piece);
             let (start_index, end_index): (usize, usize) = (start as usize, end as usize);
             let main_piece: u16 = cached_pieces[end_index];
-            let enemy_color: u16 = if state.whose_turn == 8 {
+            let enemy_color: u16 = if color == 8 {
                 state.black_legal_squares_mask = previous_move.check_restrictions;
                 *current_hash ^= WHITE_ZOBRIST_KEY;
                 *current_hash ^= BLACK_ZOBRIST_KEY;
@@ -513,15 +500,13 @@ impl Board {
                 *current_hash ^= WHITE_ZOBRIST_KEY;
                 8
             };
-            let color: u16 = state.whose_turn;
-            state.whose_turn = enemy_color;
             let (
                 (moving_piece_table_idx, moving_piece_occupancy_idx),
                 (captured_piece_table_idx, captured_piece_occupancy_idx),
             ) = (
-                get_bb_index(main_piece, &enemy_color),
+                get_bb_index(main_piece, &color),
                 if captured_piece != 0 {
-                    get_bb_index(captured_piece, &color)
+                    get_bb_index(captured_piece, &enemy_color)
                 } else {
                     (0, 0)
                 },
@@ -558,7 +543,7 @@ impl Board {
                 *moved_piece_bitboard |= start_bb;
             } else {
                 let promotion_as_index: usize = promotion as usize;
-                let (pawns, promotion_piece_encoding, pawn, pawn_hash) = if enemy_color == 8 {
+                let (pawns, promotion_piece_encoding, pawn, pawn_hash) = if color == 8 {
                     (
                         &mut self.bitboards[0],
                         promotion_as_index,
@@ -602,7 +587,7 @@ impl Board {
                     &mut u64,
                     &mut u64,
                     usize,
-                ) = match enemy_color {
+                ) = match color {
                     8 => {
                         let ep_sq: usize = end_index - 8;
                         *current_hash ^= zobrist_table[6 * 64 + ep_sq];
