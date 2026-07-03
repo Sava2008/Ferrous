@@ -2,6 +2,7 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
+        attacks::INDICES_TO_COORDS,
         heuristics::*,
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
@@ -32,7 +33,7 @@ pub struct Engine {
 }
 
 const CHECKMATE_VALUE: i32 = 1_000_000;
-const TIME_CHECK_NODES_OFFSET: u64 = 2500; // how often to check for time
+const TIME_CHECK_NODES_OFFSET: u64 = 25; // how often to check for time
 const TIMEOUT_RETURN: i32 = 2_000_001;
 const QUIESCENCE_DELTA: i32 = 200;
 
@@ -263,10 +264,13 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-                if board.is_square_attacked(board.white_king_square, 16) {
-                    board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
-                    total_moves -= 1;
-                    continue;
+                if board.cached_pieces[from_square(allegedly_best_move) as usize] != WHITE_KING_U16
+                {
+                    if board.is_square_attacked(board.white_king_square, 16) {
+                        board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
+                        total_moves -= 1;
+                        continue;
+                    }
                 }
 
                 let current_score: i32 = self.alpha_beta_pruning(
@@ -357,10 +361,13 @@ impl Engine {
                     &mut self.current_hash,
                 );
 
-                if board.is_square_attacked(board.black_king_square, 8) {
-                    board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
-                    total_moves -= 1;
-                    continue;
+                if board.cached_pieces[from_square(allegedly_best_move) as usize] != BLACK_KING_U16
+                {
+                    if board.is_square_attacked(board.black_king_square, 8) {
+                        board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
+                        total_moves -= 1;
+                        continue;
+                    }
                 }
 
                 let current_score: i32 = self.alpha_beta_pruning(
@@ -452,6 +459,40 @@ impl Engine {
             board.is_square_attacked(board.black_king_square, 8)
         };
 
+        let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash);
+        let best_move_transposition: u16 = if let Some(entry) = tt_entry {
+            if entry.depth == 0 {
+                match entry.flag {
+                    0 => return entry.score,
+                    1 => {
+                        if maximizing {
+                            alpha = alpha.max(entry.score);
+                        } else {
+                            beta = beta.min(entry.score);
+                        }
+                    }
+                    2 => {
+                        if maximizing {
+                            beta = beta.min(entry.score);
+                        } else {
+                            alpha = alpha.max(entry.score);
+                        }
+                    }
+                    _ => (),
+                }
+                if alpha >= beta {
+                    return entry.score;
+                }
+                entry.best_move
+            } else if entry.depth >= 2 {
+                entry.best_move
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
         let stand_pat: i32 = self.evaluation;
 
         if !in_check {
@@ -480,8 +521,11 @@ impl Engine {
 
         self.generate_pseudo_legal_moves(color, board, state, depth, !in_check);
         let last_occupied: usize = self.move_lists[depth].first_not_occupied;
+        // if last_occupied == 0 && !in_check {
+        //     return stand_pat;
+        // }
 
-        self.score_all_moves(depth, last_occupied, &0, &board);
+        self.score_all_moves(depth, last_occupied, &best_move_transposition, &board);
 
         let scores: &mut [i16; 192] = &mut self.move_scores[depth];
         let moves: &mut [u16; 192] = &mut self.move_lists[depth].pseudo_moves;
@@ -499,6 +543,8 @@ impl Engine {
         let mut best_score: i32 = stand_pat;
         let mut best_move: u16 = 0;
         let mut moves_tried: i32 = 0;
+        let original_alpha: i32 = alpha;
+        let original_beta: i32 = beta;
 
         for i in 0..last_occupied {
             let move_to_search: u16 = self.move_lists[depth].pseudo_moves[i];
@@ -535,15 +581,18 @@ impl Engine {
                 &mut self.current_hash,
             );
 
-            let king_in_check: bool = if color == 8 {
-                board.is_square_attacked(board.white_king_square, 16)
-            } else {
-                board.is_square_attacked(board.black_king_square, 8)
-            };
+            let moving_piece: u16 = board.cached_pieces[from_square(move_to_search) as usize];
+            if moving_piece != WHITE_KING_U16 && moving_piece != BLACK_KING_U16 {
+                let king_in_check: bool = if color == 8 {
+                    board.is_square_attacked(board.white_king_square, 16)
+                } else {
+                    board.is_square_attacked(board.black_king_square, 8)
+                };
 
-            if king_in_check {
-                board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
-                continue;
+                if king_in_check {
+                    board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
+                    continue;
+                }
             }
 
             moves_tried += 1;
@@ -588,11 +637,37 @@ impl Engine {
 
         if moves_tried == 0 {
             if in_check {
-                let mate_score: i32 = CHECKMATE_VALUE - depth as i32;
-                return if color == 8 { -mate_score } else { mate_score };
+                return -(CHECKMATE_VALUE - depth as i32).abs();
+                // let mate_score: i32 = if color == 8 {
+                //     -CHECKMATE_VALUE + mate_distance
+                // } else {
+                //     CHECKMATE_VALUE - mate_distance
+                // };
+                // return mate_score.clamp(-CHECKMATE_VALUE + 100, CHECKMATE_VALUE - 100);
             } else {
                 return stand_pat;
             }
+        }
+
+        if moves_tried > 0 && (best_score != stand_pat || in_check) {
+            let flag: u8 = if best_score >= original_beta {
+                2
+            } else if best_score <= original_alpha {
+                1
+            } else {
+                0
+            };
+
+            self.transposition_table.record_entry(
+                &self.current_hash,
+                TTEntry {
+                    hash: self.current_hash,
+                    score: best_score,
+                    depth: 0,
+                    flag,
+                    best_move,
+                },
+            );
         }
 
         return best_score;
@@ -605,11 +680,11 @@ impl Engine {
         time_contrainsts: Duration,
         max_depth: u8,
     ) -> Option<u16> {
-        self.prepare_before_search(board);
         let mut node_count: u64 = 0;
         let mut best_move: Option<u16> = None;
         let mut copied_board: Board = board.clone();
         let mut copied_state: GameState = state.clone();
+        self.prepare_before_search(&mut copied_board, &mut copied_state);
 
         copied_state.whose_turn = self.side.clone() as u16;
 
@@ -645,7 +720,7 @@ impl Engine {
 
             self.generate_pseudo_legal_moves(
                 self.side,
-                board,
+                &copied_board,
                 &copied_state,
                 depth_as_index,
                 false,
@@ -711,6 +786,15 @@ impl Engine {
                     total_moves -= 1;
                     continue;
                 }
+                print!(
+                    "move: {}{} ",
+                    INDICES_TO_COORDS
+                        .get(&from_square(allegedly_best_move))
+                        .unwrap(),
+                    INDICES_TO_COORDS
+                        .get(&(to_square(allegedly_best_move) as u8))
+                        .unwrap(),
+                );
 
                 let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
@@ -723,6 +807,7 @@ impl Engine {
                     &timer_start,
                     &time_limit_ms,
                 );
+                println!("eval: {}", score);
                 self.how_much_searched.0 += 1.;
                 if score == TIMEOUT_RETURN {
                     break 'outer;
@@ -783,7 +868,7 @@ impl Engine {
         return best_move;
     }
 
-    fn prepare_before_search(&mut self, board: &Board) -> () {
+    fn prepare_before_search(&mut self, board: &mut Board, state: &mut GameState) -> () {
         for i in 0..4096 {
             self.history_heuristics[i] /= 100;
         }
@@ -802,6 +887,7 @@ impl Engine {
 
         self.current_hash = Self::rebuild_hash(board, self.side);
         self.evaluate(board);
+        board.calculate_check_restrictions(state, state.whose_turn.clone());
     }
 
     pub fn rebuild_hash(board: &Board, side: u16) -> u64 {

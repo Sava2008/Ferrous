@@ -12,6 +12,7 @@ use crate::{
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
+    converters::fen_converter::board_to_fen,
     gamestate::{GameState, PreviousMove},
 };
 
@@ -197,30 +198,47 @@ impl Board {
         color: u16,
     ) -> () {
         let to_sq_bb: u64 = 1 << to;
+        let to_idx: usize = to as usize;
         let total_occ: u64 = self.total_occupancy;
         if moving_piece > 6 {
             moving_piece -= 6;
         }
-        if flag >= 7 {
-            flag -= 7;
-        }
-        let check_squares: &[u64; 5] = &state.check_squares;
-        let direct_attacks: u64 = if flag == 0 || flag == 1 {
-            if moving_piece == 6 {
-                0
-            } else {
-                check_squares[moving_piece as usize - 1]
-            }
-        } else {
-            check_squares[flag.saturating_sub(2) as usize]
-        };
+        flag -= 7;
 
         let (king_color, king_sq_index) = if color == 8 {
             (16, self.black_king_square as usize)
         } else {
             (8, self.white_king_square as usize)
         };
-        let direct_attack: bool = direct_attacks & to_sq_bb != 0;
+
+        let check_squares: &[u64; 5] = &state.check_squares;
+        let direct_attacks: u64 = if flag == 0 {
+            if moving_piece == 6 {
+                0
+            } else {
+                check_squares[moving_piece as usize - 1]
+            }
+        } else if flag == 1 {
+            // castling CAN give checks
+            let rook_idx: usize = if from > to_idx {
+                to_idx + 1
+            } else {
+                to_idx - 1
+            };
+            if check_squares[3] & (1 << rook_idx) != 0 {
+                if color == 8 {
+                    state.black_legal_squares_mask =
+                        unsafe { RAYS_BETWEEN[king_sq_index][rook_idx] | to_sq_bb };
+                } else {
+                    state.white_legal_squares_mask =
+                        unsafe { RAYS_BETWEEN[king_sq_index][rook_idx] | to_sq_bb };
+                }
+                return ();
+            }
+            0
+        } else {
+            check_squares[flag.saturating_sub(2) as usize]
+        };
 
         let (queen_idx, rook_idx, bishop_idx) = if king_color == 8 {
             (10, 9, 8)
@@ -253,15 +271,15 @@ impl Board {
             64
         };
         let is_discovery: bool = squares != 64;
-        let is_direct_attack = direct_attacks & to_sq_bb != 0;
+        let is_direct_attack: bool = direct_attacks & to_sq_bb != 0;
         if color == 8 {
-            if direct_attack && is_discovery {
-                state.black_legal_squares_mask = 0;
-                return ();
-            }
-            if direct_attack {
+            if is_direct_attack {
+                if is_discovery {
+                    state.black_legal_squares_mask = 0;
+                    return ();
+                }
                 state.black_legal_squares_mask =
-                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] | to_sq_bb };
+                    unsafe { RAYS_BETWEEN[king_sq_index][to_idx] | to_sq_bb };
                 return ();
             }
             if is_discovery {
@@ -277,7 +295,7 @@ impl Board {
                     return ();
                 }
                 state.white_legal_squares_mask =
-                    unsafe { RAYS_BETWEEN[king_sq_index][to as usize] | to_sq_bb };
+                    unsafe { RAYS_BETWEEN[king_sq_index][to_idx] | to_sq_bb };
                 return ();
             }
             if is_discovery {
@@ -289,7 +307,6 @@ impl Board {
     }
 
     // performs verified moves, so there is no need for another verification
-    #[track_caller]
     pub fn perform_move(
         &mut self,
         piece_move: u16,
@@ -308,14 +325,24 @@ impl Board {
 
         let moving_piece: u16 = cached_pieces[from_sq_index];
         let captured_piece: u16 = cached_pieces[to_sq_index];
+        if captured_piece == WHITE_KING_U16 || captured_piece == BLACK_KING_U16 {
+            panic!(
+                "{:?}, board: {}, from: {}, to: {}",
+                state.moves_history,
+                board_to_fen(&self, &state, &(state.whose_turn.clone() as u8)),
+                from_sq,
+                to_sq,
+            );
+        }
+
         let move_flag: u16 = (piece_move & MARK_MASK) >> MARK_SHIFT;
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
             get_bb_index(moving_piece, &color);
-        if moving_piece_table_idx > 11 {
-            let caller = std::panic::Location::caller();
-            panic!("caller: {} {}", caller.file(), caller.line());
-        }
+        // if moving_piece_table_idx > 11 {
+        //     let caller = std::panic::Location::caller();
+        //     panic!("caller: {} {}", caller.file(), caller.line());
+        // }
         let moving_piece_heuristics: &[i32; 64] =
             unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
 

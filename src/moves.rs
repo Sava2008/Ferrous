@@ -136,7 +136,8 @@ impl Board {
         check_squares: &[u64; 5],
     ) -> u16 {
         let total_occ: u64 = self.total_occupancy & !(1 << from);
-        let to_sq_bb: u64 = 1 << to;
+
+        let mut to_sq_bb: u64 = 1 << to;
         if moving_piece > 6 {
             moving_piece -= 6;
         }
@@ -146,15 +147,32 @@ impl Board {
         } else {
             (4, 3, 2)
         };
-        let direct_attacks: u64 = if flag == 0 || flag == 1 {
+        let direct_attacks: u64 = if flag == 0 {
             if moving_piece == 6 {
                 0
             } else {
                 check_squares[moving_piece as usize - 1]
             }
+        } else if flag == 1 {
+            let to_idx: usize = to as usize;
+            let rook_idx: usize = if from > to_idx {
+                to_idx + 1
+            } else {
+                to_idx - 1
+            };
+            let rook_bb: u64 = 1 << rook_idx;
+            let rook_check_squares: u64 = check_squares[3];
+
+            if rook_check_squares & rook_bb != 0 {
+                to_sq_bb = rook_bb;
+                rook_check_squares
+            } else {
+                0
+            }
         } else {
             check_squares[flag.saturating_sub(2) as usize]
         };
+
         if direct_attacks & to_sq_bb != 0 {
             return flag + 7;
         }
