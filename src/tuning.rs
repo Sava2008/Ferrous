@@ -65,7 +65,7 @@ impl Engine {
                 attacker_value -= 6;
             }
 
-            return unsafe { MVV_LVA[victim_value][attacker_value] } * 1000;
+            return unsafe { MVV_LVA[victim_value][attacker_value] } * 10;
         }
         if self.killer_moves[depth][0] == Some(*m) {
             score += 900;
@@ -75,7 +75,7 @@ impl Engine {
 
         let history_idx: usize =
             (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
-        score += self.history_heuristics[history_idx] / 100;
+        score += self.history_heuristics[history_idx] / 20;
         score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if moving_piece_type < 7 {
             score -= 200

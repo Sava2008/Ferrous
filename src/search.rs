@@ -2,7 +2,6 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
-        attacks::INDICES_TO_COORDS,
         heuristics::*,
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
@@ -35,7 +34,7 @@ pub struct Engine {
 const CHECKMATE_VALUE: i32 = 1_000_000;
 const TIME_CHECK_NODES_OFFSET: u64 = 25; // how often to check for time
 const TIMEOUT_RETURN: i32 = 2_000_001;
-const QUIESCENCE_DELTA: i32 = 200;
+const QUIESCENCE_DELTA: i32 = 50;
 
 impl Engine {
     pub fn new(side: u16, depth: u8) -> Self {
@@ -167,6 +166,7 @@ impl Engine {
         node_count: &mut u64,
         start_time: &Instant,
         time_limit_ms: &u128,
+        max_depth: usize,
     ) -> i32 {
         *node_count += 1;
 
@@ -204,7 +204,7 @@ impl Engine {
                 alpha,
                 beta,
                 maximizing,
-                self.depth as usize + 1,
+                max_depth + 1,
                 if state.whose_turn == 8 { 16 } else { 8 },
                 node_count,
             );
@@ -264,8 +264,7 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-                if board.cached_pieces[from_square(allegedly_best_move) as usize] != WHITE_KING_U16
-                {
+                if board.cached_pieces[to_square(allegedly_best_move) as usize] != WHITE_KING_U16 {
                     if board.is_square_attacked(board.white_king_square, 16) {
                         board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
                         total_moves -= 1;
@@ -283,6 +282,7 @@ impl Engine {
                     node_count,
                     start_time,
                     time_limit_ms,
+                    max_depth,
                 );
                 if current_score == TIMEOUT_RETURN {
                     return current_score;
@@ -361,8 +361,7 @@ impl Engine {
                     &mut self.current_hash,
                 );
 
-                if board.cached_pieces[from_square(allegedly_best_move) as usize] != BLACK_KING_U16
-                {
+                if board.cached_pieces[to_square(allegedly_best_move) as usize] != BLACK_KING_U16 {
                     if board.is_square_attacked(board.black_king_square, 8) {
                         board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                         total_moves -= 1;
@@ -380,6 +379,7 @@ impl Engine {
                     node_count,
                     start_time,
                     time_limit_ms,
+                    max_depth,
                 );
                 if current_score == TIMEOUT_RETURN {
                     return current_score;
@@ -464,20 +464,9 @@ impl Engine {
             if entry.depth == 0 {
                 match entry.flag {
                     0 => return entry.score,
-                    1 => {
-                        if maximizing {
-                            alpha = alpha.max(entry.score);
-                        } else {
-                            beta = beta.min(entry.score);
-                        }
-                    }
-                    2 => {
-                        if maximizing {
-                            beta = beta.min(entry.score);
-                        } else {
-                            alpha = alpha.max(entry.score);
-                        }
-                    }
+                    1 => alpha = alpha.max(entry.score),
+
+                    2 => beta = beta.min(entry.score),
                     _ => (),
                 }
                 if alpha >= beta {
@@ -521,9 +510,6 @@ impl Engine {
 
         self.generate_pseudo_legal_moves(color, board, state, depth, !in_check);
         let last_occupied: usize = self.move_lists[depth].first_not_occupied;
-        // if last_occupied == 0 && !in_check {
-        //     return stand_pat;
-        // }
 
         self.score_all_moves(depth, last_occupied, &best_move_transposition, &board);
 
@@ -581,7 +567,7 @@ impl Engine {
                 &mut self.current_hash,
             );
 
-            let moving_piece: u16 = board.cached_pieces[from_square(move_to_search) as usize];
+            let moving_piece: u16 = board.cached_pieces[to_square(move_to_search) as usize];
             if moving_piece != WHITE_KING_U16 && moving_piece != BLACK_KING_U16 {
                 let king_in_check: bool = if color == 8 {
                     board.is_square_attacked(board.white_king_square, 16)
@@ -638,12 +624,6 @@ impl Engine {
         if moves_tried == 0 {
             if in_check {
                 return -(CHECKMATE_VALUE - depth as i32).abs();
-                // let mate_score: i32 = if color == 8 {
-                //     -CHECKMATE_VALUE + mate_distance
-                // } else {
-                //     CHECKMATE_VALUE - mate_distance
-                // };
-                // return mate_score.clamp(-CHECKMATE_VALUE + 100, CHECKMATE_VALUE - 100);
             } else {
                 return stand_pat;
             }
@@ -651,9 +631,9 @@ impl Engine {
 
         if moves_tried > 0 && (best_score != stand_pat || in_check) {
             let flag: u8 = if best_score >= original_beta {
-                2
-            } else if best_score <= original_alpha {
                 1
+            } else if best_score <= original_alpha {
+                2
             } else {
                 0
             };
@@ -761,12 +741,18 @@ impl Engine {
             for i in 0..last_occupied {
                 let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
 
+                let hash_before_move: u64 = self.current_hash;
+
                 copied_board.perform_move(
                     allegedly_best_move,
                     &mut copied_state,
                     self.side,
                     &mut self.evaluation,
                     &mut self.current_hash,
+                );
+                assert_eq!(
+                    self.current_hash,
+                    Self::rebuild_hash(&mut copied_board, opponent_color)
                 );
 
                 if copied_board.is_square_attacked(
@@ -786,15 +772,6 @@ impl Engine {
                     total_moves -= 1;
                     continue;
                 }
-                print!(
-                    "move: {}{} ",
-                    INDICES_TO_COORDS
-                        .get(&from_square(allegedly_best_move))
-                        .unwrap(),
-                    INDICES_TO_COORDS
-                        .get(&(to_square(allegedly_best_move) as u8))
-                        .unwrap(),
-                );
 
                 let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
@@ -806,12 +783,12 @@ impl Engine {
                     &mut node_count,
                     &timer_start,
                     &time_limit_ms,
+                    depth_as_index,
                 );
-                println!("eval: {}", score);
-                self.how_much_searched.0 += 1.;
                 if score == TIMEOUT_RETURN {
                     break 'outer;
                 }
+                self.how_much_searched.0 += 1.;
                 moves_searched += 1;
 
                 if copied_state.is_repetition(self.current_hash)
@@ -832,6 +809,11 @@ impl Engine {
                     self.side,
                     &mut self.evaluation,
                     &mut self.current_hash,
+                );
+                assert_eq!(self.current_hash, hash_before_move);
+                assert_eq!(
+                    Self::rebuild_hash(&mut copied_board, self.side),
+                    hash_before_move
                 );
 
                 if match self.side {
@@ -884,6 +866,9 @@ impl Engine {
         self.transposition_table.hits = 0;
         self.transposition_table.collisions = 0;
         self.transposition_table.replacements = 0;
+
+        self.how_much_searched.0 = 0.;
+        self.how_much_searched.1 = 0.;
 
         self.current_hash = Self::rebuild_hash(board, self.side);
         self.evaluate(board);
