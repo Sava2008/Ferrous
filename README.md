@@ -46,7 +46,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 currently the performance is estimated to be around 1.0-1.8 MNPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
 
 ### Instruction on usage
-0. Rust 1.96.0 is required on your computer (should work with older versions, but I did not check that)
+0. Rust 1.96.1 is required on your computer (should work with older versions, but I did not check that)
 1. download the zip file with the engine
 2. unpack it anywhere
 3. open the terminal on your computer

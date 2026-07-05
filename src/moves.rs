@@ -218,17 +218,13 @@ impl Board {
         let (
             mut knights_bitboard,
             excluded_occupancy,
-            king_sq,
-            check_restrictions,
             opposite_color,
             moving_piece,
             enemy_king_sq,
-        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
+        ): (u64, u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[1],
                 !self.occupancies[0],
-                self.white_king_square,
-                &state.white_legal_squares_mask,
                 16,
                 WHITE_KNIGHT_U16,
                 self.black_king_square as usize,
@@ -236,8 +232,6 @@ impl Board {
             _ => (
                 self.bitboards[7],
                 !self.occupancies[1],
-                self.black_king_square,
-                &state.black_legal_squares_mask,
                 8,
                 BLACK_KNIGHT_U16,
                 self.white_king_square as usize,
@@ -246,12 +240,12 @@ impl Board {
 
         while knights_bitboard != 0 {
             let initial_pos: u16 = knights_bitboard.trailing_zeros() as u16;
-            if self.exposes_king(initial_pos, king_sq, color).0 {
-                knights_bitboard &= knights_bitboard - 1; // pinned knights cannot move at all
-                continue;
-            }
+            // if self.exposes_king(initial_pos, king_sq, color).0 {
+            //     knights_bitboard &= knights_bitboard - 1; // pinned knights cannot move at all
+            //     continue;
+            // }
             let attacks: u64 = KNIGHT_ATTACKS[initial_pos as usize];
-            let mut dest_bitboard: u64 = attacks & excluded_occupancy & check_restrictions;
+            let mut dest_bitboard: u64 = attacks & excluded_occupancy;
 
             let initial_pos_idx: usize = initial_pos as usize;
 
@@ -300,11 +294,10 @@ impl Board {
             e_p_rank,
             king_sq,
             en_passant_pawn,
-            check_restrictions,
             opposite_color,
             moving_piece,
             enemy_king_sq,
-        ): (u64, u64, &u64, &u64, u8, u16, &u64, u16, u16, usize) = match color {
+        ): (u64, u64, &u64, &u64, u8, u16, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[0],
                 self.occupancies[1],
@@ -312,7 +305,6 @@ impl Board {
                 if en_passant < 64 { &RANK_5 } else { &0 },
                 self.white_king_square,
                 en_passant - 8,
-                &state.white_legal_squares_mask,
                 16,
                 WHITE_PAWN_U16,
                 self.black_king_square as usize,
@@ -324,7 +316,6 @@ impl Board {
                 if en_passant < 64 { &RANK_4 } else { &0 },
                 self.black_king_square,
                 en_passant + 8,
-                &state.black_legal_squares_mask,
                 8,
                 BLACK_PAWN_U16,
                 self.white_king_square as usize,
@@ -359,20 +350,18 @@ impl Board {
                 }
             }
 
-            let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
-            dest_bitboard &= check_restrictions;
+            // let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
             if (1 << initial_pos) & e_p_rank != 0 && attacks & e_p_bitboard != 0 {
                 if !self
                     .en_passant_exposes_king(initial_pos, en_passant_pawn, color, king_sq)
                     .0
-                    && check_restrictions & (1 << en_passant_pawn) != 0
                 {
                     dest_bitboard |= e_p_bitboard;
                 }
             }
-            if exposes_king {
-                dest_bitboard &= allowed_squares;
-            }
+            // if exposes_king {
+            //     dest_bitboard &= allowed_squares;
+            // }
 
             let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
@@ -677,17 +666,13 @@ impl Board {
         let (
             mut rooks_bitboard,
             friendly_occupancy,
-            king_sq,
-            check_restrictions,
             opposite_color,
             moving_piece,
             enemy_king_sq,
-        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
+        ): (u64, u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[3],
                 self.occupancies[0],
-                self.white_king_square,
-                &state.white_legal_squares_mask,
                 16,
                 WHITE_ROOK_U16,
                 self.black_king_square as usize,
@@ -695,8 +680,6 @@ impl Board {
             _ => (
                 self.bitboards[9],
                 self.occupancies[1],
-                self.black_king_square,
-                &state.black_legal_squares_mask,
                 8,
                 BLACK_ROOK_U16,
                 self.white_king_square as usize,
@@ -706,11 +689,11 @@ impl Board {
         while rooks_bitboard != 0 {
             let initial_pos: u16 = rooks_bitboard.trailing_zeros() as u16;
             let attacks: u64 = rook_attacks(initial_pos as usize, self.total_occupancy);
-            let mut dest_bitboard: u64 = attacks & !friendly_occupancy & check_restrictions;
-            let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
-            if exposes_king {
-                dest_bitboard &= allowed_squares;
-            }
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
+            // let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
+            // if exposes_king {
+            //     dest_bitboard &= allowed_squares;
+            // }
             let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
@@ -750,17 +733,13 @@ impl Board {
         let (
             mut bishops_bitboard,
             friendly_occupancy,
-            king_sq,
-            check_restrictions,
             opposite_color,
             moving_piece,
             enemy_king_sq,
-        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
+        ): (u64, u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[2],
                 self.occupancies[0],
-                self.white_king_square,
-                &state.white_legal_squares_mask,
                 16,
                 WHITE_BISHOP_U16,
                 self.black_king_square as usize,
@@ -768,8 +747,6 @@ impl Board {
             _ => (
                 self.bitboards[8],
                 self.occupancies[1],
-                self.black_king_square,
-                &state.black_legal_squares_mask,
                 8,
                 BLACK_BISHOP_U16,
                 self.white_king_square as usize,
@@ -779,11 +756,11 @@ impl Board {
         while bishops_bitboard != 0 {
             let initial_pos: u16 = bishops_bitboard.trailing_zeros() as u16;
             let attacks: u64 = bishop_attacks(initial_pos as usize, self.total_occupancy);
-            let mut dest_bitboard: u64 = attacks & !friendly_occupancy & check_restrictions;
-            let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
-            if exposes_king {
-                dest_bitboard &= allowed_squares;
-            }
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
+            // let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
+            // if exposes_king {
+            //     dest_bitboard &= allowed_squares;
+            // }
             let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {
                 let final_pos: u16 = dest_bitboard.trailing_zeros() as u16;
@@ -822,17 +799,13 @@ impl Board {
         let (
             mut queens_bitboard,
             friendly_occupancy,
-            king_sq,
-            check_restrictions,
             opposite_color,
             moving_piece,
             enemy_king_sq,
-        ): (u64, u64, u8, &u64, u16, u16, usize) = match color {
+        ): (u64, u64, u16, u16, usize) = match color {
             8 => (
                 self.bitboards[4],
                 self.occupancies[0],
-                self.white_king_square,
-                &state.white_legal_squares_mask,
                 16,
                 WHITE_QUEEN_U16,
                 self.black_king_square as usize,
@@ -840,8 +813,6 @@ impl Board {
             _ => (
                 self.bitboards[10],
                 self.occupancies[1],
-                self.black_king_square,
-                &state.black_legal_squares_mask,
                 8,
                 BLACK_QUEEN_U16,
                 self.white_king_square as usize,
@@ -854,12 +825,12 @@ impl Board {
             let attacks: u64 = bishop_attacks(initial_pos_as_index, self.total_occupancy)
                 | rook_attacks(initial_pos_as_index, self.total_occupancy);
 
-            let mut dest_bitboard: u64 = attacks & !friendly_occupancy & check_restrictions;
+            let mut dest_bitboard: u64 = attacks & !friendly_occupancy;
 
-            let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
-            if exposes_king {
-                dest_bitboard &= allowed_squares;
-            }
+            // let (exposes_king, allowed_squares) = self.exposes_king(initial_pos, king_sq, color);
+            // if exposes_king {
+            //     dest_bitboard &= allowed_squares;
+            // }
 
             let initial_pos_idx: usize = initial_pos as usize;
             while dest_bitboard != 0 {

@@ -156,8 +156,6 @@ pub fn fen_to_board(fen: &str) -> (Board, GameState) {
         total_moves_amount: 0,
         whose_turn: 8,
         irreversible_moves: Vec::new(),
-        white_legal_squares_mask: u64::MAX,
-        black_legal_squares_mask: u64::MAX,
         check_squares: [0; 5],
     };
     let mut index: u8 = 63;

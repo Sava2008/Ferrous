@@ -13,8 +13,6 @@ pub struct GameState {
     pub total_moves_amount: u16,
     pub whose_turn: u16,
     pub irreversible_moves: Vec<u64>,
-    pub white_legal_squares_mask: u64,
-    pub black_legal_squares_mask: u64,
     pub check_squares: [u64; 5],
 }
 
@@ -53,7 +51,6 @@ pub struct PreviousMove {
     pub previous_en_passant: Option<u8>,
     pub previous_castling_rights: u8,
     pub material_difference: i32,
-    pub check_restrictions: u64,
     pub check_squares: [u64; 5],
 }
 
@@ -72,8 +69,6 @@ impl GameState {
             total_moves_amount: 0,
             whose_turn: 8,
             irreversible_moves: Vec::new(),
-            white_legal_squares_mask: u64::MAX, // all squares available
-            black_legal_squares_mask: u64::MAX, // all squares available
             check_squares: [0; 5],
         };
     }

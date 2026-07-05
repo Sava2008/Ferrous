@@ -32,7 +32,7 @@ pub struct Engine {
 }
 
 const CHECKMATE_VALUE: i32 = 1_000_000;
-const TIME_CHECK_NODES_OFFSET: u64 = 25; // how often to check for time
+const TIME_CHECK_NODES_OFFSET: u64 = 2500; // how often to check for time
 const TIMEOUT_RETURN: i32 = 2_000_001;
 const QUIESCENCE_DELTA: i32 = 50;
 
@@ -264,7 +264,9 @@ impl Engine {
                     &mut self.evaluation,
                     &mut self.current_hash,
                 );
-                if board.cached_pieces[to_square(allegedly_best_move) as usize] != WHITE_KING_U16 {
+                let moving_piece: u16 =
+                    board.cached_pieces[to_square(allegedly_best_move) as usize];
+                if moving_piece != WHITE_KING_U16 {
                     if board.is_square_attacked(board.white_king_square, 16) {
                         board.cancel_move(state, 8, &mut self.evaluation, &mut self.current_hash);
                         total_moves -= 1;
@@ -361,7 +363,9 @@ impl Engine {
                     &mut self.current_hash,
                 );
 
-                if board.cached_pieces[to_square(allegedly_best_move) as usize] != BLACK_KING_U16 {
+                let moving_piece: u16 =
+                    board.cached_pieces[to_square(allegedly_best_move) as usize];
+                if moving_piece != BLACK_KING_U16 {
                     if board.is_square_attacked(board.black_king_square, 8) {
                         board.cancel_move(state, 16, &mut self.evaluation, &mut self.current_hash);
                         total_moves -= 1;
