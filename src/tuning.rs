@@ -68,9 +68,9 @@ impl Engine {
             return unsafe { MVV_LVA[victim_value][attacker_value] } * 10;
         }
         if self.killer_moves[depth][0] == Some(*m) {
-            score += 900;
+            score += 100;
         } else if self.killer_moves[depth][1] == Some(*m) {
-            score += 800;
+            score += 80;
         }
 
         let history_idx: usize =
@@ -78,12 +78,12 @@ impl Engine {
         score += self.history_heuristics[history_idx] / 20;
         score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if moving_piece_type < 7 {
-            score -= 200
+            score -= 50
                 * (WHITE_PAWN_ATTACKS[to_square] & current_board.bitboards[6]).count_ones() as i16;
             return score;
         }
         score -=
-            200 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
+            50 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
         return score;
     }
 

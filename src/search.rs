@@ -627,7 +627,12 @@ impl Engine {
 
         if moves_tried == 0 {
             if in_check {
-                return -(CHECKMATE_VALUE - depth as i32).abs();
+                let checkmate_score = (CHECKMATE_VALUE - (self.depth - depth as u8) as i32).abs();
+                return if maximizing {
+                    checkmate_score
+                } else {
+                    -checkmate_score
+                };
             } else {
                 return stand_pat;
             }
