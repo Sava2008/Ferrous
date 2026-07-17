@@ -31,11 +31,13 @@ fn main() -> () {
     compute_all_lines, compute_mvvlva
     and compute_all_rays_from() have to be called
     in the beginning of program and tests */
+
     initialize_sliding_attack_tables();
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
+
     let mut engine: Engine = Engine::new(8, 20);
     uci_output(&mut engine);
     std::process::exit(0);

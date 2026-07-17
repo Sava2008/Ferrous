@@ -193,7 +193,11 @@ impl Engine {
                     return entry.score;
                 }
             }
-            entry.best_move
+            if entry.depth >= 2 {
+                entry.best_move 
+            } else {
+                0
+            }
         } else {
             0
         };
@@ -465,23 +469,18 @@ impl Engine {
 
         let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash);
         let best_move_transposition: u16 = if let Some(entry) = tt_entry {
-            if entry.depth == 0 {
+            if entry.depth >= depth as usize {
                 match entry.flag {
                     0 => return entry.score,
                     1 => alpha = alpha.max(entry.score),
-
                     2 => beta = beta.min(entry.score),
                     _ => (),
                 }
                 if alpha >= beta {
                     return entry.score;
                 }
-                entry.best_move
-            } else if entry.depth >= 2 {
-                entry.best_move
-            } else {
-                0
             }
+            entry.best_move
         } else {
             0
         };
@@ -627,7 +626,8 @@ impl Engine {
 
         if moves_tried == 0 {
             if in_check {
-                let checkmate_score = (CHECKMATE_VALUE - (self.depth - depth as u8) as i32).abs();
+                let checkmate_score: i32 =
+                    (CHECKMATE_VALUE - (self.depth - depth as u8) as i32).abs();
                 return if maximizing {
                     checkmate_score
                 } else {
@@ -750,18 +750,12 @@ impl Engine {
             for i in 0..last_occupied {
                 let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
 
-                let hash_before_move: u64 = self.current_hash;
-
                 copied_board.perform_move(
                     allegedly_best_move,
                     &mut copied_state,
                     self.side,
                     &mut self.evaluation,
                     &mut self.current_hash,
-                );
-                assert_eq!(
-                    self.current_hash,
-                    Self::rebuild_hash(&mut copied_board, opponent_color)
                 );
 
                 if copied_board.is_square_attacked(
@@ -784,7 +778,7 @@ impl Engine {
 
                 let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
-                    d - 1,
+                    if i < 10 || d <= 1 { d - 1 } else { d - 2 },
                     -CHECKMATE_VALUE,
                     CHECKMATE_VALUE,
                     maximizing,
@@ -796,6 +790,25 @@ impl Engine {
                 );
                 if score == TIMEOUT_RETURN {
                     break 'outer;
+                }
+                if (i < 10 || d <= 1)
+                    && match self.side {
+                        8 => score > depth_best_score,
+                        _ => score < depth_best_score,
+                    }
+                {
+                    score = self.alpha_beta_pruning(
+                        &mut copied_board,
+                        d - 1,
+                        -CHECKMATE_VALUE,
+                        CHECKMATE_VALUE,
+                        maximizing,
+                        &mut copied_state,
+                        &mut node_count,
+                        &timer_start,
+                        &time_limit_ms,
+                        depth_as_index,
+                    );
                 }
                 self.how_much_searched.0 += 1.;
                 moves_searched += 1;
@@ -818,11 +831,6 @@ impl Engine {
                     self.side,
                     &mut self.evaluation,
                     &mut self.current_hash,
-                );
-                assert_eq!(self.current_hash, hash_before_move);
-                assert_eq!(
-                    Self::rebuild_hash(&mut copied_board, self.side),
-                    hash_before_move
                 );
 
                 if match self.side {
@@ -918,12 +926,12 @@ impl Engine {
         };
         let piece_heuristic_table: *mut [[i32; 64]; 12] = &raw mut HEURISTICS_TABLE;
         unsafe {
-            if white_queens_amount == 0 && white_pieces_left < 8 {
+            if white_queens_amount == 0 || white_pieces_left < 7 {
                 (*piece_heuristic_table)[5] = ENDGAME_WHITE_KING_HEURISTICS;
             } else {
                 (*piece_heuristic_table)[5] = WHITE_KING_HEURISTICS;
             }
-            if black_queens_amount == 0 && black_pieces_left < 8 {
+            if black_queens_amount == 0 || black_pieces_left < 7 {
                 (*piece_heuristic_table)[11] = ENDGAME_BLACK_KING_HEURISTICS;
             } else {
                 (*piece_heuristic_table)[11] = BLACK_KING_HEURISTICS;
