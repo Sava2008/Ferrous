@@ -9,7 +9,7 @@ supported UCI commands:
 6. `go depth [depth]`
 7. `go movetime [time_in_ms]`
 8. `quit`
-9. `go perft [depth]` (new to Ferrous v0.4.1)
+9. `go perft [depth]`
 
 ### What has been actualized
 - bitboard generation
@@ -30,12 +30,12 @@ supported UCI commands:
 - dymanic depth for time controls
 
 ### Planned on being carried out
+- late move reduction
 - pgn converter
 - opening book
 - null move pruning
 - futility search
 - razor pruning
-- late move reduction
 - aggressive move ordering for better pruning
 - syzygy database
 
@@ -44,6 +44,9 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 currently the performance is estimated to be around 2M+ NPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
+
+results of the development version (last commit) vs Ferrous v0.4.1:
+114 total, 53 wins, 20 draws, 11 losses (63-24-13)
 
 ### Instruction on usage
 0. Rust 1.96.1 is required on your computer (should work with older versions, but I did not check that)

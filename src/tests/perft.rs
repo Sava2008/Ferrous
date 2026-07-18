@@ -60,6 +60,16 @@ impl Engine {
 
             board.perform_move(m, state, color, &mut 0, &mut 0);
 
+            let king_in_check: bool = if color == 8 {
+                board.is_square_attacked(board.white_king_square, 16)
+            } else {
+                board.is_square_attacked(board.black_king_square, 8)
+            };
+
+            if king_in_check {
+                board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
+                continue;
+            }
             if depth == self.depth as usize {
                 println!(
                     " {}{}, flag: {}, results: {:?}",

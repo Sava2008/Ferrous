@@ -217,6 +217,13 @@ impl Board {
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
             get_bb_index(moving_piece, &color);
+        // if moving_piece == 0 {
+        //     panic!(
+        //         "board: {},\nmove history: {:?}",
+        //         board_to_fen(&self, &state, &(color as u8)),
+        //         state.moves_history
+        //     );
+        // }
 
         let moving_piece_heuristics: &[i32; 64] =
             unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
