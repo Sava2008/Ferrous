@@ -45,11 +45,10 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 ### Comments
 currently the performance is estimated to be around 2M+ NPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
 
-results of the development version (last commit) vs Ferrous v0.4.1:
-114 total, 53 wins, 20 draws, 11 losses (63-24-13)
+Ferrous_v0.5.0-dev.exe (against v0.4.1): 56 wins, 42 losses, 32 draws
 
 ### Instruction on usage
-0. Rust 1.96.1 is required on your computer (should work with older versions, but I did not check that)
+0. Rust 1.97.1 is required on your computer (should work with older versions, but I did not check that)
 1. download the zip file with the engine
 2. unpack it anywhere
 3. open the terminal on your computer

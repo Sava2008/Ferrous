@@ -677,6 +677,7 @@ impl Engine {
         copied_state.whose_turn = self.side.clone() as u16;
 
         let mut previous_best_move: u16 = 0;
+
         let bad_draw_score: i32 = match self.side {
             8 => -50,
             _ => 50,
@@ -822,7 +823,13 @@ impl Engine {
                     depth_best_move = allegedly_best_move;
                 }
             }
-            if moves_searched == total_moves {
+            if moves_searched == total_moves
+                || match self.side {
+                    8 => depth_best_score <= best_score_eval,
+                    _ => depth_best_score >= best_score_eval,
+                }
+            // do not discard best move if it's better than what we already have
+            {
                 best_score_eval = depth_best_score;
                 previous_best_move = depth_best_move;
                 depth_best_moves[last_finished_depth] = previous_best_move;
