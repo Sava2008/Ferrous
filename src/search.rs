@@ -232,30 +232,15 @@ impl Engine {
                 &best_move_transposition,
                 &board,
             );
-
+            Self::lazy_sort_moves(
+                &mut self.move_lists[depth_as_index].pseudo_moves,
+                &mut self.move_scores[depth_as_index],
+                last_occupied,
+            );
             let mut total_moves: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let true_index: usize = if i < 8 {
-                    let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
-                        .iter()
-                        .enumerate()
-                        .max_by_key(|&(_, score)| score)
-                        .unwrap();
-                    best_move_index + i
-                } else {
-                    i
-                };
-
-                let allegedly_best_move: u16 =
-                    self.move_lists[depth_as_index].pseudo_moves[true_index];
-
-                if i < 8 {
-                    self.move_lists[depth_as_index]
-                        .pseudo_moves
-                        .swap(true_index, i);
-                    self.move_scores[depth_as_index].swap(true_index, i);
-                }
+                let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
 
                 board.perform_move(
                     allegedly_best_move,
@@ -331,29 +316,16 @@ impl Engine {
                 &board,
             );
 
+            Self::lazy_sort_moves(
+                &mut self.move_lists[depth_as_index].pseudo_moves,
+                &mut self.move_scores[depth_as_index],
+                last_occupied,
+            );
+
             let mut total_moves: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let true_index: usize = if i < 8 {
-                    let (best_move_index, _) = self.move_scores[depth_as_index][i..last_occupied]
-                        .iter()
-                        .enumerate()
-                        .max_by_key(|&(_, score)| score)
-                        .unwrap();
-                    best_move_index + i
-                } else {
-                    i
-                };
-
-                let allegedly_best_move: u16 =
-                    self.move_lists[depth_as_index].pseudo_moves[true_index];
-
-                if i < 8 {
-                    self.move_lists[depth_as_index]
-                        .pseudo_moves
-                        .swap(true_index, i);
-                    self.move_scores[depth_as_index].swap(true_index, i);
-                }
+                let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
 
                 board.perform_move(
                     allegedly_best_move,
@@ -518,16 +490,7 @@ impl Engine {
 
         let scores: &mut [i16; 192] = &mut self.move_scores[depth];
         let moves: &mut [u16; 192] = &mut self.move_lists[depth].pseudo_moves;
-        for i in 0..last_occupied {
-            let (best_idx, _) = scores[i..last_occupied]
-                .iter()
-                .enumerate()
-                .max_by_key(|(_, score)| **score)
-                .unwrap();
-            let best_idx = i + best_idx;
-            scores.swap(i, best_idx);
-            moves.swap(i, best_idx);
-        }
+        Self::n_log_n_sort_moves(moves, scores, last_occupied);
 
         let mut best_score: i32 = stand_pat;
         let mut best_move: u16 = 0;
@@ -685,7 +648,7 @@ impl Engine {
 
         let mut time_limit_ms: u128 = time_contrainsts.as_millis();
         if time_limit_ms == 0 {
-            time_limit_ms = 10000 * 1000; // 10_000 seconds
+            time_limit_ms = 1_000_000 * 1000; // 1_000_000 seconds
         }
         let max_depth_limit: u8 = max_depth + 1;
 
@@ -726,16 +689,7 @@ impl Engine {
             let scores: &mut [i16; 192] = &mut self.move_scores[depth_as_index];
             let moves: &mut [u16; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
 
-            for i in 0..last_occupied {
-                let (best_move_index_offset, _) = scores[i..last_occupied]
-                    .iter()
-                    .enumerate()
-                    .max_by_key(|(_, score)| **score)
-                    .unwrap();
-                let best_move_index: usize = i + best_move_index_offset;
-                (*scores).swap(i, best_move_index);
-                (*moves).swap(i, best_move_index);
-            }
+            Self::n_log_n_sort_moves(moves, scores, last_occupied);
             let mut depth_best_score: i32 = if self.side == 8 {
                 -CHECKMATE_VALUE
             } else {

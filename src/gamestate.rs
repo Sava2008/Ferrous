@@ -10,7 +10,7 @@ pub struct GameState {
     pub castling_rights: u8,
     pub fifty_moves_rule_counter: u8, // how many moves since the last capture/pawn advancement. enforces 50-move rule
     pub moves_history: Vec<PreviousMove>,
-    pub total_moves_amount: u16,
+    pub total_moves_amount: u8,
     pub whose_turn: u16,
     pub irreversible_moves: Vec<u64>,
     pub check_squares: [u64; 5],

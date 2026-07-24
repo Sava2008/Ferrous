@@ -8,6 +8,7 @@ use crate::{
     converters::fen_converter::board_to_fen,
     search::Engine,
 };
+const LAZY_SORT_LEN: usize = 8;
 
 impl Engine {
     #[inline(always)]
@@ -85,6 +86,48 @@ impl Engine {
         score -=
             50 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
         return score;
+    }
+
+    #[inline(always)]
+    pub fn n_log_n_sort_moves(
+        moves: &mut [u16; 192],
+        scores: &mut [i16; 192],
+        last_occupied: usize,
+    ) -> () {
+        for i in 0..last_occupied {
+            let (best_idx, _) = scores[i..last_occupied]
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, score)| **score)
+                .unwrap();
+            let best_idx = i + best_idx;
+            scores.swap(i, best_idx);
+            moves.swap(i, best_idx);
+        }
+    }
+
+    #[inline(always)]
+    pub fn lazy_sort_moves(
+        moves: &mut [u16; 192],
+        scores: &mut [i16; 192],
+        last_occupied: usize,
+    ) -> () {
+        for i in 0..last_occupied {
+            let true_index: usize = if i < LAZY_SORT_LEN {
+                let (best_move_index, _) = scores[i..last_occupied]
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|&(_, score)| score)
+                    .unwrap();
+                best_move_index + i
+            } else {
+                i
+            };
+            if i < LAZY_SORT_LEN {
+                moves.swap(true_index, i);
+                scores.swap(true_index, i);
+            }
+        }
     }
 
     #[inline(always)]

@@ -63,16 +63,16 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             && let Some(a) = amount
                         {
                             match r {
-                                "depth" => (a.parse().unwrap(), Duration::from_mins(10)),
+                                "depth" => (a.parse().unwrap(), Duration::from_mins(20)),
                                 "movetime" => (64, Duration::from_millis(a.parse().unwrap())),
                                 "perft" => {
                                     perft = true;
-                                    (a.parse().unwrap(), Duration::from_mins(10))
+                                    (a.parse().unwrap(), Duration::from_mins(20))
                                 }
                                 _ => unimplemented!(),
                             }
                         } else {
-                            (10, Duration::from_mins(10))
+                            (10, Duration::from_mins(20))
                         };
                         if !perft {
                             engine.depth = max_depth;
