@@ -2,6 +2,7 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
+        attacks::MVV_LVA,
         heuristics::*,
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
@@ -159,6 +160,7 @@ impl Engine {
         &mut self,
         board: &mut Board,
         depth: u8,
+        ply: usize,
         mut alpha: i32,
         mut beta: i32,
         maximizing: bool,
@@ -205,6 +207,7 @@ impl Engine {
                 beta,
                 maximizing,
                 max_depth + 1,
+                ply + 1,
                 if state.whose_turn == 8 { 16 } else { 8 },
                 node_count,
             );
@@ -262,6 +265,7 @@ impl Engine {
                 let current_score: i32 = self.alpha_beta_pruning(
                     board,
                     depth - 1,
+                    ply + 1,
                     current_alpha,
                     beta,
                     false,
@@ -348,6 +352,7 @@ impl Engine {
                 let current_score: i32 = self.alpha_beta_pruning(
                     board,
                     depth - 1,
+                    ply + 1,
                     alpha,
                     current_beta,
                     true,
@@ -420,6 +425,7 @@ impl Engine {
         mut beta: i32,
         maximizing: bool,
         depth: usize,
+        ply: usize,
         color: u16,
         node_count: &mut u64,
     ) -> i32 {
@@ -556,6 +562,7 @@ impl Engine {
                 beta,
                 !maximizing,
                 depth + 1,
+                ply + 1,
                 enemy_color,
                 node_count,
             );
@@ -589,7 +596,7 @@ impl Engine {
 
         if moves_tried == 0 {
             if in_check {
-                let checkmate_score = (CHECKMATE_VALUE - (self.depth - depth as u8) as i32).abs();
+                let checkmate_score: i32 = (CHECKMATE_VALUE - ply as i32).abs();
                 return if maximizing {
                     checkmate_score
                 } else {
@@ -670,24 +677,13 @@ impl Engine {
             };
             let depth_as_index: usize = d as usize;
 
-            self.generate_pseudo_legal_moves(
-                self.side,
-                &copied_board,
-                &copied_state,
-                depth_as_index,
-                false,
-            );
-            let last_occupied: usize = self.move_lists[depth_as_index].first_not_occupied;
+            self.generate_pseudo_legal_moves(self.side, &copied_board, &copied_state, 0, false);
+            let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(
-                depth_as_index,
-                last_occupied,
-                &previous_best_move,
-                &copied_board,
-            );
-            let scores: &mut [i16; 192] = &mut self.move_scores[depth_as_index];
-            let moves: &mut [u16; 192] = &mut self.move_lists[depth_as_index].pseudo_moves;
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            let scores: &mut [i16; 192] = &mut self.move_scores[0];
+            let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
             Self::n_log_n_sort_moves(moves, scores, last_occupied);
             let mut depth_best_score: i32 = if self.side == 8 {
@@ -702,7 +698,7 @@ impl Engine {
             let mut total_moves: usize = last_occupied;
 
             for i in 0..last_occupied {
-                let allegedly_best_move: u16 = self.move_lists[depth_as_index].pseudo_moves[i];
+                let allegedly_best_move: u16 = self.move_lists[0].pseudo_moves[i];
 
                 copied_board.perform_move(
                     allegedly_best_move,
@@ -730,9 +726,17 @@ impl Engine {
                     continue;
                 }
 
+                let move_extension: i8 =
+                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
+
                 let mut score: i32 = self.alpha_beta_pruning(
                     &mut copied_board,
-                    d - 1,
+                    if move_extension >= 0 {
+                        d - 1 + move_extension as u8
+                    } else {
+                        (d - 1).saturating_sub(move_extension as u8)
+                    },
+                    1,
                     -CHECKMATE_VALUE,
                     CHECKMATE_VALUE,
                     maximizing,
@@ -897,5 +901,23 @@ impl Engine {
 
     fn percent_finished(&self) -> f32 {
         return self.how_much_searched.0 / self.how_much_searched.1;
+    }
+
+    fn move_increment(board: &[u16; 64], m: u16) -> i8 {
+        let mut increment: i8 = 0;
+        increment += match (m & MARK_MASK) >> MARK_SHIFT {
+            3..10 => 1,
+            10..14 => 2,
+            _ => 0,
+        };
+
+        let (attacker, victim) = (board[from_square(m) as usize], board[to_square(m) as usize]);
+        if attacker > 0 && attacker < victim {
+            increment +=
+                (unsafe { MVV_LVA[Self::get_piece_value(victim)][Self::get_piece_value(attacker)] }
+                    / 15) as i8;
+        }
+
+        return increment;
     }
 }
