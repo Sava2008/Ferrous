@@ -203,27 +203,11 @@ impl Board {
 
         let moving_piece: u16 = cached_pieces[from_sq_index];
         let captured_piece: u16 = cached_pieces[to_sq_index];
-        // if captured_piece == WHITE_KING_U16 || captured_piece == BLACK_KING_U16 {
-        //     panic!(
-        //         "{:?}, board: {}, from: {}, to: {}",
-        //         state.moves_history,
-        //         board_to_fen(&self, &state, &(state.whose_turn.clone() as u8)),
-        //         from_sq,
-        //         to_sq,
-        //     );
-        // }
 
         let move_flag: u16 = (piece_move & MARK_MASK) >> MARK_SHIFT;
 
         let (moving_piece_table_idx, occupancy_idx): (usize, usize) =
             get_bb_index(moving_piece, &color);
-        // if moving_piece == 0 {
-        //     panic!(
-        //         "board: {},\nmove history: {:?}",
-        //         board_to_fen(&self, &state, &(color as u8)),
-        //         state.moves_history
-        //     );
-        // }
 
         let moving_piece_heuristics: &[i32; 64] =
             unsafe { &HEURISTICS_TABLE[moving_piece_table_idx] };
