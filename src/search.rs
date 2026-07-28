@@ -201,6 +201,7 @@ impl Engine {
         let enemy_color: u16 = if color == 8 { 16 } else { 8 };
 
         if depth == 0 {
+			// return if color == 8 { self.evaluation } else { -self.evaluation };
             return self.quiescence_search(
                 board,
                 state,
@@ -227,7 +228,7 @@ impl Engine {
             &mut self.move_scores[ply],
             last_occupied,
         );
-        let mut total_moves: usize = last_occupied;
+        let mut total_moves: usize = 0;
 
         for i in 0..last_occupied {
             let allegedly_best_move: u16 = self.move_lists[ply].pseudo_moves[i];
@@ -248,10 +249,20 @@ impl Engine {
             if moving_piece != king_piece {
                 if board.is_square_attacked(king_square, enemy_color) {
                     board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
-                    total_moves -= 1;
                     continue;
                 }
             }
+            total_moves += 1;
+            // let reduction: u8 = if current_is_quiet {
+            //     let lmr: u8 = match total_moves {
+            //         0..8 => 0,
+            //         8..12 => 1,
+            //         _ => 2,
+            //     };
+            //     if depth > 2 && i > 7 { lmr } else { 0 }
+            // } else {
+            //     0
+            // };
 
             let current_score: i32 = -self.negamax(
                 board,
@@ -269,6 +280,22 @@ impl Engine {
             if current_score == TIMEOUT_RETURN || current_score == -TIMEOUT_RETURN {
                 return current_score;
             }
+
+            // if current_score > current_alpha && current_score < beta && i > 0 {
+            //     current_score = -self.negamax(
+            //         board,
+            //         depth - 1,
+            //         ply + 1,
+            //         enemy_color,
+            //         -beta,
+            //         -current_alpha,
+            //         state,
+            //         node_count,
+            //         start_time,
+            //         time_limit_ms,
+            //         max_depth,
+            //     );
+            // }
 
             if current_score > best_score {
                 best_score = current_score;
@@ -330,7 +357,7 @@ impl Engine {
         board: &mut Board,
         state: &mut GameState,
         mut alpha: i32,
-        beta: i32,
+        mut beta: i32,
         depth: usize,
         ply: usize,
         color: u16,
@@ -338,13 +365,34 @@ impl Engine {
     ) -> i32 {
         *node_count += 1;
         let stand_pat: i32 = if color == 8 {
-            -self.evaluation
-        } else {
             self.evaluation
+        } else {
+            -self.evaluation
         };
         if depth >= 24 {
             return stand_pat;
         }
+        let tt_entry: Option<TTEntry> = self.transposition_table.get_entry(&self.current_hash);
+        let best_move_transposition: u16 = if let Some(entry) = tt_entry {
+            if entry.depth == 0 {
+                match entry.flag {
+                    0 => return entry.score,
+                    1 => alpha = alpha.max(entry.score),
+                    2 => beta = beta.min(entry.score),
+                    _ => (),
+                }
+                if alpha >= beta {
+                    return entry.score;
+                }
+                entry.best_move
+            } else if entry.depth >= 2 {
+                entry.best_move
+            } else {
+                0
+            }
+        } else {
+            0
+        };
 
         let enemy_color: u16 = if color == 8 { 16 } else { 8 };
         let in_check: bool = if color == 8 {
@@ -368,7 +416,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, board, state, ply, !in_check);
         let last_occupied: usize = self.move_lists[ply].first_not_occupied;
 
-        self.score_all_moves(ply, last_occupied, &0, &board);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
 
         let scores: &mut [i16; 192] = &mut self.move_scores[ply];
         let moves: &mut [u16; 192] = &mut self.move_lists[ply].pseudo_moves;
@@ -380,7 +428,7 @@ impl Engine {
         for i in 0..last_occupied {
             let move_to_search: u16 = self.move_lists[ply].pseudo_moves[i];
             let to_sq: u16 = (move_to_search & TO_MASK) >> TO_SHIFT;
-            let captured_piece: u16 = board.cached_pieces[to_sq as usize];
+            let mut captured_piece: u16 = board.cached_pieces[to_sq as usize];
 
             if !in_check && captured_piece == 0 {
                 continue;
@@ -388,6 +436,9 @@ impl Engine {
 
             if !in_check {
                 let capture_value: i32 = if captured_piece != 0 {
+					if captured_piece > 6 {
+						captured_piece -= 6;
+					}
                     VALUE_TABLE[captured_piece as usize - 1]
                 } else {
                     0
@@ -454,7 +505,7 @@ impl Engine {
             }
         }
 
-        return alpha;
+        return best_score;
     }
 
     pub fn find_best_move(
@@ -573,6 +624,18 @@ impl Engine {
                 }
 
                 moves_searched += 1;
+                // if moves_searched < 11 {
+                //     println!(
+                //         "{}. move: {}{}",
+                //         moves_searched,
+                //         INDICES_TO_COORDS
+                //             .get(&from_square(allegedly_best_move))
+                //             .unwrap(),
+                //         INDICES_TO_COORDS
+                //             .get(&(to_square(allegedly_best_move) as u8))
+                //             .unwrap()
+                //     );
+                // }
 
                 if copied_state.is_repetition(self.current_hash)
                     || copied_state.fifty_moves_rule_counter >= 98
@@ -737,6 +800,6 @@ impl Engine {
 
     #[allow(unused)]
     fn is_quiet(board: &[u16; 64], m: u16) -> bool {
-        return board[to_square(m) as usize] == 0 && (m & MARK_MASK) >> MARK_SHIFT < 3;
+        return board[to_square(m) as usize] == 0 && ((m & MARK_MASK) >> MARK_SHIFT) < 3;
     }
 }

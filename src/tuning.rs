@@ -5,7 +5,6 @@ use crate::{
         attacks::{BLACK_PAWN_ATTACKS, MVV_LVA, WHITE_PAWN_ATTACKS},
         heuristics::*,
     },
-    converters::fen_converter::board_to_fen,
     search::Engine,
 };
 const LAZY_SORT_LEN: usize = 8;
@@ -19,10 +18,11 @@ impl Engine {
         previous_best_move: &u16,
         current_board: &Board,
     ) -> () {
+        let pseudo_moves: &[u16; 192] = &self.move_lists[depth].pseudo_moves;
         for i in 0..last_occupied {
-            let mv: u16 = self.move_lists[depth].pseudo_moves[0..last_occupied][i];
+            let mv: u16 = pseudo_moves[0..last_occupied][i];
 
-            if self.move_lists[depth].pseudo_moves[i] == *previous_best_move {
+            if pseudo_moves[i] == *previous_best_move {
                 self.move_scores[depth][i] = i16::MAX;
             } else {
                 self.move_scores[depth][i] = self.move_priority(&mv, depth, current_board);
@@ -39,16 +39,7 @@ impl Engine {
             current_board.cached_pieces[from_square(*m) as usize],
             current_board.cached_pieces[to_square],
         );
-        if moving_piece_type == 0 {
-            panic!(
-                "move: {m}, board: {}",
-                board_to_fen(
-                    current_board,
-                    &crate::gamestate::GameState::new(current_board),
-                    &8,
-                )
-            );
-        }
+
         score += match flag as i16 {
             2 => 0,
             7 => 100,
@@ -106,27 +97,25 @@ impl Engine {
         }
     }
 
-    #[inline(always)]
+	#[inline(always)]
     pub fn lazy_sort_moves(
         moves: &mut [u16; 192],
         scores: &mut [i16; 192],
         last_occupied: usize,
     ) -> () {
         for i in 0..last_occupied {
-            let true_index: usize = if i < LAZY_SORT_LEN {
-                let (best_move_index, _) = scores[i..last_occupied]
-                    .iter()
-                    .enumerate()
-                    .max_by_key(|&(_, score)| score)
-                    .unwrap();
-                best_move_index + i
-            } else {
-                i
-            };
-            if i < LAZY_SORT_LEN {
-                moves.swap(true_index, i);
-                scores.swap(true_index, i);
+            if i >= LAZY_SORT_LEN {
+                break;
             }
+            let true_index: usize = scores[i..last_occupied]
+                .iter()
+                .enumerate()
+                .max_by_key(|&(_, score)| score)
+                .unwrap()
+                .0
+                + i;
+            moves.swap(true_index, i);
+            scores.swap(true_index, i);
         }
     }
 
@@ -137,8 +126,7 @@ impl Engine {
 
     #[inline(always)]
     pub fn does_improve_piece(m: u16, t: u16) -> i32 {
-        let (from_sq, to_sq): (usize, usize) = (from_square(m) as usize, to_square(m) as usize);
         let heuristics_table: &[i32; 64] = unsafe { &HEURISTICS_TABLE[t as usize - 1] };
-        return heuristics_table[to_sq] - heuristics_table[from_sq];
+        return heuristics_table[to_square(m) as usize] - heuristics_table[from_square(m) as usize];
     }
 }

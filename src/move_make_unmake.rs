@@ -14,6 +14,7 @@ use crate::{
 };
 
 impl Board {
+	#[inline(always)]
     fn perform_capture(
         &mut self,
         state: &mut GameState,
