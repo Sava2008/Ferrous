@@ -201,7 +201,6 @@ impl Engine {
         let enemy_color: u16 = if color == 8 { 16 } else { 8 };
 
         if depth == 0 {
-			// return if color == 8 { self.evaluation } else { -self.evaluation };
             return self.quiescence_search(
                 board,
                 state,
@@ -217,21 +216,24 @@ impl Engine {
         let mut best_move: u16 = 0;
         let (original_alpha, original_beta) = (alpha, beta);
 
-        let mut current_alpha: i32 = alpha;
-
+        // let mut last_occupied: usize = self.move_lists[ply].first_not_occupied;
+        // if !lmr_relation {
+        // }
         self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
 
-        let last_occupied: usize = self.move_lists[ply].first_not_occupied;
+        let last_occupied = self.move_lists[ply].first_not_occupied;
         self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
         Self::lazy_sort_moves(
             &mut self.move_lists[ply].pseudo_moves,
             &mut self.move_scores[ply],
             last_occupied,
         );
+
         let mut total_moves: usize = 0;
 
         for i in 0..last_occupied {
             let allegedly_best_move: u16 = self.move_lists[ply].pseudo_moves[i];
+            let current_mv_quiet: bool = Self::is_quiet(&board.cached_pieces, allegedly_best_move);
 
             board.perform_move(
                 allegedly_best_move,
@@ -253,49 +255,66 @@ impl Engine {
                 }
             }
             total_moves += 1;
-            // let reduction: u8 = if current_is_quiet {
-            //     let lmr: u8 = match total_moves {
-            //         0..8 => 0,
-            //         8..12 => 1,
-            //         _ => 2,
-            //     };
-            //     if depth > 2 && i > 7 { lmr } else { 0 }
-            // } else {
-            //     0
-            // };
+            let reduction: u8 = if current_mv_quiet {
+                let lmr: u8 = match total_moves {
+                    0..3 => 0,
+                    _ => 1,
+                };
+                if depth > 1 { lmr } else { 0 }
+            } else {
+                0
+            };
 
-            let current_score: i32 = -self.negamax(
-                board,
-                depth - 1,
-                ply + 1,
-                enemy_color,
-                -beta,
-                -current_alpha,
-                state,
-                node_count,
-                start_time,
-                time_limit_ms,
-                max_depth,
-            );
+            let mut current_score: i32;
+            if reduction > 0 {
+                current_score = -self.negamax(
+                    board,
+                    depth - 1 - reduction,
+                    ply + 1,
+                    enemy_color,
+                    -alpha - 1,
+                    -alpha,
+                    state,
+                    node_count,
+                    start_time,
+                    time_limit_ms,
+                    max_depth,
+                );
+
+                if current_score > alpha {
+                    current_score = -self.negamax(
+                        board,
+                        depth - 1,
+                        ply + 1,
+                        enemy_color,
+                        -beta,
+                        -alpha,
+                        state,
+                        node_count,
+                        start_time,
+                        time_limit_ms,
+                        max_depth,
+                    );
+                }
+            } else {
+                current_score = -self.negamax(
+                    board,
+                    depth - 1,
+                    ply + 1,
+                    enemy_color,
+                    -beta,
+                    -alpha,
+                    state,
+                    node_count,
+                    start_time,
+                    time_limit_ms,
+                    max_depth,
+                );
+            }
             if current_score == TIMEOUT_RETURN || current_score == -TIMEOUT_RETURN {
+                board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
                 return current_score;
             }
-
-            // if current_score > current_alpha && current_score < beta && i > 0 {
-            //     current_score = -self.negamax(
-            //         board,
-            //         depth - 1,
-            //         ply + 1,
-            //         enemy_color,
-            //         -beta,
-            //         -current_alpha,
-            //         state,
-            //         node_count,
-            //         start_time,
-            //         time_limit_ms,
-            //         max_depth,
-            //     );
-            // }
 
             if current_score > best_score {
                 best_score = current_score;
@@ -303,8 +322,8 @@ impl Engine {
             }
             board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
 
-            current_alpha = current_alpha.max(best_score);
-            if current_alpha >= beta {
+            alpha = alpha.max(best_score);
+            if alpha >= beta {
                 if !board.is_capture(allegedly_best_move) {
                     self.add_killer(allegedly_best_move, depth);
 
@@ -436,9 +455,9 @@ impl Engine {
 
             if !in_check {
                 let capture_value: i32 = if captured_piece != 0 {
-					if captured_piece > 6 {
-						captured_piece -= 6;
-					}
+                    if captured_piece > 6 {
+                        captured_piece -= 6;
+                    }
                     VALUE_TABLE[captured_piece as usize - 1]
                 } else {
                     0
@@ -624,18 +643,6 @@ impl Engine {
                 }
 
                 moves_searched += 1;
-                // if moves_searched < 11 {
-                //     println!(
-                //         "{}. move: {}{}",
-                //         moves_searched,
-                //         INDICES_TO_COORDS
-                //             .get(&from_square(allegedly_best_move))
-                //             .unwrap(),
-                //         INDICES_TO_COORDS
-                //             .get(&(to_square(allegedly_best_move) as u8))
-                //             .unwrap()
-                //     );
-                // }
 
                 if copied_state.is_repetition(self.current_hash)
                     || copied_state.fifty_moves_rule_counter >= 98
@@ -766,6 +773,7 @@ impl Engine {
         return board_hash;
     }
 
+    #[inline(always)]
     fn proceed_search(&self, depth: u8) -> bool {
         let depth_percent: f32 = match depth {
             1..=4 => 0.10,
@@ -776,10 +784,12 @@ impl Engine {
         return self.percent_finished() < depth_percent;
     }
 
+    #[inline(always)]
     fn percent_finished(&self) -> f32 {
         return self.how_much_searched.0 / self.how_much_searched.1;
     }
 
+    #[inline(always)]
     fn move_increment(board: &[u16; 64], m: u16) -> i8 {
         let mut increment: i8 = 0;
         increment += match (m & MARK_MASK) >> MARK_SHIFT {
@@ -798,7 +808,7 @@ impl Engine {
         return increment;
     }
 
-    #[allow(unused)]
+    #[inline(always)]
     fn is_quiet(board: &[u16; 64], m: u16) -> bool {
         return board[to_square(m) as usize] == 0 && ((m & MARK_MASK) >> MARK_SHIFT) < 3;
     }

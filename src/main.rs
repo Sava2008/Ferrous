@@ -39,7 +39,9 @@ fn main() -> () {
     compute_mvvlva();
 
     let mut engine: Engine = Engine::new(8, 20);
+
     uci_output(&mut engine);
+
     std::process::exit(0);
 }
 

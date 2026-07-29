@@ -50,8 +50,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 ### Comments
 
 currently the performance is estimated to be around 2M+ NPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
-Ferrous_v0.5.0-dev6_qfix.exe (against Ferrous_v0.5.0-dev3_extensions.exe):
-56 wins, 44 losses, 30 draws (first test); 57 wins, 47 losses, 26 draws (second test)
+Ferrous_v0.5.0-dev8_lmr_fix.exe (against Ferrous_v0.5.0-dev6_qfix.exe): 72 wins, 30 losses, 28 draws
 
 ### Instruction on usage
 

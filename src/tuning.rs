@@ -97,7 +97,7 @@ impl Engine {
         }
     }
 
-	#[inline(always)]
+    #[inline(always)]
     pub fn lazy_sort_moves(
         moves: &mut [u16; 192],
         scores: &mut [i16; 192],
