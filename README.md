@@ -1,17 +1,19 @@
 # Ferrous
 
-Ferrous is a brute-force calculating chess engine that plays in a local environment (already partially UCI-compliant). The way it works is it looks through positions by generating best moves for both sides in its "mind" and determines which one of the root moves is the best for it. Ferrous works on bitboards, which means it has room for massive optimizations and potential to become better than all human chess players on Earth.
+Ferrous is an HCE^1^ partially UCI-compliant chess engine. The way it works is it looks through positions by generating best moves for both sides in its "mind" and determines which one of the root moves is the best for it. Ferrous works on bitboards, which means it has room for massive optimizations and potential to become better than all human chess players on Earth.
 supported UCI commands:
 
-1. `uci`
-2. `ucinewgame`
-3. `isready`
-4. `position fen [position]`
-5. `go`
-6. `go depth [depth]`
-7. `go movetime [time_in_ms]`
-8. `quit`
-9. `go perft [depth]`
+- `uci`
+- `ucinewgame`
+- `isready`
+- `position fen [position]`
+- `go`
+- `go depth [depth]`
+- `go movetime [time_in_ms]`
+- `quit`
+- `go perft [depth]`
+
+_1 - HCE stands for hand-crafted evaluation. It's a set of strict rules hardcoded into the engine. Known to be worse than NNUE for quiet positions_
 
 ## What has been actualized
 
@@ -31,17 +33,17 @@ supported UCI commands:
 - quiescence search
 - transposition tables
 - dymanic depth for time controls
+- late move reduction
 
 ## Planned on being carried out
 
-- late move reduction
 - pgn converter
 - opening book
 - null move pruning
-- futility search
+- futility pruning
 - razor pruning
 - aggressive move ordering for better pruning
-- syzygy database
+- syzygy datatable
 
 ### History
 

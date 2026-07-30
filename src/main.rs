@@ -18,6 +18,8 @@ pub mod converters;
 pub mod gamestate;
 pub mod move_make_unmake;
 pub mod moves;
+#[cfg(feature = "opening-book")]
+mod opening_generator;
 pub mod pawn_structure;
 pub mod search;
 pub mod tests;
@@ -25,7 +27,7 @@ pub mod transposition;
 pub mod tuning;
 pub mod uci;
 
-#[cfg(not(feature = "debug-ui"))]
+#[cfg(not(any(feature = "opening-book", feature = "debug-ui")))]
 fn main() -> () {
     /* initialize_sliding_attack_tables(), compute_all_rays(),
     compute_all_lines, compute_mvvlva
@@ -120,4 +122,16 @@ async fn main() {
         }
         next_frame().await;
     }
+}
+
+#[cfg(feature = "opening-book")]
+fn main() -> () {
+    use crate::opening_generator::fill_opening_book;
+    initialize_sliding_attack_tables();
+    compute_all_rays();
+    compute_all_rays_from();
+    compute_all_lines();
+    compute_mvvlva();
+
+    fill_opening_book();
 }

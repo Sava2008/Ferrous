@@ -700,6 +700,194 @@ impl Engine {
         return best_move;
     }
 
+    pub fn find_multiple_moves(
+        &mut self,
+        board: &Board,
+        state: &mut GameState,
+        max_depth: u8,
+        moves_amount: usize,
+    ) -> Vec<Option<u16>> {
+        if moves_amount > 5 {
+            panic!("cannot give more than 5 best moves");
+        }
+        let mut node_count: u64 = 0;
+
+        let mut best_moves: Vec<Option<u16>> = Vec::new();
+        let mut all_scores: Vec<Option<i32>> = Vec::new();
+
+        let mut copied_board: Board = board.clone();
+        let mut copied_state: GameState = state.clone();
+        copied_state.whose_turn = self.side as u16;
+
+        self.prepare_before_search(&mut copied_board, &mut copied_state);
+
+        let mut previous_best_move: u16 = 0;
+
+        let bad_draw_score: i32 = match self.side {
+            8 => -50,
+            _ => 50,
+        };
+
+        let time_limit_ms: u128 = 1_000_000 * 1000; // 1_000_000 seconds
+        let max_depth_limit: u8 = max_depth + 1;
+
+        let mut last_finished_depth: usize = 0;
+        let mut depth_best_moves: [u16; 64] = [0; 64];
+
+        let opponent_color: u16 = if self.side == 8 { 16 } else { 8 };
+
+        let mut best_score_eval: i32 = 0;
+        let timer_start: Instant = Instant::now();
+
+        'outer: for d in 1..=self.depth {
+            if max_depth_limit == d {
+                break;
+            }
+            let depth_as_index: usize = d as usize;
+
+            self.generate_pseudo_legal_moves(self.side, &copied_board, &copied_state, 0, false);
+            let last_occupied: usize = self.move_lists[0].first_not_occupied;
+            self.how_much_searched.1 = last_occupied as f32;
+
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            let scores: &mut [i16; 192] = &mut self.move_scores[0];
+            let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
+
+            Self::n_log_n_sort_moves(moves, scores, last_occupied);
+            let mut depth_best_score: i32 = -CHECKMATE_VALUE;
+            let mut depth_best_move: u16 = 0;
+
+            let mut moves_searched: usize = 0;
+
+            let mut total_moves: usize = last_occupied;
+
+            for i in 0..last_occupied {
+                let allegedly_best_move: u16 = self.move_lists[0].pseudo_moves[i];
+
+                copied_board.perform_move(
+                    allegedly_best_move,
+                    &mut copied_state,
+                    self.side,
+                    &mut self.evaluation,
+                    &mut self.current_hash,
+                );
+
+                if copied_board.is_square_attacked(
+                    if self.side == 8 {
+                        copied_board.white_king_square
+                    } else {
+                        copied_board.black_king_square
+                    },
+                    opponent_color,
+                ) {
+                    copied_board.cancel_move(
+                        &mut copied_state,
+                        self.side,
+                        &mut self.evaluation,
+                        &mut self.current_hash,
+                    );
+                    total_moves -= 1;
+                    continue;
+                }
+
+                let move_extension: i8 =
+                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
+                self.how_much_searched.0 += 1.;
+
+                let mut score: i32 = -self.negamax(
+                    &mut copied_board,
+                    if move_extension >= 0 {
+                        d - 1 + move_extension as u8
+                    } else {
+                        (d - 1).saturating_sub(move_extension as u8)
+                    },
+                    1,
+                    opponent_color,
+                    -CHECKMATE_VALUE,
+                    CHECKMATE_VALUE,
+                    &mut copied_state,
+                    &mut node_count,
+                    &timer_start,
+                    &time_limit_ms,
+                    depth_as_index,
+                );
+
+                if d >= max_depth {
+                    println!(
+                        "move: {} {}, score: {score}",
+                        from_square(allegedly_best_move),
+                        to_square(allegedly_best_move)
+                    );
+                    all_scores.push(Some(score));
+                    best_moves.push(Some(allegedly_best_move));
+                }
+
+                copied_state.whose_turn = self.side;
+
+                if score == TIMEOUT_RETURN || score == -TIMEOUT_RETURN {
+                    break 'outer;
+                }
+
+                moves_searched += 1;
+
+                if copied_state.is_repetition(self.current_hash)
+                    || copied_state.fifty_moves_rule_counter >= 98
+                {
+                    score = if match self.side {
+                        8 => score <= bad_draw_score,
+                        _ => score >= bad_draw_score,
+                    } {
+                        0
+                    } else {
+                        bad_draw_score
+                    };
+                }
+
+                copied_board.cancel_move(
+                    &mut copied_state,
+                    self.side,
+                    &mut self.evaluation,
+                    &mut self.current_hash,
+                );
+
+                if score > depth_best_score || depth_best_move == 0 {
+                    depth_best_score = score;
+                    depth_best_move = allegedly_best_move;
+                }
+            }
+            if moves_searched == total_moves
+                || match self.side {
+                    8 => depth_best_score <= best_score_eval,
+                    _ => depth_best_score >= best_score_eval,
+                }
+            // do not discard best move if it's better than what we already have
+            {
+                best_score_eval = depth_best_score;
+                previous_best_move = depth_best_move;
+                depth_best_moves[last_finished_depth] = previous_best_move;
+                last_finished_depth += 1;
+                println!("reached depth {d}, eval: {depth_best_score}");
+                continue;
+            }
+            break;
+        }
+        let best_indices: Vec<usize> = Self::find_best_scores(all_scores.clone(), moves_amount);
+
+        println!("HCE eval: {best_score_eval}");
+        println!("nodes: {node_count}\n");
+        return best_moves
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, mv)| {
+                if best_indices.contains(&i) {
+                    Some(mv)
+                } else {
+                    None
+                }
+            })
+            .collect();
+    }
+
     fn prepare_before_search(&mut self, board: &mut Board, state: &mut GameState) -> () {
         for i in 0..4096 {
             self.history_heuristics[i] /= 100;
@@ -811,5 +999,29 @@ impl Engine {
     #[inline(always)]
     fn is_quiet(board: &[u16; 64], m: u16) -> bool {
         return board[to_square(m) as usize] == 0 && ((m & MARK_MASK) >> MARK_SHIFT) < 3;
+    }
+
+    fn find_best_scores(scores: Vec<Option<i32>>, scores_amount: usize) -> Vec<usize> {
+        let mut best_scores: Vec<usize> = Vec::with_capacity(scores_amount);
+        let mut remaining_indices: Vec<usize> = (0..scores.len()).collect();
+
+        for _ in 0..scores_amount.min(remaining_indices.len()) {
+            let (mut current_best_score, mut current_best_position) = (-CHECKMATE_VALUE, 0);
+
+            for (pos, &idx) in remaining_indices.iter().enumerate() {
+                if let Some(score) = scores[idx] {
+                    if score > current_best_score {
+                        current_best_score = score;
+                        current_best_position = pos;
+                    }
+                }
+            }
+
+            let best_original_index: usize = remaining_indices.remove(current_best_position);
+            best_scores.push(best_original_index);
+        }
+
+        println!("best moves in find_best_scores: {:?}", best_scores);
+        return best_scores;
     }
 }
