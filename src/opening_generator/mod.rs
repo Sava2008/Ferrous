@@ -1,18 +1,22 @@
-use crate::{converters::fen_converter::fen_to_board, search::Engine};
+use crate::{
+    converters::fen_converter::{board_to_fen, fen_to_board},
+    search::Engine,
+};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::to_writer_pretty;
-use std::{collections::HashMap, fs::OpenOptions, io::BufWriter, time::Duration};
+use std::{collections::HashMap, fs::OpenOptions, io::BufWriter};
 
-const DEFAULT_OPENING_DEPTH: u8 = 8;
+const DEFAULT_OPENING_DEPTH: u8 = 6;
 const STARTING_POS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const MAX_PLIES: u8 = 16; // how many plies (halfmoves) to search from STARTING_POS
+const MAX_PLIES: u8 = 6; // how many plies (halfmoves) to search from STARTING_POS
+const AVERAGE_MOVES_AMOUNT: usize = 3;
 
 const JSON_PATH: &'static str = "opening_book.json";
 
 #[derive(Serialize, Deserialize)]
 struct OpeningResponse {
-    responses: [Option<u16>; 3], // up to 3 moves
-    for_position: u64,           // zobrist hash
+    responses: [Option<u16>; AVERAGE_MOVES_AMOUNT], // up to 5 moves
+    for_position: u64,                              // zobrist hash
 }
 
 struct SearchProgress {
@@ -40,7 +44,7 @@ impl SearchProgress {
 }
 
 fn push_single_response(
-    opening_map: &mut HashMap<u64, [Option<u16>; 3]>,
+    opening_map: &mut HashMap<u64, [Option<u16>; AVERAGE_MOVES_AMOUNT]>,
     response: OpeningResponse,
 ) -> () {
     if response.responses.iter().all(|r: &Option<u16>| r.is_none()) {
@@ -49,42 +53,70 @@ fn push_single_response(
     opening_map.insert(response.for_position, response.responses);
 }
 
-pub fn fill_opening_book() -> () {
-    let mut opening_map: HashMap<u64, [Option<u64>; 3]> = HashMap::new();
-    let mut search_progress: SearchProgress = SearchProgress::new();
-    let mut engine: Engine = Engine::new(8, DEFAULT_OPENING_DEPTH);
+impl Engine {
+    pub fn fill_opening_book(
+        &mut self,
+        opening_map: &mut HashMap<u64, [Option<u16>; AVERAGE_MOVES_AMOUNT]>,
+        current_ply: u8,
+        total_nodes: &mut u32,
+        current_fen: &str,
+        current_color: u16,
+    ) -> () {
+        print!("\x1B[2J\x1B[1;1H");
+        println!("positions explored: {total_nodes}\nposition: {current_fen}");
+        *total_nodes += 1;
 
-    let (mut board, mut state) = fen_to_board(&search_progress.current_position);
+        if current_ply >= MAX_PLIES {
+            return;
+        }
 
-    loop {
-        let curr_color: u16 = search_progress.current_color;
-        let best_moves =
-            engine.find_multiple_moves(&mut board, &mut state, DEFAULT_OPENING_DEPTH, 5);
-        println!("found best moves: {:?}", best_moves);
-        break;
-        // push_single_response(
-        //     &mut opening_map,
-        //     OpeningResponse {
-        //         responses: [Some(best_move), None, None],
-        //         for_position: Engine::rebuild_hash(&board, curr_color),
-        //     },
-        // );
+        let (mut board, mut state) = fen_to_board(&current_fen);
+        self.side = current_color;
 
-        // board.perform_move(best_move, &mut state, curr_color, &mut 0, &mut 0);
-        // search_progress.current_color = if curr_color == 8 { 16 } else { 8 };
-        // search_progress.current_ply += 1;
-        // if search_progress.current_ply >= MAX_PLIES {
-        //     break;
-        // }
-        // engine.side = search_progress.current_color;
+        let best_moves = self.find_multiple_moves(
+            &mut board,
+            &mut state,
+            DEFAULT_OPENING_DEPTH,
+            AVERAGE_MOVES_AMOUNT,
+            if current_ply % 2 == 0 { 8 } else { 16 },
+        );
+
+        push_single_response(
+            opening_map,
+            OpeningResponse {
+                responses: best_moves.clone().try_into().unwrap(),
+                for_position: Engine::rebuild_hash(&board, current_color),
+            },
+        );
+
+        let enemy_color = if current_color == 8 { 16 } else { 8 };
+
+        for mv in best_moves {
+            if let Some(m) = mv {
+                println!("move: {m}, color: {current_color}, ply: {current_ply}");
+                let (mut copied_board, mut copied_state) = (board.clone(), state.clone());
+                copied_board.perform_move(m, &mut copied_state, current_color, &mut 0, &mut 0);
+
+                self.fill_opening_book(
+                    opening_map,
+                    current_ply + 1,
+                    total_nodes,
+                    &board_to_fen(&copied_board, &copied_state, &(enemy_color as u8)),
+                    enemy_color,
+                );
+            }
+        }
+
+        if current_ply == 0 {
+            let opening_file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(JSON_PATH)
+                .expect("Failed to open or create the JSON file");
+
+            to_writer_pretty(BufWriter::new(opening_file), &opening_map)
+                .expect("could not dump data");
+        }
     }
-
-    // let opening_file = OpenOptions::new()
-    //     .write(true)
-    //     .create(true)
-    //     .truncate(true)
-    //     .open(JSON_PATH)
-    //     .expect("Failed to open or create the JSON file");
-
-    // to_writer_pretty(BufWriter::new(opening_file), &opening_map).expect("could not dump data");
 }

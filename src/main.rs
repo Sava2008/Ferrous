@@ -126,12 +126,20 @@ async fn main() {
 
 #[cfg(feature = "opening-book")]
 fn main() -> () {
-    use crate::opening_generator::fill_opening_book;
+    use std::collections::HashMap;
+
     initialize_sliding_attack_tables();
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
     compute_mvvlva();
 
-    fill_opening_book();
+    let mut opening_engine: Engine = Engine::new(8, 6);
+    opening_engine.fill_opening_book(
+        &mut HashMap::new(),
+        0,
+        &mut 0,
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        8,
+    );
 }

@@ -222,7 +222,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
 
         let last_occupied = self.move_lists[ply].first_not_occupied;
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, &state);
         Self::lazy_sort_moves(
             &mut self.move_lists[ply].pseudo_moves,
             &mut self.move_scores[ply],
@@ -435,7 +435,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, board, state, ply, !in_check);
         let last_occupied: usize = self.move_lists[ply].first_not_occupied;
 
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, &state);
 
         let scores: &mut [i16; 192] = &mut self.move_scores[ply];
         let moves: &mut [u16; 192] = &mut self.move_lists[ply].pseudo_moves;
@@ -446,6 +446,7 @@ impl Engine {
 
         for i in 0..last_occupied {
             let move_to_search: u16 = self.move_lists[ply].pseudo_moves[i];
+
             let to_sq: u16 = (move_to_search & TO_MASK) >> TO_SHIFT;
             let mut captured_piece: u16 = board.cached_pieces[to_sq as usize];
 
@@ -544,10 +545,7 @@ impl Engine {
 
         let mut previous_best_move: u16 = 0;
 
-        let bad_draw_score: i32 = match self.side {
-            8 => -50,
-            _ => 50,
-        };
+        let bad_draw_score: i32 = -50;
 
         let mut time_limit_ms: u128 = time_contrainsts.as_millis();
         if time_limit_ms == 0 {
@@ -573,7 +571,13 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            self.score_all_moves(
+                0,
+                last_occupied,
+                &previous_best_move,
+                &copied_board,
+                &copied_state,
+            );
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -647,10 +651,7 @@ impl Engine {
                 if copied_state.is_repetition(self.current_hash)
                     || copied_state.fifty_moves_rule_counter >= 98
                 {
-                    score = if match self.side {
-                        8 => score <= bad_draw_score,
-                        _ => score >= bad_draw_score,
-                    } {
+                    score = if score <= bad_draw_score {
                         0
                     } else {
                         bad_draw_score
@@ -669,13 +670,8 @@ impl Engine {
                     depth_best_move = allegedly_best_move;
                 }
             }
-            if moves_searched == total_moves
-                || match self.side {
-                    8 => depth_best_score <= best_score_eval,
-                    _ => depth_best_score >= best_score_eval,
-                }
-            // do not discard best move if it's better than what we already have
-            {
+            if moves_searched == total_moves || depth_best_score <= best_score_eval {
+                // do not discard best move if it's better than what we already have
                 best_score_eval = depth_best_score;
                 previous_best_move = depth_best_move;
                 depth_best_moves[last_finished_depth] = previous_best_move;
@@ -706,7 +702,9 @@ impl Engine {
         state: &mut GameState,
         max_depth: u8,
         moves_amount: usize,
+        needed_color: u16,
     ) -> Vec<Option<u16>> {
+        assert_eq!(needed_color, self.side);
         if moves_amount > 5 {
             panic!("cannot give more than 5 best moves");
         }
@@ -723,10 +721,7 @@ impl Engine {
 
         let mut previous_best_move: u16 = 0;
 
-        let bad_draw_score: i32 = match self.side {
-            8 => -50,
-            _ => 50,
-        };
+        let bad_draw_score: i32 = -50;
 
         let time_limit_ms: u128 = 1_000_000 * 1000; // 1_000_000 seconds
         let max_depth_limit: u8 = max_depth + 1;
@@ -749,7 +744,13 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            self.score_all_moves(
+                0,
+                last_occupied,
+                &previous_best_move,
+                &copied_board,
+                &copied_state,
+            );
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -813,11 +814,6 @@ impl Engine {
                 );
 
                 if d >= max_depth {
-                    println!(
-                        "move: {} {}, score: {score}",
-                        from_square(allegedly_best_move),
-                        to_square(allegedly_best_move)
-                    );
                     all_scores.push(Some(score));
                     best_moves.push(Some(allegedly_best_move));
                 }
@@ -833,10 +829,7 @@ impl Engine {
                 if copied_state.is_repetition(self.current_hash)
                     || copied_state.fifty_moves_rule_counter >= 98
                 {
-                    score = if match self.side {
-                        8 => score <= bad_draw_score,
-                        _ => score >= bad_draw_score,
-                    } {
+                    score = if score <= bad_draw_score {
                         0
                     } else {
                         bad_draw_score
@@ -855,26 +848,18 @@ impl Engine {
                     depth_best_move = allegedly_best_move;
                 }
             }
-            if moves_searched == total_moves
-                || match self.side {
-                    8 => depth_best_score <= best_score_eval,
-                    _ => depth_best_score >= best_score_eval,
-                }
-            // do not discard best move if it's better than what we already have
-            {
+            if moves_searched == total_moves || depth_best_score <= best_score_eval {
+                // do not discard best move if it's better than what we already have
                 best_score_eval = depth_best_score;
                 previous_best_move = depth_best_move;
                 depth_best_moves[last_finished_depth] = previous_best_move;
                 last_finished_depth += 1;
-                println!("reached depth {d}, eval: {depth_best_score}");
                 continue;
             }
             break;
         }
         let best_indices: Vec<usize> = Self::find_best_scores(all_scores.clone(), moves_amount);
 
-        println!("HCE eval: {best_score_eval}");
-        println!("nodes: {node_count}\n");
         return best_moves
             .into_iter()
             .enumerate()
@@ -1021,7 +1006,6 @@ impl Engine {
             best_scores.push(best_original_index);
         }
 
-        println!("best moves in find_best_scores: {:?}", best_scores);
         return best_scores;
     }
 }
