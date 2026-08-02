@@ -331,7 +331,24 @@ impl Board {
         }
         if moving_piece == WHITE_PAWN_U16 || moving_piece == BLACK_PAWN_U16 {
             let potential_en_passant: u8 = EN_PASSANT_TARGETS[to_sq_index][from_sq_index];
-            if potential_en_passant < 64 {
+            let (left_neighbor, right_neighbor) = (
+                if to_sq % 8 != 0 { to_sq_index - 1 } else { 0 },
+                if (to_sq + 1) % 8 != 0 {
+                    to_sq_index + 1
+                } else {
+                    0
+                },
+            ); // 0th position can never contain a pawn
+
+            let enemy_pawn = if color == 8 {
+                BLACK_PAWN_U16
+            } else {
+                WHITE_PAWN_U16
+            };
+            if potential_en_passant < 64
+                && (self.cached_pieces[left_neighbor] == enemy_pawn
+                    || self.cached_pieces[right_neighbor] == enemy_pawn)
+            {
                 state.en_passant_target = Some(potential_en_passant);
             } else {
                 state.en_passant_target = None;

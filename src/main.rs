@@ -1,3 +1,5 @@
+#[cfg(not(any(feature = "opening-book", feature = "debug-ui")))]
+use crate::uci::uci_output;
 #[cfg(feature = "debug-ui")]
 use crate::{
     board_geometry_templates::{MARK_SHIFT, TO_SHIFT},
@@ -9,12 +11,13 @@ use crate::{
         initialize_sliding_attack_tables,
     },
     search::Engine,
-    uci::uci_output,
 };
+
 pub mod board;
 pub mod board_geometry_templates;
 pub mod constants;
 pub mod converters;
+pub mod employ_config;
 pub mod gamestate;
 pub mod move_make_unmake;
 pub mod moves;
@@ -134,12 +137,6 @@ fn main() -> () {
     compute_all_lines();
     compute_mvvlva();
 
-    let mut opening_engine: Engine = Engine::new(8, 6);
-    opening_engine.fill_opening_book(
-        &mut HashMap::new(),
-        0,
-        &mut 0,
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        8,
-    );
+    let mut opening_engine: Engine = Engine::new(8, 10);
+    opening_engine.fill_opening_book_iterative(&mut HashMap::new());
 }

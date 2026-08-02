@@ -126,14 +126,7 @@ pub fn board_to_fen(board: &Board, state: &GameState, whose_move: &u8) -> String
     });
 
     if let Some(sq) = state.en_passant_target {
-        fen.push_str(&format!(
-            " {}",
-            index_to_chess_notation(if state.whose_turn == 8 {
-                sq + 8
-            } else {
-                sq - 8
-            })
-        ));
+        fen.push_str(&format!(" {}", index_to_chess_notation(sq)));
     } else {
         fen.push_str(" -");
     }

@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 macroquad = { version = "0.4.16", optional = true }
-serde_json = { version = "1.0.151", optional = true }
+serde_json = { version = "1.0.151" }
 once_cell = "1.21.4"
+rand = "0.10.2"
 serde = { version = "1.0.229", optional = true }
 serde_derive = { version = "1.0.229", optional = true }
 
@@ -19,4 +20,4 @@ codegen-units = 1
 
 [features]
 debug-ui = ["dep:macroquad"]
-opening-book = ["serde", "serde_json", "serde_derive"]
+opening-book = ["serde", "serde_derive"]

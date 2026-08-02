@@ -1,4 +1,11 @@
-{
+use serde_json::from_str;
+use std::collections::HashMap;
+
+pub fn load_opening_book() -> HashMap<u64, [Option<u16>; 4]> {
+    return from_str(OPENING_BOOK_JSON).unwrap();
+}
+
+pub const OPENING_BOOK_JSON: &'static str = r#"{
   "16931101799457505988": [
     2073,
     2201,
@@ -6125,4 +6132,4 @@
     2998,
     2226
   ]
-}
+}"#;

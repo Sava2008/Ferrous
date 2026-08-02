@@ -7,11 +7,16 @@ use crate::{
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
     },
+    employ_config::load_opening_book,
     gamestate::GameState,
     moves::MoveList,
     transposition::{TTEntry, TranspositionTable},
 };
-use std::time::{Duration, Instant};
+use rand::{rng, seq::IndexedRandom};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 pub struct Engine {
     pub side: u16, // which color Ferrous plays
     pub depth: u8,
@@ -27,6 +32,7 @@ pub struct Engine {
                                        second how many root moves to search.
                                        By applying the formula (how_much_searched.0 / how_much_searched.1)
                                        the engine can determine whether to end the session or not */
+    pub opening_book: HashMap<u64, [Option<u16>; 4]>,
 }
 
 const CHECKMATE_VALUE: i32 = 1_000_000;
@@ -51,6 +57,7 @@ impl Engine {
             transposition_table: TranspositionTable::new(),
             nodes_since_last_check: 0,
             how_much_searched: (0., 0.),
+            opening_book: load_opening_book(),
         };
     }
     #[inline(always)]
@@ -222,7 +229,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
 
         let last_occupied = self.move_lists[ply].first_not_occupied;
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, &state);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
         Self::lazy_sort_moves(
             &mut self.move_lists[ply].pseudo_moves,
             &mut self.move_scores[ply],
@@ -383,6 +390,7 @@ impl Engine {
         node_count: &mut u64,
     ) -> i32 {
         *node_count += 1;
+
         let stand_pat: i32 = if color == 8 {
             self.evaluation
         } else {
@@ -435,7 +443,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, board, state, ply, !in_check);
         let last_occupied: usize = self.move_lists[ply].first_not_occupied;
 
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, &state);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
 
         let scores: &mut [i16; 192] = &mut self.move_scores[ply];
         let moves: &mut [u16; 192] = &mut self.move_lists[ply].pseudo_moves;
@@ -543,6 +551,14 @@ impl Engine {
 
         self.prepare_before_search(&mut copied_board, &mut copied_state);
 
+        if let Some(&entry) = self.opening_book.get(&self.current_hash) {
+            let filtered_items: Vec<u16> = entry.into_iter().flatten().collect();
+            if let Some(&mv) = filtered_items.choose(&mut rng()) {
+                std::thread::sleep(Duration::from_millis(200));
+                return Some(mv);
+            }
+        }
+
         let mut previous_best_move: u16 = 0;
 
         let bad_draw_score: i32 = -50;
@@ -571,13 +587,7 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(
-                0,
-                last_occupied,
-                &previous_best_move,
-                &copied_board,
-                &copied_state,
-            );
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -744,13 +754,7 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(
-                0,
-                last_occupied,
-                &previous_best_move,
-                &copied_board,
-                &copied_state,
-            );
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -987,7 +991,7 @@ impl Engine {
     }
 
     fn find_best_scores(scores: Vec<Option<i32>>, scores_amount: usize) -> Vec<usize> {
-        let mut best_scores: Vec<usize> = Vec::with_capacity(scores_amount);
+        let mut best_indices: Vec<usize> = Vec::with_capacity(scores_amount);
         let mut remaining_indices: Vec<usize> = (0..scores.len()).collect();
 
         for _ in 0..scores_amount.min(remaining_indices.len()) {
@@ -1003,9 +1007,31 @@ impl Engine {
             }
 
             let best_original_index: usize = remaining_indices.remove(current_best_position);
-            best_scores.push(best_original_index);
+            best_indices.push(best_original_index);
+        }
+        let best_scores: Vec<i32> = scores
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &m)| if best_indices.contains(&i) { m } else { None })
+            .collect();
+
+        let max_score: i32 = *best_scores.iter().max().unwrap();
+        let mut bad_scores_indices: Vec<usize> = Vec::new();
+        for (idx, score) in best_scores.iter().enumerate() {
+            if score + 30 < max_score {
+                bad_scores_indices.push(idx);
+            }
         }
 
-        return best_scores;
+        return best_indices
+            .into_iter()
+            .filter_map(|movelist_index| {
+                if bad_scores_indices.contains(&movelist_index) {
+                    None
+                } else {
+                    Some(movelist_index)
+                }
+            })
+            .collect();
     }
 }
