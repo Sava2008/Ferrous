@@ -1,7 +1,4 @@
-use std::{
-    io::BufRead,
-    time::Duration,
-};
+use std::{io::BufRead, time::Duration};
 
 use crate::{
     board::Board,
@@ -17,6 +14,7 @@ use crate::{
 pub fn uci_output(engine: &mut Engine) -> () {
     let input: std::io::Lines<std::io::StdinLock<'_>> = std::io::stdin().lock().lines();
     let (mut board, mut state): (Option<Board>, Option<GameState>) = (None, None);
+
     for l in input {
         let string_command: String = l.unwrap();
         let command: &str = string_command.as_str();
@@ -40,6 +38,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
             }
             "isready" => println!("readyok\r"),
             "quit" => break,
+            "stop" => unimplemented!(),
 
             _ => {
                 let mut perft: bool = false;

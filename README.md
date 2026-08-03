@@ -34,7 +34,7 @@ _1 - HCE stands for hand-crafted evaluation. It's a set of strict rules hardcode
 - transposition tables
 - dymanic depth for time controls
 - late move reduction
-- opening book
+- opening book (almost)
 
 ## Planned on being carried out
 
@@ -51,18 +51,14 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 
-currently the performance is estimated to be around 2M+ NPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
-Ferrous_v0.5.0-dev9openinbook.exe (against Ferrous_v0.5.0-dev8_lmr_fix.exe): 106 wins, 97 losses, 37 draws
+Ferrous_v0.5.0-dev9_openinbook.exe (against Ferrous_v0.5.0-dev8_lmr_fix.exe): 106 wins, 97 losses, 37 draws
 
 ### Instruction on usage
 
 0. Rust 1.97.1 is required on your computer (should work with older versions, but I did not check that)
-1. download the zip file with the engine
-2. unpack it anywhere
-3. open the terminal on your computer
-4. copy the directory of the folder with Ferrous
-5. run the following command in the terminal `cd path/to/Ferrous && cargo build --release` for maximum optimizations
-6. locate to target folder, then release, and double click the executable file with LMB.
+1. clone the main branch repo anywhere on your computer
+2. run the following command in the terminal `cd path/to/Ferrous && cargo build --release` for maximum optimizations
+3. locate to target folder, then release, and double click the executable file with LMB.
 Currently works only for existing releases
 
 ### References
