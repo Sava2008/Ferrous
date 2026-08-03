@@ -4,22 +4,26 @@ use crate::{
 };
 use serde_derive::{Deserialize, Serialize};
 use serde_json::to_writer_pretty;
-use std::{collections::HashMap, fs::OpenOptions, io::BufWriter};
+use std::{
+    collections::{HashMap, VecDeque},
+    fs::OpenOptions,
+    io::BufWriter,
+};
 
-const DEFAULT_OPENING_DEPTH: u8 = 10;
-const MAX_PLIES: u8 = 6; // how many plies (halfmoves) to search from STARTING_POS
-const AVERAGE_MOVES_AMOUNT: usize = 4;
+const DEFAULT_OPENING_DEPTH: u8 = 11;
+const MAX_PLIES: u8 = 2; // how many plies (halfmoves) to search from STARTING_POS
+const AVERAGE_MOVES_AMOUNT: usize = 2;
 
 const JSON_PATH: &'static str = "opening_book.json";
 
 #[derive(Serialize, Deserialize)]
 struct OpeningResponse {
-    responses: [Option<u16>; AVERAGE_MOVES_AMOUNT], // up to 5 moves
-    for_position: u64,                              // zobrist hash
+    responses: [Option<u16>; 5], // up to 5 moves
+    for_position: u64,           // zobrist hash
 }
 
 fn push_single_response(
-    opening_map: &mut HashMap<u64, [Option<u16>; AVERAGE_MOVES_AMOUNT]>,
+    opening_map: &mut HashMap<u64, [Option<u16>; 5]>,
     response: OpeningResponse,
 ) -> () {
     if response.responses.iter().all(|r: &Option<u16>| r.is_none()) {
@@ -27,8 +31,6 @@ fn push_single_response(
     }
     opening_map.insert(response.for_position, response.responses);
 }
-
-use std::collections::VecDeque;
 
 struct BookEntry {
     fen: String,
@@ -39,7 +41,7 @@ struct BookEntry {
 impl Engine {
     pub fn fill_opening_book_iterative(
         &mut self,
-        opening_map: &mut HashMap<u64, [Option<u16>; AVERAGE_MOVES_AMOUNT]>,
+        opening_map: &mut HashMap<u64, [Option<u16>; 5]>,
     ) -> () {
         let mut total_nodes: u32 = 0;
         let mut stack: VecDeque<BookEntry> = VecDeque::new();
@@ -51,7 +53,6 @@ impl Engine {
         });
 
         while let Some(entry) = stack.pop_back() {
-            print!("\x1B[2J\x1B[1;1H");
             println!("positions explored: {total_nodes}\nposition: {}", entry.fen);
 
             if entry.ply >= MAX_PLIES {
@@ -61,17 +62,19 @@ impl Engine {
 
             let (mut board, mut state) = fen_to_board(&entry.fen);
             self.side = entry.color;
+            let first_move: bool = entry.ply < 2;
 
             let mut best_moves = self.find_multiple_moves(
                 &mut board,
                 &mut state,
                 DEFAULT_OPENING_DEPTH,
-                AVERAGE_MOVES_AMOUNT,
+                if first_move { 5 } else { AVERAGE_MOVES_AMOUNT },
                 entry.color,
+                first_move,
             );
             let moves_len: usize = best_moves.len();
-            if moves_len < AVERAGE_MOVES_AMOUNT {
-                best_moves.extend(vec![None; AVERAGE_MOVES_AMOUNT - moves_len].into_iter());
+            if moves_len < 5 {
+                best_moves.extend(vec![None; 5 - moves_len].into_iter());
             }
 
             push_single_response(

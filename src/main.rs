@@ -137,6 +137,6 @@ fn main() -> () {
     compute_all_lines();
     compute_mvvlva();
 
-    let mut opening_engine: Engine = Engine::new(8, 10);
+    let mut opening_engine: Engine = Engine::new(8, 11);
     opening_engine.fill_opening_book_iterative(&mut HashMap::new());
 }

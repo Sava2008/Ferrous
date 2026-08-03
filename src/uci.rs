@@ -1,6 +1,6 @@
 use std::{
     io::BufRead,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
         let string_command: String = l.unwrap();
         let command: &str = string_command.as_str();
         match command {
-            "uci" => println!("uciok"),
+            "uci" => println!("uciok\r"),
             "ucinewgame" => {
                 for i in 0..4096 {
                     engine.history_heuristics[i] = 0;
@@ -38,7 +38,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
                 engine.how_much_searched = (0., 0.);
                 engine.transposition_table = TranspositionTable::new();
             }
-            "isready" => println!("readyok"),
+            "isready" => println!("readyok\r"),
             "quit" => break,
 
             _ => {
@@ -76,11 +76,9 @@ pub fn uci_output(engine: &mut Engine) -> () {
                         };
                         if !perft {
                             engine.depth = max_depth;
-                            let start_time: Instant = Instant::now();
                             let engine_move: u16 = engine
                                 .find_best_move(&b, &mut s, time_constrainst, max_depth)
                                 .unwrap();
-                            println!("time spent: {}", start_time.elapsed().as_millis());
                             engine_move
                         } else {
                             let color: u16 = s.whose_turn;
@@ -89,7 +87,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
                             0
                         }
                     } else {
-                        panic!("uninitialized board");
+                        panic!("uninitialized board\r");
                     };
                     let uci_move_string: String = format!(
                         "{:?}{:?}{}",
@@ -110,7 +108,7 @@ pub fn uci_output(engine: &mut Engine) -> () {
                     )
                     .replace("\"", "");
                     if !perft {
-                        println!("bestmove {}", uci_move_string.as_str());
+                        println!("bestmove {}\r", uci_move_string.as_str());
                     }
                 } else {
                     unimplemented!();

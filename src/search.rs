@@ -2,7 +2,7 @@ use crate::{
     board::Board,
     board_geometry_templates::*,
     constants::{
-        attacks::MVV_LVA,
+        attacks::{INDICES_TO_COORDS, MVV_LVA},
         heuristics::*,
         piece_values::*,
         zobrist_hashes::{BLACK_ZOBRIST_KEY, WHITE_ZOBRIST_KEY, ZOBRIST_HASH_TABLE},
@@ -32,7 +32,7 @@ pub struct Engine {
                                        second how many root moves to search.
                                        By applying the formula (how_much_searched.0 / how_much_searched.1)
                                        the engine can determine whether to end the session or not */
-    pub opening_book: HashMap<u64, [Option<u16>; 4]>,
+    pub opening_book: HashMap<u64, [Option<u16>; 5]>,
 }
 
 const CHECKMATE_VALUE: i32 = 1_000_000;
@@ -686,7 +686,28 @@ impl Engine {
                 previous_best_move = depth_best_move;
                 depth_best_moves[last_finished_depth] = previous_best_move;
                 last_finished_depth += 1;
-                println!("reached depth {d}, eval: {depth_best_score}");
+                let (from, to, flag) = (
+                    INDICES_TO_COORDS
+                        .get(&from_square(previous_best_move))
+                        .unwrap()
+                        .clone(),
+                    INDICES_TO_COORDS
+                        .get(&(to_square(previous_best_move) as u8))
+                        .unwrap()
+                        .clone(),
+                    match (previous_best_move & MARK_MASK) >> MARK_SHIFT {
+                        3 | 10 => "n",
+                        4 | 11 => "b",
+                        5 | 12 => "r",
+                        6 | 13 => "q",
+                        _ => "",
+                    },
+                );
+                let uci_move: String = format!("{}{}{}", from, to, flag);
+                println!(
+                    "info depth {d} score cp {depth_best_score} time {} nodes {node_count} pv {uci_move}\r",
+                    timer_start.elapsed().as_millis(),
+                );
                 continue;
             }
             break;
@@ -701,8 +722,8 @@ impl Engine {
             best_move = Some(previous_best_move);
         }
 
-        println!("HCE eval: {best_score_eval}");
-        println!("nodes: {node_count}\n");
+        println!("info string HCE eval: {best_score_eval}\r");
+        println!("info string nodes: {node_count}\n\r");
         return best_move;
     }
 
@@ -713,6 +734,7 @@ impl Engine {
         max_depth: u8,
         moves_amount: usize,
         needed_color: u16,
+        first_move: bool,
     ) -> Vec<Option<u16>> {
         assert_eq!(needed_color, self.side);
         if moves_amount > 5 {
@@ -862,7 +884,9 @@ impl Engine {
             }
             break;
         }
-        let best_indices: Vec<usize> = Self::find_best_scores(all_scores.clone(), moves_amount);
+
+        let best_indices: Vec<usize> =
+            Self::find_best_scores(all_scores.clone(), moves_amount, first_move);
 
         return best_moves
             .into_iter()
@@ -990,9 +1014,15 @@ impl Engine {
         return board[to_square(m) as usize] == 0 && ((m & MARK_MASK) >> MARK_SHIFT) < 3;
     }
 
-    fn find_best_scores(scores: Vec<Option<i32>>, scores_amount: usize) -> Vec<usize> {
+    fn find_best_scores(
+        scores: Vec<Option<i32>>,
+        scores_amount: usize,
+        first_move: bool,
+    ) -> Vec<usize> {
         let mut best_indices: Vec<usize> = Vec::with_capacity(scores_amount);
         let mut remaining_indices: Vec<usize> = (0..scores.len()).collect();
+
+        let good_move_margin: i32 = if first_move { 50 } else { 10 };
 
         for _ in 0..scores_amount.min(remaining_indices.len()) {
             let (mut current_best_score, mut current_best_position) = (-CHECKMATE_VALUE, 0);
@@ -1018,14 +1048,14 @@ impl Engine {
         let max_score: i32 = *best_scores.iter().max().unwrap();
         let mut bad_scores_indices: Vec<usize> = Vec::new();
         for (idx, score) in best_scores.iter().enumerate() {
-            if score + 30 < max_score {
+            if score + good_move_margin < max_score {
                 bad_scores_indices.push(idx);
             }
         }
 
         return best_indices
             .into_iter()
-            .filter_map(|movelist_index| {
+            .filter_map(|movelist_index: usize| {
                 if bad_scores_indices.contains(&movelist_index) {
                     None
                 } else {

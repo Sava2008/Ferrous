@@ -1,6 +1,6 @@
 # Ferrous
 
-Ferrous is an HCE^1^ partially UCI-compliant chess engine. The way it works is it looks through positions by generating best moves for both sides in its "mind" and determines which one of the root moves is the best for it. Ferrous works on bitboards, which means it has room for massive optimizations and potential to become better than all human chess players on Earth.
+Ferrous is an HCE¹ partially UCI-compliant chess engine. The way it works is it looks through positions by generating best moves for both sides in its "mind" and determines which one of the root moves is the best for it. Ferrous works on bitboards, which means it has room for massive optimizations and potential to become better than all human chess players on Earth.
 supported UCI commands:
 
 - `uci`
@@ -34,11 +34,11 @@ _1 - HCE stands for hand-crafted evaluation. It's a set of strict rules hardcode
 - transposition tables
 - dymanic depth for time controls
 - late move reduction
+- opening book
 
 ## Planned on being carried out
 
 - pgn converter
-- opening book
 - null move pruning
 - futility pruning
 - razor pruning
@@ -52,7 +52,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 ### Comments
 
 currently the performance is estimated to be around 2M+ NPS. estimated elo approx. 1700 on lichess.org and < 1500 among engines
-Ferrous_v0.5.0-dev8_lmr_fix.exe (against Ferrous_v0.5.0-dev6_qfix.exe): 72 wins, 30 losses, 28 draws
+Ferrous_v0.5.0-dev9openinbook.exe (against Ferrous_v0.5.0-dev8_lmr_fix.exe): 106 wins, 97 losses, 37 draws
 
 ### Instruction on usage
 
