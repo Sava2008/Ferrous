@@ -261,7 +261,7 @@ impl Board {
                     &state.check_squares,
                 );
                 if captures_checks_only
-                    && (self.cached_pieces[final_pos as usize] == 0 && check_flag == 0)
+                    && self.cached_pieces[final_pos as usize] == 0 && check_flag == 0
                 {
                     dest_bitboard &= dest_bitboard - 1;
                     continue;

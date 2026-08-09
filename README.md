@@ -51,7 +51,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 
-Ferrous_v0.5.0-dev9_openinbook.exe (against Ferrous_v0.5.0-dev8_lmr_fix.exe): 106 wins, 97 losses, 37 draws
+Ferrous v0.5.1-dev1_tuningtweak against Ferrous v0.5.0: 104 wins, 98 losses, 38 draws
 
 ### Instruction on usage
 

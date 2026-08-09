@@ -223,18 +223,17 @@ impl Engine {
         let mut best_move: u16 = 0;
         let (original_alpha, original_beta) = (alpha, beta);
 
-        // let mut last_occupied: usize = self.move_lists[ply].first_not_occupied;
-        // if !lmr_relation {
-        // }
-        self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
+		self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
 
-        let last_occupied = self.move_lists[ply].first_not_occupied;
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
-        Self::lazy_sort_moves(
-            &mut self.move_lists[ply].pseudo_moves,
-            &mut self.move_scores[ply],
-            last_occupied,
-        );
+		let last_occupied: usize = self.move_lists[ply].first_not_occupied;
+		self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
+		Self::lazy_sort_moves(
+			&mut self.move_lists[ply].pseudo_moves,
+			&mut self.move_scores[ply],
+			last_occupied,
+		);
+
+        
 
         let mut total_moves: usize = 0;
 
@@ -267,7 +266,7 @@ impl Engine {
                     0..3 => 0,
                     _ => 1,
                 };
-                if depth > 1 { lmr } else { 0 }
+                if depth > lmr { lmr } else { 0 }
             } else {
                 0
             };

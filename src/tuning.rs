@@ -41,10 +41,10 @@ impl Engine {
         );
 
         score += match flag as i16 {
-            2 => 0,
+            2 => 100,
             7 => 100,
-            8 => 30,
-            other => other * 10,
+            8 => 150,
+            other => other * 20,
         };
 
         if taken_piece_type != 0 {
@@ -71,12 +71,12 @@ impl Engine {
 
         score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if moving_piece_type < 7 {
-            score -= 50
+            score -= 25
                 * (WHITE_PAWN_ATTACKS[to_square] & current_board.bitboards[6]).count_ones() as i16;
             return score;
         }
         score -=
-            50 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
+            25 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
         return score;
     }
 
