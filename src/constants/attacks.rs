@@ -468,7 +468,7 @@ fn compute_ray_between(sq1: u8, sq2: u8) -> u64 {
     let (rank1, file1) = (sq1 / 8, sq1 % 8);
     let (rank2, file2) = (sq2 / 8, sq2 % 8);
 
-    let rank_diff = (rank2 as i8 - rank1 as i8).abs();
+    let rank_diff: i8 = (rank2 as i8 - rank1 as i8).abs();
     let file_diff: i8 = (file2 as i8 - file1 as i8).abs();
 
     if rank_diff != 0 && file_diff != 0 && rank_diff != file_diff {
@@ -614,16 +614,19 @@ pub fn compute_all_lines() -> () {
     }
 }
 
-pub static mut MVV_LVA: [[i16; 6]; 6] = [[69; 6]; 6]; // MVV_LVA[victim][attacker]
-pub fn compute_mvvlva() -> () {
-    for x in 0..6 {
-        for y in 0..6 {
-            unsafe {
-                MVV_LVA[x][y] = (x * 6 + (5 - y)) as i16;
-            }
+pub const MVV_LVA: [[i16; 6]; 6] = {
+    let mut mvv_lva: [[i16; 6]; 6] = [[0; 6]; 6];
+    let mut x: usize = 0;
+    while x < 6 {
+        let mut y: usize = 0;
+        while y < 6 {
+            mvv_lva[x][y] = (x * 6 + (5 - y)) as i16 * 100;
+            y += 1;
         }
+        x += 1;
     }
-}
+    mvv_lva
+}; // MVV_LVA[victim][attacker]
 
 pub const EN_PASSANT_TARGETS: [[u8; 64]; 64] = generate_en_passant_targets();
 

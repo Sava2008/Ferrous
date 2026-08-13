@@ -39,6 +39,7 @@ const CHECKMATE_VALUE: i32 = 1_000_000;
 const TIME_CHECK_NODES_OFFSET: u64 = 2500; // how often to check for time
 const TIMEOUT_RETURN: i32 = 2_000_001;
 const QUIESCENCE_DELTA: i32 = 50;
+const MAX_HISTORY_SCORE: i16 = 2000;
 
 impl Engine {
     pub fn new(side: u16, depth: u8) -> Self {
@@ -223,17 +224,15 @@ impl Engine {
         let mut best_move: u16 = 0;
         let (original_alpha, original_beta) = (alpha, beta);
 
-		self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
+        self.generate_pseudo_legal_moves(color, &board, &state, ply, false);
 
-		let last_occupied: usize = self.move_lists[ply].first_not_occupied;
-		self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
-		Self::lazy_sort_moves(
-			&mut self.move_lists[ply].pseudo_moves,
-			&mut self.move_scores[ply],
-			last_occupied,
-		);
-
-        
+        let last_occupied: usize = self.move_lists[ply].first_not_occupied;
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, false);
+        Self::lazy_sort_moves(
+            &mut self.move_lists[ply].pseudo_moves,
+            &mut self.move_scores[ply],
+            last_occupied,
+        );
 
         let mut total_moves: usize = 0;
 
@@ -332,10 +331,12 @@ impl Engine {
             if alpha >= beta {
                 if !board.is_capture(allegedly_best_move) {
                     self.add_killer(allegedly_best_move, depth);
-
-                    let history_idx: usize = (((allegedly_best_move & FROM_MASK) as usize) << 6)
-                        | ((allegedly_best_move & TO_MASK) >> TO_SHIFT) as usize;
-                    self.history_heuristics[history_idx] += (depth * depth) as i16;
+                    let history = &mut self.history_heuristics[(((allegedly_best_move & FROM_MASK)
+                        as usize)
+                        << 6)
+                        | ((allegedly_best_move & TO_MASK) >> TO_SHIFT) as usize];
+                    *history += (depth * depth) as i16;
+                    *history = (*history).min(MAX_HISTORY_SCORE);
                 }
                 break;
             }
@@ -442,7 +443,7 @@ impl Engine {
         self.generate_pseudo_legal_moves(color, board, state, ply, !in_check);
         let last_occupied: usize = self.move_lists[ply].first_not_occupied;
 
-        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board);
+        self.score_all_moves(ply, last_occupied, &best_move_transposition, &board, false);
 
         let scores: &mut [i16; 192] = &mut self.move_scores[ply];
         let moves: &mut [u16; 192] = &mut self.move_lists[ply].pseudo_moves;
@@ -560,7 +561,7 @@ impl Engine {
 
         let mut previous_best_move: u16 = 0;
 
-        let bad_draw_score: i32 = -50;
+        let bad_draw_score: i32 = -10;
 
         let mut time_limit_ms: u128 = time_contrainsts.as_millis();
         if time_limit_ms == 0 {
@@ -586,7 +587,7 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board, false);
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -627,17 +628,13 @@ impl Engine {
                     continue;
                 }
 
-                let move_extension: i8 =
-                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
                 self.how_much_searched.0 += 1.;
+                let move_extension: u8 =
+                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
 
                 let mut score: i32 = -self.negamax(
                     &mut copied_board,
-                    if move_extension >= 0 {
-                        d - 1 + move_extension as u8
-                    } else {
-                        (d - 1).saturating_sub(move_extension as u8)
-                    },
+                    d - 1 + move_extension,
                     1,
                     opponent_color,
                     -CHECKMATE_VALUE,
@@ -775,7 +772,7 @@ impl Engine {
             let last_occupied: usize = self.move_lists[0].first_not_occupied;
             self.how_much_searched.1 = last_occupied as f32;
 
-            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board);
+            self.score_all_moves(0, last_occupied, &previous_best_move, &copied_board, false);
             let scores: &mut [i16; 192] = &mut self.move_scores[0];
             let moves: &mut [u16; 192] = &mut self.move_lists[0].pseudo_moves;
 
@@ -816,17 +813,13 @@ impl Engine {
                     continue;
                 }
 
-                let move_extension: i8 =
-                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
                 self.how_much_searched.0 += 1.;
+                let move_extension: u8 =
+                    Self::move_increment(&copied_board.cached_pieces, allegedly_best_move);
 
                 let mut score: i32 = -self.negamax(
                     &mut copied_board,
-                    if move_extension >= 0 {
-                        d - 1 + move_extension as u8
-                    } else {
-                        (d - 1).saturating_sub(move_extension as u8)
-                    },
+                    d - 1 + move_extension,
                     1,
                     opponent_color,
                     -CHECKMATE_VALUE,
@@ -902,7 +895,8 @@ impl Engine {
 
     fn prepare_before_search(&mut self, board: &mut Board, state: &mut GameState) -> () {
         for i in 0..4096 {
-            self.history_heuristics[i] /= 100;
+            let history_score: &mut i16 = &mut self.history_heuristics[i];
+            *history_score = (*history_score * 6) / 8;
         }
         self.killer_moves = [[None; 2]; 128];
         self.move_lists = [MoveList {
@@ -990,8 +984,8 @@ impl Engine {
     }
 
     #[inline(always)]
-    fn move_increment(board: &[u16; 64], m: u16) -> i8 {
-        let mut increment: i8 = 0;
+    fn move_increment(board: &[u16; 64], m: u16) -> u8 {
+        let mut increment: u8 = 0;
         increment += match (m & MARK_MASK) >> MARK_SHIFT {
             3..10 => 1,
             10..14 => 2,
@@ -1000,9 +994,8 @@ impl Engine {
 
         let (attacker, victim) = (board[from_square(m) as usize], board[to_square(m) as usize]);
         if attacker > 0 && attacker < victim {
-            increment +=
-                (unsafe { MVV_LVA[Self::get_piece_value(victim)][Self::get_piece_value(attacker)] }
-                    / 15) as i8;
+            increment += (MVV_LVA[Self::get_piece_value(victim)][Self::get_piece_value(attacker)]
+                / 15) as u8;
         }
 
         return increment;

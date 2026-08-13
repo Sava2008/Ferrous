@@ -7,7 +7,7 @@ use crate::{
 };
 use crate::{
     constants::attacks::{
-        compute_all_lines, compute_all_rays, compute_all_rays_from, compute_mvvlva,
+        compute_all_lines, compute_all_rays, compute_all_rays_from,
         initialize_sliding_attack_tables,
     },
     search::Engine,
@@ -33,7 +33,7 @@ pub mod uci;
 #[cfg(not(any(feature = "opening-book", feature = "debug-ui")))]
 fn main() -> () {
     /* initialize_sliding_attack_tables(), compute_all_rays(),
-    compute_all_lines, compute_mvvlva
+    compute_all_lines,
     and compute_all_rays_from() have to be called
     in the beginning of program and tests */
 
@@ -41,7 +41,6 @@ fn main() -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     let mut engine: Engine = Engine::new(8, 20);
 

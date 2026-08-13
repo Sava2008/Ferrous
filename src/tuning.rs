@@ -17,6 +17,7 @@ impl Engine {
         last_occupied: usize,
         previous_best_move: &u16,
         current_board: &Board,
+        show_scores: bool,
     ) -> () {
         let pseudo_moves: &[u16; 192] = &self.move_lists[depth].pseudo_moves;
         for i in 0..last_occupied {
@@ -26,6 +27,14 @@ impl Engine {
                 self.move_scores[depth][i] = i16::MAX;
             } else {
                 self.move_scores[depth][i] = self.move_priority(&mv, depth, current_board);
+            }
+            if show_scores {
+                println!(
+                    "move: {} {}, score: {}",
+                    from_square(mv),
+                    to_square(mv),
+                    pseudo_moves[i]
+                );
             }
         }
     }
@@ -46,7 +55,11 @@ impl Engine {
             8 => 150,
             other => other * 20,
         };
+        let history_idx: usize =
+            (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
+        score += self.history_heuristics[history_idx] / 20;
 
+        score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if taken_piece_type != 0 {
             let mut victim_value: usize = Self::get_piece_value(taken_piece_type);
             let mut attacker_value: usize = Self::get_piece_value(moving_piece_type);
@@ -57,27 +70,24 @@ impl Engine {
                 attacker_value -= 6;
             }
 
-            return unsafe { MVV_LVA[victim_value][attacker_value] } * 10;
+            return score + MVV_LVA[victim_value][attacker_value];
         }
+
         if self.killer_moves[depth][0] == Some(*m) {
+            // killer moves cannot be captures or checks
             score += 100;
         } else if self.killer_moves[depth][1] == Some(*m) {
             score += 80;
         }
 
-        let history_idx: usize =
-            (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
-        score += self.history_heuristics[history_idx] / 20;
-
-        score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if moving_piece_type < 7 {
-            score -= 25
-                * (WHITE_PAWN_ATTACKS[to_square] & current_board.bitboards[6]).count_ones() as i16;
-            return score;
+            return score
+                - 25 * (WHITE_PAWN_ATTACKS[to_square] & current_board.bitboards[6]).count_ones()
+                    as i16;
         }
-        score -=
-            25 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones() as i16;
-        return score;
+        return score
+            - 25 * (BLACK_PAWN_ATTACKS[to_square] & current_board.bitboards[0]).count_ones()
+                as i16;
     }
 
     #[inline(always)]

@@ -211,7 +211,6 @@ pub fn run_perft(mut board: Board, mut state: GameState, depth: u8) -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     board.total_occupancy();
     board.update_full_cache();

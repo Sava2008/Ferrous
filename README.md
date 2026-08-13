@@ -51,7 +51,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 
-Ferrous v0.5.1-dev1_tuningtweak against Ferrous v0.5.0: 104 wins, 98 losses, 38 draws
+Ferrous v0.5.1-dev2_betterhistory against Ferrous v0.5.1-dev1_tuningtweak: 117 wins, 76 losses, 47 draws
 
 ### Instruction on usage
 

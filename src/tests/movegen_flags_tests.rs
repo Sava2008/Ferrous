@@ -10,7 +10,6 @@ fn direct_check_test1() -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     let (mut board, mut state) =
         fen_to_board("r3kbnr/ppp2ppp/2n5/3q4/3P2b1/5N2/PP3PPP/RNBQKB1R w KQkq - 1 7");
@@ -30,7 +29,6 @@ fn direct_check_test2() -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     let (mut board, mut state) =
         fen_to_board("rnbqkbnr/pp2pppp/2p5/1B1p4/4P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 3");
@@ -51,7 +49,6 @@ fn direct_check_test3() -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     let (mut board, mut state) =
         fen_to_board("r1b1k2r/pp2b2p/1R6/1N6/3pB3/7P/PPP1N1P1/R1B3K1 b kq - 0 20");

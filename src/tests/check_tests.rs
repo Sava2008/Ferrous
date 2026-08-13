@@ -7,7 +7,6 @@ fn check_test1() -> () {
     compute_all_rays();
     compute_all_rays_from();
     compute_all_lines();
-    compute_mvvlva();
 
     let (mut board, mut state) =
         fen_to_board("r3kbnr/ppp2ppp/2n5/3q4/3P2b1/5N2/PP3PPP/RNBQKB1R w KQkq - 1 7");
