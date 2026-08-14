@@ -55,11 +55,7 @@ impl Engine {
             8 => 150,
             other => other * 20,
         };
-        let history_idx: usize =
-            (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
-        score += self.history_heuristics[history_idx] / 20;
 
-        score += Self::does_improve_piece(*m, moving_piece_type) as i16;
         if taken_piece_type != 0 {
             let mut victim_value: usize = Self::get_piece_value(taken_piece_type);
             let mut attacker_value: usize = Self::get_piece_value(moving_piece_type);
@@ -72,6 +68,11 @@ impl Engine {
 
             return score + MVV_LVA[victim_value][attacker_value];
         }
+        let history_idx: usize =
+            (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
+        score += self.history_heuristics[history_idx] / 30;
+
+        score += Self::does_improve_piece(*m, moving_piece_type) as i16;
 
         if self.killer_moves[depth][0] == Some(*m) {
             // killer moves cannot be captures or checks
