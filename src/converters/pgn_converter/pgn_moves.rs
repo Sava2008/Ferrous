@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct PGNMove {
-    pub move_string: String, // e.g. Qxb6# (queen takes b6 checkmate)
+    pub move_string: String, // e.g. "Qxb6#" (queen takes b6 checkmate)
     pub from: u16,
     pub to_: u16,
 }
@@ -31,9 +31,7 @@ fn locate_moving_piece(
     end_square: usize,
     board: &Board,
 ) -> u16 {
-    let mut potential_start_sq: u16 = 64;
-
-    potential_start_sq = match piece_type {
+    let potential_start_sq: u16 = match piece_type {
         PieceType::P => locate_pawn(
             if piece_color == 8 {
                 &BLACK_PAWN_ATTACKS

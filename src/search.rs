@@ -263,8 +263,9 @@ impl Engine {
             let reduction: u8 = if current_mv_quiet {
                 let lmr: u8 = match total_moves {
                     0..3 => 0,
-                    _ => 1,
-                };
+                    3..8 => 1,
+                    _ => 2,
+                }; // more aggressive reduction
                 if depth > lmr { lmr } else { 0 }
             } else {
                 0
@@ -316,7 +317,7 @@ impl Engine {
                     max_depth,
                 );
             }
-            if current_score == TIMEOUT_RETURN || current_score == -TIMEOUT_RETURN {
+            if current_score.abs() == TIMEOUT_RETURN {
                 board.cancel_move(state, color, &mut self.evaluation, &mut self.current_hash);
                 return current_score;
             }
@@ -331,7 +332,8 @@ impl Engine {
             if alpha >= beta {
                 if !board.is_capture(allegedly_best_move) {
                     self.add_killer(allegedly_best_move, depth);
-                    let history = &mut self.history_heuristics[(((allegedly_best_move & FROM_MASK)
+                    let history: &mut i16 = &mut self.history_heuristics[(((allegedly_best_move
+                        & FROM_MASK)
                         as usize)
                         << 6)
                         | ((allegedly_best_move & TO_MASK) >> TO_SHIFT) as usize];
@@ -648,7 +650,7 @@ impl Engine {
 
                 copied_state.whose_turn = self.side;
 
-                if score == TIMEOUT_RETURN || score == -TIMEOUT_RETURN {
+                if score.abs() == TIMEOUT_RETURN {
                     break 'outer;
                 }
 
@@ -896,7 +898,7 @@ impl Engine {
     fn prepare_before_search(&mut self, board: &mut Board, state: &mut GameState) -> () {
         for i in 0..4096 {
             let history_score: &mut i16 = &mut self.history_heuristics[i];
-            *history_score = (*history_score * 6) / 8;
+            *history_score = (*history_score * 6) / 9; // more aggressive decay
         }
         self.killer_moves = [[None; 2]; 128];
         self.move_lists = [MoveList {

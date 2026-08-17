@@ -11,8 +11,8 @@ use std::{
 };
 
 const DEFAULT_OPENING_DEPTH: u8 = 11;
-const MAX_PLIES: u8 = 2; // how many plies (halfmoves) to search from STARTING_POS
-const AVERAGE_MOVES_AMOUNT: usize = 2;
+const MAX_PLIES: u8 = 6; // how many plies (halfmoves) to search from STARTING_POS
+const AVERAGE_MOVES_AMOUNT: usize = 2; // amount of moves per position (can be fewer)
 
 const JSON_PATH: &'static str = "opening_book.json";
 

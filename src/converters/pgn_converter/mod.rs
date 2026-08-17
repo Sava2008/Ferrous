@@ -36,9 +36,10 @@ mod pgn_tags;
 
 pub const MAX_TAGS: usize = 11;
 
+#[derive(Debug)]
 pub struct PGNString {
     pub tags: HashMap<PGNTag, String>,
-    pub moves: Vec<u16>, // moves are represente d in u16 format
+    pub moves: Vec<u16>, // moves are represented in u16 format
     pub white_player: String,
     pub black_player: String,
     pub white_elo: u16,

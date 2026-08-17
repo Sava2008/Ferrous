@@ -22,3 +22,4 @@ codegen-units = 1
 [features]
 debug-ui = ["dep:macroquad"]
 opening-book = ["serde", "serde_derive"]
+pgn-converter = []

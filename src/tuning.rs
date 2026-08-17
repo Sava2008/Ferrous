@@ -66,7 +66,7 @@ impl Engine {
                 attacker_value -= 6;
             }
 
-            return score + MVV_LVA[victim_value][attacker_value];
+            return score + MVV_LVA[victim_value][attacker_value]; // get captures ahead of quiets
         }
         let history_idx: usize =
             (((m & FROM_MASK) as usize) << 6) | ((m & TO_MASK) >> TO_SHIFT) as usize;
@@ -91,6 +91,25 @@ impl Engine {
                 as i16;
     }
 
+    // (0000 - regular, 0001 (1) - castling, 0010 (2) - en passant,
+    // 0011 (3) - knight promo, 0100 (4) - bishop promo, 0101 (5) - rook promo,
+    // 0110 (6) - queen promo, 0111 (7) - check,
+    // 1000 (8) - castling check, 1001 (9) - e.p. check,
+    // 1010 (10) - knight promo check, 1011 (11) - bishop promo check, 1100 (12) - rook promo check,
+    // 1101 (13) - queen promo check)
+
+    // best move: i16::MAX
+    // non best move max: 13 * 20 + 2900 (3400 is king capture - impossible) = 3160
+    // non best move queit max: 65 (king improvement) +
+
+    // hypothetical history heuristics buildup:
+    // depth_accumulation * decay_percent * total_searches
+    // print(sum([num ** 2 for num in range(1, 13)]) * 0.75 * 12)
+    // (1 * 1 + 2 * 2 + 3 * 3 + ... + 12 * 12) * 75% * 12 = 5850.0
+    // but history is restricted to 2000, so 2000 max
+    // + 100 killer points = 2100
+
+    // 2100 > MVV_LVA[lowidx][lowidx]
     #[inline(always)]
     pub fn n_log_n_sort_moves(
         moves: &mut [u16; 192],

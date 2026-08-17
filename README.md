@@ -34,6 +34,7 @@ _1 - HCE stands for hand-crafted evaluation. It's a set of strict rules hardcode
 - transposition tables
 - dymanic depth for time controls
 - late move reduction
+- aggressive move ordering for better pruning
 - opening book (almost)
 
 ## Planned on being carried out
@@ -42,7 +43,6 @@ _1 - HCE stands for hand-crafted evaluation. It's a set of strict rules hardcode
 - null move pruning
 - futility pruning
 - razor pruning
-- aggressive move ordering for better pruning
 - syzygy datatable
 
 ### History
@@ -51,7 +51,7 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 
-Ferrous v0.5.1-dev3_priorkillers against Ferrous v0.5.1-dev2_betterhistory: 117 wins, 76 losses, 47 draws
+Ferrous v0.5.1-dev4_aggressivedecay against Ferrous v0.5.1-dev3_priorkillers: 111 wins, 92 losses, 37 draws
 
 ### Instruction on usage
 

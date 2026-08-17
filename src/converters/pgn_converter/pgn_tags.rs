@@ -44,9 +44,9 @@ const PGN_TAGS: [&'static str; MAX_TAGS] = [
 
 impl PGNString {
     pub fn decode_tags(&mut self, original_pgn: &str) -> () {
-        for (idx, tag) in PGN_TAGS.iter().enumerate() {
+        for tag in PGN_TAGS.iter() {
             let pattern: Regex = Regex::new(tag).unwrap();
-            if pattern.find(&original_pgn[idx..]).is_some() {
+            if pattern.find(original_pgn).is_some() {
                 self.tags.insert(PGNTag::from_string(*tag), tag.to_string());
             }
         }
