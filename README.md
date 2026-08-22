@@ -51,11 +51,11 @@ I ([Sava2008](https://github.com/Sava2008)) am an advanced chess player, and I h
 
 ### Comments
 
-Ferrous v0.5.1-dev4_aggressivedecay against Ferrous v0.5.1-dev3_priorkillers: 111 wins, 92 losses, 37 draws
+Ferrous v0.5.1 against Ferrous v0.5.0: 121 wins, 75 losses, 44 draws
 
 ### Instruction on usage
 
-0. Rust 1.97.1 is required on your computer (should work with older versions, but I did not check that)
+0. Rust 1.98.0 is required on your computer (should work with older versions, but I did not check that)
 1. clone the main branch repo anywhere on your computer
 2. run the following command in the terminal `cd path/to/Ferrous && cargo build --release` for maximum optimizations
 3. locate to target folder, then release, and double click the executable file with LMB.

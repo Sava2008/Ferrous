@@ -49,44 +49,44 @@ pub fn uci_output(engine: &mut Engine) -> () {
                     engine.side = raw_state.whose_turn;
                     (board, state) = (Some(raw_board), Some(raw_state));
                 } else if command.starts_with("go") {
-                    let engine_move: u16 = if let Some(mut b) = board.clone()
-                        && let Some(mut s) = state.clone()
+                    let (mut b, mut s) = if let Some(temp_board) = board.clone()
+                        && let Some(temp_state) = state.clone()
                     {
-                        b.total_occupancy();
-                        b.update_full_cache();
-                        let mut split_command: std::str::SplitWhitespace<'_> =
-                            command.split_whitespace();
-                        split_command.next();
-                        let (restriction, amount) = (split_command.next(), split_command.next());
-                        let (max_depth, time_constrainst) = if let Some(r) = restriction
-                            && let Some(a) = amount
-                        {
-                            match r {
-                                "depth" => (a.parse().unwrap(), Duration::from_mins(20)),
-                                "movetime" => (64, Duration::from_millis(a.parse().unwrap())),
-                                "perft" => {
-                                    perft = true;
-                                    (a.parse().unwrap(), Duration::from_mins(20))
-                                }
-                                _ => unimplemented!(),
+                        (temp_board, temp_state)
+                    } else {
+                        fen_to_board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                    };
+                    b.total_occupancy();
+                    b.update_full_cache();
+                    let mut split_command: std::str::SplitWhitespace<'_> =
+                        command.split_whitespace();
+                    split_command.next();
+                    let (restriction, amount) = (split_command.next(), split_command.next());
+                    let (max_depth, time_constrainst) = if let Some(r) = restriction
+                        && let Some(a) = amount
+                    {
+                        match r {
+                            "depth" => (a.parse().unwrap(), Duration::from_mins(20)),
+                            "movetime" => (64, Duration::from_millis(a.parse().unwrap())),
+                            "perft" => {
+                                perft = true;
+                                (a.parse().unwrap(), Duration::from_mins(20))
                             }
-                        } else {
-                            (10, Duration::from_mins(20))
-                        };
-                        if !perft {
-                            engine.depth = max_depth;
-                            let engine_move: u16 = engine
-                                .find_best_move(&b, &mut s, time_constrainst, max_depth)
-                                .unwrap();
-                            engine_move
-                        } else {
-                            let color: u16 = s.whose_turn;
-                            b.calculate_check_restrictions(&mut s, color);
-                            tests::perft::run_perft(b, s, max_depth);
-                            0
+                            _ => unimplemented!(),
                         }
                     } else {
-                        panic!("uninitialized board\r");
+                        (10, Duration::from_mins(20))
+                    };
+                    let engine_move: u16 = if !perft {
+                        engine.depth = max_depth;
+                        engine
+                            .find_best_move(&b, &mut s, time_constrainst, max_depth)
+                            .unwrap()
+                    } else {
+                        let color: u16 = s.whose_turn;
+                        b.calculate_check_restrictions(&mut s, color);
+                        tests::perft::run_perft(b, s, max_depth);
+                        0
                     };
                     let uci_move_string: String = format!(
                         "{:?}{:?}{}",

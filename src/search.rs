@@ -721,7 +721,7 @@ impl Engine {
         }
 
         println!("info string HCE eval: {best_score_eval}\r");
-        println!("info string nodes: {node_count}\n\r");
+        println!("info string nodes: {node_count}\r");
         return best_move;
     }
 
